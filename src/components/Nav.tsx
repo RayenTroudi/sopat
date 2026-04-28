@@ -4,11 +4,11 @@ import { useState, useEffect } from 'react'
 import { useScrolled } from '@/lib/useScrolled'
 
 const links = [
-  { label: 'Accueil', href: '#accueil' },
-  { label: 'À Propos', href: '#apropos' },
-  { label: 'Services', href: '#services' },
-  { label: 'Projets', href: '#projets' },
-  { label: 'Contact', href: '#contact' },
+  { label: 'Accueil', href: '/#accueil' },
+  { label: 'À Propos', href: '/propos' },
+  { label: 'Services', href: '/#services' },
+  { label: 'Projets', href: '/#projets' },
+  { label: 'Contact', href: '/#contact' },
 ]
 
 export default function Nav() {
@@ -38,7 +38,7 @@ export default function Nav() {
       >
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           {/* Logo */}
-          <a href="#accueil" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+          <a href="/#accueil" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <Image
               src="/logo-768x519.png"
               alt="SOPAT"
