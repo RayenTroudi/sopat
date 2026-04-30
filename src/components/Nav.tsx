@@ -6,8 +6,8 @@ import { useScrolled } from '@/lib/useScrolled'
 const links = [
   { label: 'Accueil', href: '/#accueil' },
   { label: 'À Propos', href: '/propos' },
-  { label: 'Services', href: '/#services' },
-  { label: 'Projets', href: '/#projets' },
+  { label: 'Services', href: '/services' },
+  { label: 'Projets', href: '/projects' },
   { label: 'Contact', href: '/#contact' },
 ]
 
