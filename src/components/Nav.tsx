@@ -8,6 +8,7 @@ const links = [
   { label: 'À Propos', href: '/propos' },
   { label: 'Services', href: '/services' },
   { label: 'Projets', href: '/projects' },
+  { label: 'Blog', href: '/blog' },
   { label: 'Contact', href: '/#contact' },
 ]
 
@@ -40,11 +41,11 @@ export default function Nav() {
           {/* Logo */}
           <a href="/#accueil" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <Image
-              src="/logo-768x519.png"
+              src="/logo-768x519.svg"
               alt="SOPAT"
               width={120}
               height={81}
-              style={{ objectFit: 'contain' }}
+              style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
             />
           </a>
 
