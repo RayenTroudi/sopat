@@ -333,6 +333,30 @@ export const projects: Project[] = [
     ],
   },
   {
+    slug: 'oradist',
+    name: 'Oradist',
+    category: 'Entreprise',
+    location: 'Tunis',
+    quote: 'Nous mettons la nature au service de vos équipes — l\'entreprise de demain est végétale.',
+    description:
+      "Terrasses, toitures, cours, jardins ou intérieur — SOPAT met la nature au service des équipes d'Oradist. Ce projet corporate traduit notre vision de l'entreprise de demain : des espaces verts pensés pour le bien-être des collaborateurs et la productivité.",
+    images: [
+      'https://www.sopat.tn/wp-content/uploads/2022/01/Fichier-1-1.png',
+    ],
+  },
+  {
+    slug: 'cafe-kube-lac-2',
+    name: 'Café KUBE Lac 2',
+    category: 'Restauration',
+    location: 'Lac 2, Tunis',
+    quote: 'Un écrin élégant où il fait bon s\'attarder — la nature au cœur du lieu de vie.',
+    description:
+      "Un écrin élégant où il fait bon boire un thé ou se délecter d'une douceur sucrée le temps d'une escale à Tunis. SOPAT a conçu l'aménagement paysager du Café KUBE pour créer une atmosphère végétale raffinée, en parfaite harmonie avec l'identité du lieu.",
+    images: [
+      'https://www.sopat.tn/wp-content/uploads/2020/08/kube-1.jpg',
+    ],
+  },
+  {
     slug: 'gourmandise-lac',
     name: 'Maison Gourmandise',
     category: 'Restauration',

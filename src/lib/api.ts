@@ -140,6 +140,107 @@ export async function getCategories(): Promise<WPCategory[]> {
   return wpFetch<WPCategory[]>('/categories?per_page=50&_fields=id,name,slug,count', 86400)
 }
 
+export type BlogPost = {
+  id: number
+  slug: string
+  date: string
+  title: string
+  excerpt: string
+  image: string | null
+  externalUrl: string
+  category: string
+}
+
+export function inferBlogCategory(title: string, excerpt: string): string {
+  const text = (title + ' ' + excerpt).toLowerCase()
+  if (text.includes('brand') || text.includes('distinction') || text.includes('award') || text.includes('prix') || text.includes('sacr')) return 'Distinction'
+  if (text.includes('france 24') || text.includes('média') || text.includes('reportage') || text.includes('presse') || text.includes('interview')) return 'Médias'
+  if (text.includes('abidjan') || text.includes('international') || text.includes('afrique') || text.includes('mascate') || text.includes('oman')) return 'International'
+  if (text.includes('rse') || text.includes('développement durable') || text.includes('sos village') || text.includes('falaise') || text.includes('madrassa') || text.includes('école') || text.includes('plantation') || text.includes('arbre') || text.includes('femmes rurales') || text.includes('rénovation') || text.includes('citoyen')) return 'RSE'
+  if (text.includes('novotel') || text.includes('convention') || text.includes('collaboration') || text.includes('audit') || text.includes('iso')) return 'Partenariats'
+  if (text.includes('ville durable') || text.includes('urbain') || text.includes('ingénierie') || text.includes('paysager') || text.includes('nature') || text.includes('vert')) return 'Vision'
+  return 'Actualités'
+}
+
+function extractFirstContentImage(html: string): string | null {
+  const match = html.match(/src="(https:\/\/www\.sopat\.tn\/wp-content\/uploads\/[^"]+\.(?:jpg|jpeg|png|webp))"/)
+  return match?.[1] ?? null
+}
+
+async function resolvePostImage(post: WPPost): Promise<string | null> {
+  if (post.featured_media) {
+    const media = await getMediaById(post.featured_media)
+    if (media?.source_url) return media.source_url
+  }
+  const firstImg = extractFirstContentImage(post.content?.rendered ?? '')
+  return firstImg
+}
+
+export async function getBlogPostBySlug(slug: string): Promise<(BlogPost & { content: string }) | null> {
+  const results = await wpFetch<WPPost[]>(
+    `/posts?slug=${encodeURIComponent(slug)}&_fields=id,slug,date,title,excerpt,content,featured_media,link`,
+  )
+  const post = results[0]
+  if (!post) return null
+  const title = stripHtml(post.title.rendered)
+  const excerpt = stripHtml(post.excerpt.rendered)
+  const image = await resolvePostImage(post)
+  return {
+    id: post.id,
+    slug: post.slug,
+    date: formatDate(post.date),
+    title,
+    excerpt,
+    image,
+    externalUrl: post.link,
+    category: inferBlogCategory(title, excerpt),
+    content: post.content.rendered,
+  }
+}
+
+export async function getAllBlogPosts(): Promise<BlogPost[]> {
+  const firstPage = await fetch(`${BASE_URL}/posts?per_page=10&page=1&_fields=id,slug,date,title,excerpt,content,featured_media,link`, {
+    next: { revalidate: 3600 },
+  })
+  if (!firstPage.ok) throw new Error(`WordPress API error: ${firstPage.status}`)
+
+  const totalPages = Number(firstPage.headers.get('X-WP-TotalPages') ?? 1)
+  const firstData = await firstPage.json() as WPPost[]
+
+  const remaining: WPPost[] = []
+  for (let page = 2; page <= totalPages; page++) {
+    const res = await fetch(`${BASE_URL}/posts?per_page=10&page=${page}&_fields=id,slug,date,title,excerpt,content,featured_media,link`, {
+      next: { revalidate: 3600 },
+    })
+    if (res.ok) {
+      const data = await res.json() as WPPost[]
+      remaining.push(...data)
+    }
+  }
+
+  const allWPPosts = [...firstData, ...remaining]
+
+  const blogPosts = await Promise.all(
+    allWPPosts.map(async (post): Promise<BlogPost> => {
+      const title = stripHtml(post.title.rendered)
+      const excerpt = stripHtml(post.excerpt.rendered)
+      const image = await resolvePostImage(post)
+      return {
+        id: post.id,
+        slug: post.slug,
+        date: formatDate(post.date),
+        title,
+        excerpt,
+        image,
+        externalUrl: post.link,
+        category: inferBlogCategory(title, excerpt),
+      }
+    })
+  )
+
+  return blogPosts
+}
+
 export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
