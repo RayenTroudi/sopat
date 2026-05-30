@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getPostBySlug, getAllPostSlugs, getMediaById, formatDate, sanitizeHtml, stripHtml, extractFirstImage, proxyContentImages } from '@/lib/api'
-import WpNavbar from '@/components/WpNavbar'
+import Nav from '@/components/Nav'
 import WpFooter from '@/components/WpFooter'
 
 export const revalidate = 3600
@@ -42,7 +42,7 @@ export default async function PostPage({ params }: Props) {
 
   return (
     <>
-      <WpNavbar />
+      <Nav />
       <main>
         {/* Hero */}
         <section
