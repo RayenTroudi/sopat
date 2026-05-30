@@ -7,6 +7,7 @@ import Process from '@/components/sections/Process'
 import Clients from '@/components/sections/Clients'
 import Testimonial from '@/components/sections/Testimonial'
 import Contact from '@/components/sections/Contact'
+import LatestPosts from '@/components/LatestPosts'
 
 export default function Page() {
   return (
@@ -20,6 +21,7 @@ export default function Page() {
         <Process />
         <Clients />
         <Testimonial />
+        <LatestPosts />
         <Contact />
       </main>
     </>
