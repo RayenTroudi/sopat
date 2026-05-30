@@ -1,6 +1,6 @@
 import DOMPurify from 'isomorphic-dompurify'
 
-const BASE_URL = 'https://sopat.tn/wp-json/wp/v2'
+const BASE_URL = 'https://www.sopat.tn/wp-json/wp/v2'
 
 export type WPRendered = { rendered: string }
 
@@ -68,12 +68,49 @@ export type WPCategory = {
   count: number
 }
 
+export type WPTag = {
+  id: number
+  name: string
+  slug: string
+  count: number
+}
+
+export type WPUser = {
+  id: number
+  name: string
+  slug: string
+  description: string
+  avatar_urls: Record<string, string>
+}
+
 async function wpFetch<T>(path: string, revalidate = 3600): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     next: { revalidate },
   })
   if (!res.ok) throw new Error(`WordPress API error: ${res.status} ${path}`)
   return res.json() as Promise<T>
+}
+
+async function wpFetchAll<T>(path: string, perPage = 100, revalidate = 3600): Promise<T[]> {
+  const sep = path.includes('?') ? '&' : '?'
+  const firstRes = await fetch(`${BASE_URL}${path}${sep}per_page=${perPage}&page=1`, {
+    next: { revalidate },
+  })
+  if (!firstRes.ok) throw new Error(`WordPress API error: ${firstRes.status} ${path}`)
+  const totalPages = Number(firstRes.headers.get('X-WP-TotalPages') ?? 1)
+  const firstData = (await firstRes.json()) as T[]
+
+  if (totalPages <= 1) return firstData
+
+  const rest = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) =>
+      fetch(`${BASE_URL}${path}${sep}per_page=${perPage}&page=${i + 2}`, {
+        next: { revalidate },
+      }).then((r) => (r.ok ? (r.json() as Promise<T[]>) : Promise.resolve([] as T[])))
+    )
+  )
+
+  return [firstData, ...rest].flat()
 }
 
 export async function getPosts(params: {
@@ -92,10 +129,7 @@ export async function getPosts(params: {
 }
 
 export async function getAllPostSlugs(): Promise<string[]> {
-  const posts = await wpFetch<Pick<WPPost, 'slug'>[]>(
-    '/posts?per_page=100&_fields=slug',
-    86400,
-  )
+  const posts = await wpFetchAll<Pick<WPPost, 'slug'>>('/posts?_fields=slug', 100, 86400)
   return posts.map((p) => p.slug)
 }
 
@@ -113,10 +147,7 @@ export async function getPages(perPage = 20): Promise<WPPage[]> {
 }
 
 export async function getAllPageSlugs(): Promise<string[]> {
-  const pages = await wpFetch<Pick<WPPage, 'slug'>[]>(
-    '/pages?per_page=100&status=publish&_fields=slug',
-    86400,
-  )
+  const pages = await wpFetchAll<Pick<WPPage, 'slug'>>('/pages?status=publish&_fields=slug', 100, 86400)
   return pages.map((p) => p.slug)
 }
 
@@ -137,7 +168,23 @@ export async function getMediaById(id: number): Promise<WPMedia | null> {
 }
 
 export async function getCategories(): Promise<WPCategory[]> {
-  return wpFetch<WPCategory[]>('/categories?per_page=50&_fields=id,name,slug,count', 86400)
+  return wpFetchAll<WPCategory>('/categories?_fields=id,name,slug,count', 100, 86400)
+}
+
+export async function getTags(): Promise<WPTag[]> {
+  return wpFetchAll<WPTag>('/tags?_fields=id,name,slug,count', 100, 86400)
+}
+
+export async function getUsers(): Promise<WPUser[]> {
+  return wpFetchAll<WPUser>('/users?_fields=id,name,slug,description,avatar_urls', 100, 86400)
+}
+
+export async function getAllMedia(): Promise<WPMedia[]> {
+  return wpFetchAll<WPMedia>(
+    '/media?_fields=id,slug,source_url,alt_text,title,media_details',
+    100,
+    3600,
+  )
 }
 
 export type BlogPost = {
@@ -199,28 +246,13 @@ export async function getBlogPostBySlug(slug: string): Promise<(BlogPost & { con
 }
 
 export async function getAllBlogPosts(): Promise<BlogPost[]> {
-  const firstPage = await fetch(`${BASE_URL}/posts?per_page=10&page=1&_fields=id,slug,date,title,excerpt,content,featured_media,link`, {
-    next: { revalidate: 3600 },
-  })
-  if (!firstPage.ok) throw new Error(`WordPress API error: ${firstPage.status}`)
+  const allWPPosts = await wpFetchAll<WPPost>(
+    '/posts?_fields=id,slug,date,title,excerpt,content,featured_media,link',
+    100,
+    3600,
+  )
 
-  const totalPages = Number(firstPage.headers.get('X-WP-TotalPages') ?? 1)
-  const firstData = await firstPage.json() as WPPost[]
-
-  const remaining: WPPost[] = []
-  for (let page = 2; page <= totalPages; page++) {
-    const res = await fetch(`${BASE_URL}/posts?per_page=10&page=${page}&_fields=id,slug,date,title,excerpt,content,featured_media,link`, {
-      next: { revalidate: 3600 },
-    })
-    if (res.ok) {
-      const data = await res.json() as WPPost[]
-      remaining.push(...data)
-    }
-  }
-
-  const allWPPosts = [...firstData, ...remaining]
-
-  const blogPosts = await Promise.all(
+  return Promise.all(
     allWPPosts.map(async (post): Promise<BlogPost> => {
       const title = stripHtml(post.title.rendered)
       const excerpt = stripHtml(post.excerpt.rendered)
@@ -237,8 +269,6 @@ export async function getAllBlogPosts(): Promise<BlogPost[]> {
       }
     })
   )
-
-  return blogPosts
 }
 
 export function sanitizeHtml(html: string): string {
@@ -292,6 +322,35 @@ export function proxyContentImages(html: string): string {
     },
   )
   return out
+}
+
+export function cleanWordPressContent(html: string): string {
+  const isElementor = html.includes('data-elementor-type=') || html.includes('elementor-widget-container')
+  if (!isElementor) return html
+
+  // Strip Elementor wrapper divs, keeping only inner content elements
+  const cleaned = html
+    // Remove outer elementor section/column/widget wrapper divs but keep their children
+    .replace(/<div[^>]*class="[^"]*elementor[^"]*"[^>]*>/gi, '')
+    // Remove closing divs that were part of elementor wrappers (best-effort by removing excess closing tags)
+    .replace(/<\/div>/gi, '')
+    // Remove empty paragraphs left behind
+    .replace(/<p[^>]*>\s*<\/p>/gi, '')
+    // Collapse multiple newlines
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return cleaned
+}
+
+export function extractImageUrlsFromHtml(html: string): string[] {
+  const urls: string[] = []
+  const srcRegex = /src=["'](https?:\/\/(?:www\.)?sopat\.tn\/wp-content\/uploads\/[^"'\s]+)["']/gi
+  let match: RegExpExecArray | null
+  while ((match = srcRegex.exec(html)) !== null) {
+    urls.push(match[1])
+  }
+  return urls
 }
 
 export function formatDate(dateStr: string): string {
