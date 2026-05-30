@@ -88,6 +88,25 @@ body {
 .project-placeholder-7 { background: linear-gradient(130deg, #243328 0%, #3A5C47 55%, #1C3D2E 100%); }
 .project-placeholder-8 { background: linear-gradient(150deg, #1C3D2E 0%, #243d30 40%, #2D5A42 100%); }
 
+/* ─── Custom scrollbar ─── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: var(--ivory);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gold);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b8952f;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gold) var(--ivory);
+}
+
 /* ─── Scroll indicator ─── */
 @keyframes scrollPulse {
   0%, 100% { opacity: 0.3; transform: scaleY(0.7); }

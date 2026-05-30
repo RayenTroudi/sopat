@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Cormorant_Garamond, Inter } from 'next/font/google'
 import './globals.css'
+import BackToTop from '@/components/BackToTop'
 
 const cormorant = Cormorant_Garamond({
   variable: '--font-cormorant',
@@ -26,7 +27,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className={`${cormorant.variable} ${inter.variable}`}>
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        <BackToTop />
+      </body>
     </html>
   )
 }
