@@ -80,7 +80,7 @@ export default function Contact() {
               {[
                 { label: 'Téléphone', value: '+216 72 236 668', href: 'tel:+21672236668' },
                 { label: 'Email', value: 'contact.sopat@gnet.tn', href: 'mailto:contact.sopat@gnet.tn' },
-                { label: 'Adresse', value: 'Tunisie', href: undefined },
+                { label: 'Adresse', value: 'Nabeul, Tunisie', href: undefined },
               ].map((item) => (
                 <div key={item.label} style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
                   <div
@@ -139,14 +139,41 @@ export default function Contact() {
                 </div>
               ))}
             </div>
+            {/* Google Maps embed */}
+            <div
+              className="reveal reveal-delay-1"
+              style={{
+                width: '100%',
+                borderRadius: '2px',
+                overflow: 'hidden',
+                border: '1px solid rgba(42,42,42,0.1)',
+                flexShrink: 0,
+              }}
+            >
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d249.00!2d10.7238888!3d36.4496905!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1302997dc7d2e5d1%3A0x748706b7791d3f9!2sSopat(St%C3%A8%20De%20Paysage%20De%20Tunisie)!5e0!3m2!1sfr!2stn!4v1"
+                width="100%"
+                height="220"
+                style={{ border: 0, display: 'block' }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="SOPAT sur Google Maps"
+              />
+            </div>
           </div>
 
           {/* Right — form */}
           <form
             onSubmit={handleSubmit}
             className="reveal reveal-delay-2"
-            style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}
+            style={{ display: 'flex', flexDirection: 'column', gap: '28px', marginTop: 0 }}
           >
+            {/* Spacer to align with left heading */}
+            <div style={{ marginBottom: '12px', visibility: 'hidden', pointerEvents: 'none', userSelect: 'none' }}>
+              <p style={{ fontSize: '10px', marginBottom: '16px' }}>&nbsp;</p>
+              <h2 style={{ fontFamily: 'var(--font-cormorant), serif', fontSize: 'clamp(30px, 3.8vw, 50px)', margin: 0 }}>&nbsp;</h2>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={labelStyle}>Nom</label>
               <input
