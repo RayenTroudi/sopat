@@ -1,7 +1,21 @@
 {
-  "phase1_images": { "total": 1645, "uploaded": 0, "failed": 0, "skipped": 0 },
-  "phase2_content": { "status": "pending" },
-  "phase3_database": { "posts": 0, "pages": 0, "tags": 0, "categories": 0 },
-  "phase4_verification": { "status": "pending" },
-  "lastRun": ""
+  "phase1_images": {
+    "total": 1645,
+    "uploaded": 0,
+    "failed": 1645,
+    "skipped": 0
+  },
+  "phase2_content": {
+    "status": "complete"
+  },
+  "phase3_database": {
+    "posts": 14,
+    "pages": 7,
+    "tags": 22,
+    "categories": 1
+  },
+  "phase4_verification": {
+    "status": "failed"
+  },
+  "lastRun": "2026-06-01T12:35:22.980Z"
 }
