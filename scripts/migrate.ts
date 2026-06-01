@@ -3,14 +3,6 @@ import path from 'path'
 import { v2 as cloudinary } from 'cloudinary'
 import { prisma } from '../src/lib/db'
 
-// ── Config ────────────────────────────────────────────────────────────────────
-
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-})
-
 const BASE_URL = 'https://www.sopat.tn/wp-json/wp/v2'
 const PROGRESS_FILE = path.join(import.meta.dirname, 'migration-progress.json')
 const IMAGE_URLS_FILE = path.join(import.meta.dirname, 'image-urls.json')
@@ -154,17 +146,48 @@ function replaceImageUrls(html: string, map: Map<string, string>): string {
   )
 }
 
+function extractElementorWidgetContents(html: string): string[] {
+  const results: string[] = []
+  const marker = 'elementor-widget-container'
+  let pos = 0
+  while (pos < html.length) {
+    const markerIdx = html.indexOf(marker, pos)
+    if (markerIdx === -1) break
+    // Find the '>' that closes the opening div tag
+    const openTagEnd = html.indexOf('>', markerIdx)
+    if (openTagEnd === -1) break
+    const contentStart = openTagEnd + 1
+    // Walk forward tracking div nesting depth to find matching </div>
+    let depth = 1
+    let i = contentStart
+    while (i < html.length && depth > 0) {
+      const nextOpen = html.indexOf('<div', i)
+      const nextClose = html.indexOf('</div>', i)
+      if (nextClose === -1) break
+      if (nextOpen !== -1 && nextOpen < nextClose) {
+        depth++
+        i = nextOpen + 4
+      } else {
+        depth--
+        if (depth === 0) {
+          results.push(html.slice(contentStart, nextClose).trim())
+          pos = nextClose + 6
+        } else {
+          i = nextClose + 6
+        }
+      }
+    }
+    if (depth !== 0) break
+  }
+  return results
+}
+
 function cleanElementorContent(html: string, map: Map<string, string>): string {
   const isElementor = html.includes('data-elementor-type=') || html.includes('elementor-widget-container')
   let result = html
 
   if (isElementor) {
-    const containers: string[] = []
-    const re = /<div[^>]*class="[^"]*elementor-widget-container[^"]*"[^>]*>([\s\S]*?)<\/div>/gi
-    let m: RegExpExecArray | null
-    while ((m = re.exec(html)) !== null) {
-      containers.push(m[1].trim())
-    }
+    const containers = extractElementorWidgetContents(html)
     result = containers.length > 0 ? containers.join('\n') : html
   }
 
