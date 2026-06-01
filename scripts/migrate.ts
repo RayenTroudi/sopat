@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import fs from 'fs'
 import path from 'path'
 import { v2 as cloudinary } from 'cloudinary'
@@ -396,9 +397,6 @@ async function phase4(progress: Progress) {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  const { config } = await import('dotenv')
-  config({ path: path.join(process.cwd(), '.env') })
-
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
