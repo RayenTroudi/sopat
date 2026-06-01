@@ -134,10 +134,14 @@ export async function getAllPostSlugs(): Promise<string[]> {
 }
 
 export async function getPostBySlug(slug: string): Promise<WPPost | null> {
-  const results = await wpFetch<WPPost[]>(
-    `/posts?slug=${encodeURIComponent(slug)}&_fields=id,slug,date,modified,title,content,excerpt,featured_media,categories,yoast_head_json`,
-  )
-  return results[0] ?? null
+  try {
+    const results = await wpFetch<WPPost[]>(
+      `/posts?slug=${encodeURIComponent(slug)}&_fields=id,slug,date,modified,title,content,excerpt,featured_media,categories,yoast_head_json`,
+    )
+    return results[0] ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function getPages(perPage = 20): Promise<WPPage[]> {
