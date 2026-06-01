@@ -8,11 +8,16 @@
     "start": "next start",
     "lint": "eslint",
     "test:api": "npx tsx scripts/test-api.ts",
-    "extract:images": "npx tsx scripts/extract-images.ts"
+    "extract:images": "npx tsx scripts/extract-images.ts",
+    "migrate": "npx tsx scripts/migrate.ts"
   },
   "dependencies": {
+    "@prisma/client": "^7.8.0",
+    "cloudinary": "^2.10.0",
+    "dotenv": "^17.4.2",
     "isomorphic-dompurify": "^3.15.0",
     "next": "16.2.4",
+    "prisma": "^7.8.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },

@@ -1,0 +1,57 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Post {
+  id            Int       @id
+  slug          String    @unique
+  title         String
+  content       String    @db.Text
+  excerpt       String    @db.Text
+  date          DateTime
+  modified      DateTime?
+  author        Int
+  featuredImage String?
+  categories    Int[]
+  tags          Int[]
+  status        String
+  createdAt     DateTime  @default(now())
+}
+
+model Page {
+  id            Int      @id
+  slug          String   @unique
+  title         String
+  content       String   @db.Text
+  parent        Int
+  menuOrder     Int
+  featuredImage String?
+  status        String
+  createdAt     DateTime @default(now())
+}
+
+model Tag {
+  id    Int    @id
+  slug  String @unique
+  name  String
+  count Int
+}
+
+model Category {
+  id    Int    @id
+  slug  String @unique
+  name  String
+  count Int
+}
+
+model MediaMapping {
+  id            Int      @id @default(autoincrement())
+  originalUrl   String   @unique
+  cloudinaryUrl String
+  publicId      String
+  createdAt     DateTime @default(now())
+}
