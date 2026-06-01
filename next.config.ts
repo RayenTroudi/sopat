@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/dtnelwn73/**',
+      },
+      {
+        protocol: 'https',
         hostname: 'www.sopat.tn',
         pathname: '/wp-content/uploads/**',
       },

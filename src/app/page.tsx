@@ -9,7 +9,7 @@ import Testimonial from '@/components/sections/Testimonial'
 import Contact from '@/components/sections/Contact'
 import LatestPosts from '@/components/LatestPosts'
 
-export default function Page() {
+export default async function Page() {
   return (
     <>
       <Nav />
