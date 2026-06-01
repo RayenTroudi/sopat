@@ -152,10 +152,14 @@ export async function getAllPageSlugs(): Promise<string[]> {
 }
 
 export async function getPageBySlug(slug: string): Promise<WPPage | null> {
-  const results = await wpFetch<WPPage[]>(
-    `/pages?slug=${encodeURIComponent(slug)}&status=publish&_fields=id,slug,title,content,excerpt,featured_media,parent,yoast_head_json`,
-  )
-  return results[0] ?? null
+  try {
+    const results = await wpFetch<WPPage[]>(
+      `/pages?slug=${encodeURIComponent(slug)}&status=publish&_fields=id,slug,title,content,excerpt,featured_media,parent,yoast_head_json`,
+    )
+    return results[0] ?? null
+  } catch {
+    return null
+  }
 }
 
 export async function getMediaById(id: number): Promise<WPMedia | null> {
