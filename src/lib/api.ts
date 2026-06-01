@@ -1,6 +1,7 @@
 import DOMPurify from 'isomorphic-dompurify'
+import { prisma } from './db'
 
-const BASE_URL = 'https://www.sopat.tn/wp-json/wp/v2'
+// ── Types (shapes preserved for zero caller changes) ──────────────────────────
 
 export type WPRendered = { rendered: string }
 
@@ -83,118 +84,6 @@ export type WPUser = {
   avatar_urls: Record<string, string>
 }
 
-async function wpFetch<T>(path: string, revalidate = 3600): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    next: { revalidate },
-  })
-  if (!res.ok) throw new Error(`WordPress API error: ${res.status} ${path}`)
-  return res.json() as Promise<T>
-}
-
-async function wpFetchAll<T>(path: string, perPage = 100, revalidate = 3600): Promise<T[]> {
-  const sep = path.includes('?') ? '&' : '?'
-  const firstRes = await fetch(`${BASE_URL}${path}${sep}per_page=${perPage}&page=1`, {
-    next: { revalidate },
-  })
-  if (!firstRes.ok) throw new Error(`WordPress API error: ${firstRes.status} ${path}`)
-  const totalPages = Number(firstRes.headers.get('X-WP-TotalPages') ?? 1)
-  const firstData = (await firstRes.json()) as T[]
-
-  if (totalPages <= 1) return firstData
-
-  const rest = await Promise.all(
-    Array.from({ length: totalPages - 1 }, (_, i) =>
-      fetch(`${BASE_URL}${path}${sep}per_page=${perPage}&page=${i + 2}`, {
-        next: { revalidate },
-      }).then((r) => (r.ok ? (r.json() as Promise<T[]>) : Promise.resolve([] as T[])))
-    )
-  )
-
-  return [firstData, ...rest].flat()
-}
-
-export async function getPosts(params: {
-  perPage?: number
-  page?: number
-  sticky?: boolean
-} = {}): Promise<WPPost[]> {
-  const { perPage = 10, page = 1 } = params
-  const query = new URLSearchParams({
-    per_page: String(perPage),
-    page: String(page),
-    _fields: 'id,slug,date,title,excerpt,content,featured_media,categories,tags,yoast_head_json',
-  })
-  if (params.sticky !== undefined) query.set('sticky', String(params.sticky))
-  return wpFetch<WPPost[]>(`/posts?${query}`)
-}
-
-export async function getAllPostSlugs(): Promise<string[]> {
-  const posts = await wpFetchAll<Pick<WPPost, 'slug'>>('/posts?_fields=slug', 100, 86400)
-  return posts.map((p) => p.slug)
-}
-
-export async function getPostBySlug(slug: string): Promise<WPPost | null> {
-  try {
-    const results = await wpFetch<WPPost[]>(
-      `/posts?slug=${encodeURIComponent(slug)}&_fields=id,slug,date,modified,title,content,excerpt,featured_media,categories,yoast_head_json`,
-    )
-    return results[0] ?? null
-  } catch {
-    return null
-  }
-}
-
-export async function getPages(perPage = 20): Promise<WPPage[]> {
-  return wpFetch<WPPage[]>(
-    `/pages?per_page=${perPage}&status=publish&_fields=id,slug,title,excerpt,content,featured_media,parent,menu_order,yoast_head_json`,
-  )
-}
-
-export async function getAllPageSlugs(): Promise<string[]> {
-  const pages = await wpFetchAll<Pick<WPPage, 'slug'>>('/pages?status=publish&_fields=slug', 100, 86400)
-  return pages.map((p) => p.slug)
-}
-
-export async function getPageBySlug(slug: string): Promise<WPPage | null> {
-  try {
-    const results = await wpFetch<WPPage[]>(
-      `/pages?slug=${encodeURIComponent(slug)}&status=publish&_fields=id,slug,title,content,excerpt,featured_media,parent,yoast_head_json`,
-    )
-    return results[0] ?? null
-  } catch {
-    return null
-  }
-}
-
-export async function getMediaById(id: number): Promise<WPMedia | null> {
-  if (!id) return null
-  try {
-    return await wpFetch<WPMedia>(`/media/${id}?_fields=id,source_url,alt_text,title,media_details`)
-  } catch {
-    return null
-  }
-}
-
-export async function getCategories(): Promise<WPCategory[]> {
-  return wpFetchAll<WPCategory>('/categories?_fields=id,name,slug,count', 100, 86400)
-}
-
-export async function getTags(): Promise<WPTag[]> {
-  return wpFetchAll<WPTag>('/tags?_fields=id,name,slug,count', 100, 86400)
-}
-
-export async function getUsers(): Promise<WPUser[]> {
-  return wpFetchAll<WPUser>('/users?_fields=id,name,slug,description,avatar_urls', 100, 86400)
-}
-
-export async function getAllMedia(): Promise<WPMedia[]> {
-  return wpFetchAll<WPMedia>(
-    '/media?_fields=id,slug,source_url,alt_text,title,media_details',
-    100,
-    3600,
-  )
-}
-
 export type BlogPost = {
   id: number
   slug: string
@@ -205,6 +94,137 @@ export type BlogPost = {
   externalUrl: string
   category: string
 }
+
+// ── DB → WP shape helpers ─────────────────────────────────────────────────────
+
+function toWPPost(row: {
+  id: number; slug: string; title: string; content: string; excerpt: string
+  date: Date; modified: Date | null; author: number; featuredImage: string | null
+  categories: number[]; tags: number[]; status: string
+}): WPPost {
+  return {
+    id: row.id,
+    slug: row.slug,
+    date: row.date.toISOString(),
+    modified: (row.modified ?? row.date).toISOString(),
+    status: row.status,
+    type: 'post',
+    link: `https://www.sopat.tn/${row.slug}/`,
+    title: { rendered: row.title },
+    content: { rendered: row.content },
+    excerpt: { rendered: row.excerpt },
+    author: row.author,
+    featured_media: 0,
+    categories: row.categories,
+    tags: row.tags,
+  }
+}
+
+function toWPPage(row: {
+  id: number; slug: string; title: string; content: string
+  createdAt: Date; featuredImage: string | null
+  parent: number; menuOrder: number; status: string
+}): WPPage {
+  return {
+    id: row.id,
+    slug: row.slug,
+    date: row.createdAt.toISOString(),
+    modified: row.createdAt.toISOString(),
+    status: row.status,
+    type: 'page',
+    link: `https://www.sopat.tn/${row.slug}/`,
+    title: { rendered: row.title },
+    content: { rendered: row.content },
+    excerpt: { rendered: '' },
+    author: 1,
+    featured_media: 0,
+    parent: row.parent,
+    menu_order: row.menuOrder,
+  }
+}
+
+// ── Data functions ────────────────────────────────────────────────────────────
+
+export async function getPosts(params: {
+  perPage?: number
+  page?: number
+  sticky?: boolean
+} = {}): Promise<WPPost[]> {
+  const { perPage = 10, page = 1 } = params
+  const rows = await prisma.post.findMany({
+    where: { status: 'publish' },
+    orderBy: { date: 'desc' },
+    take: perPage,
+    skip: (page - 1) * perPage,
+  })
+  return rows.map(toWPPost)
+}
+
+export async function getAllPostSlugs(): Promise<string[]> {
+  const rows = await prisma.post.findMany({ select: { slug: true }, where: { status: 'publish' } })
+  return rows.map((r) => r.slug)
+}
+
+export async function getPostBySlug(slug: string): Promise<WPPost | null> {
+  const row = await prisma.post.findUnique({ where: { slug } })
+  if (!row) return null
+  return toWPPost(row)
+}
+
+export async function getPages(perPage = 20): Promise<WPPage[]> {
+  const rows = await prisma.page.findMany({
+    where: { status: 'publish' },
+    orderBy: { menuOrder: 'asc' },
+    take: perPage,
+  })
+  return rows.map(toWPPage)
+}
+
+export async function getAllPageSlugs(): Promise<string[]> {
+  const rows = await prisma.page.findMany({ select: { slug: true }, where: { status: 'publish' } })
+  return rows.map((r) => r.slug)
+}
+
+export async function getPageBySlug(slug: string): Promise<WPPage | null> {
+  const row = await prisma.page.findUnique({ where: { slug } })
+  if (!row) return null
+  return toWPPage(row)
+}
+
+export async function getMediaById(id: number): Promise<WPMedia | null> {
+  if (!id) return null
+  const mapping = await prisma.mediaMapping.findFirst({
+    where: { publicId: { contains: String(id) } },
+  })
+  if (!mapping) return null
+  return {
+    id,
+    slug: mapping.publicId,
+    link: mapping.cloudinaryUrl,
+    title: { rendered: '' },
+    source_url: mapping.cloudinaryUrl,
+    alt_text: '',
+    media_details: { width: 0, height: 0, sizes: {} },
+  }
+}
+
+export async function getCategories(): Promise<WPCategory[]> {
+  return prisma.category.findMany()
+}
+
+export async function getTags(): Promise<WPTag[]> {
+  return prisma.tag.findMany()
+}
+
+export async function getUsers(): Promise<WPUser[]> {
+  return []
+}
+
+export async function getAllMedia(): Promise<WPMedia[]> {
+  return []
+}
+
+// ── Blog helpers ──────────────────────────────────────────────────────────────
 
 export function inferBlogCategory(title: string, excerpt: string): string {
   const text = (title + ' ' + excerpt).toLowerCase()
@@ -217,72 +237,46 @@ export function inferBlogCategory(title: string, excerpt: string): string {
   return 'Actualités'
 }
 
-function extractFirstContentImage(html: string): string | null {
-  const match = html.match(/src="(https:\/\/www\.sopat\.tn\/wp-content\/uploads\/[^"]+\.(?:jpg|jpeg|png|webp))"/)
-  return match?.[1] ?? null
-}
-
-async function resolvePostImage(post: WPPost): Promise<string | null> {
-  if (post.featured_media) {
-    const media = await getMediaById(post.featured_media)
-    if (media?.source_url) return media.source_url
-  }
-  const firstImg = extractFirstContentImage(post.content?.rendered ?? '')
-  return firstImg
-}
-
 export async function getBlogPostBySlug(slug: string): Promise<(BlogPost & { content: string }) | null> {
-  let results: WPPost[]
-  try {
-    results = await wpFetch<WPPost[]>(
-      `/posts?slug=${encodeURIComponent(slug)}&_fields=id,slug,date,title,excerpt,content,featured_media,link`,
-    )
-  } catch {
-    return null
-  }
-  const post = results[0]
-  if (!post) return null
-  const title = stripHtml(post.title.rendered)
-  const excerpt = stripHtml(post.excerpt.rendered)
-  const image = await resolvePostImage(post)
+  const row = await prisma.post.findUnique({ where: { slug } })
+  if (!row) return null
+  const title = stripHtml(row.title)
+  const excerpt = stripHtml(row.excerpt)
   return {
-    id: post.id,
-    slug: post.slug,
-    date: formatDate(post.date),
+    id: row.id,
+    slug: row.slug,
+    date: formatDate(row.date.toISOString()),
     title,
     excerpt,
-    image,
-    externalUrl: post.link,
+    image: row.featuredImage ?? extractFirstImage(row.content),
+    externalUrl: `https://www.sopat.tn/${row.slug}/`,
     category: inferBlogCategory(title, excerpt),
-    content: post.content.rendered,
+    content: row.content,
   }
 }
 
 export async function getAllBlogPosts(): Promise<BlogPost[]> {
-  const allWPPosts = await wpFetchAll<WPPost>(
-    '/posts?_fields=id,slug,date,title,excerpt,content,featured_media,link',
-    100,
-    3600,
-  )
-
-  return Promise.all(
-    allWPPosts.map(async (post): Promise<BlogPost> => {
-      const title = stripHtml(post.title.rendered)
-      const excerpt = stripHtml(post.excerpt.rendered)
-      const image = await resolvePostImage(post)
-      return {
-        id: post.id,
-        slug: post.slug,
-        date: formatDate(post.date),
-        title,
-        excerpt,
-        image,
-        externalUrl: post.link,
-        category: inferBlogCategory(title, excerpt),
-      }
-    })
-  )
+  const rows = await prisma.post.findMany({
+    where: { status: 'publish' },
+    orderBy: { date: 'desc' },
+  })
+  return rows.map((row) => {
+    const title = stripHtml(row.title)
+    const excerpt = stripHtml(row.excerpt)
+    return {
+      id: row.id,
+      slug: row.slug,
+      date: formatDate(row.date.toISOString()),
+      title,
+      excerpt,
+      image: row.featuredImage ?? extractFirstImage(row.content),
+      externalUrl: `https://www.sopat.tn/${row.slug}/`,
+      category: inferBlogCategory(title, excerpt),
+    }
+  })
 }
+
+// ── HTML utilities ────────────────────────────────────────────────────────────
 
 export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
@@ -306,54 +300,27 @@ export function extractFirstImage(html: string): string | null {
   return match?.[1] ?? null
 }
 
-const WP_UPLOAD_ORIGIN = 'https://www.sopat.tn'
-
-function proxyUrl(src: string): string {
-  if (!src.startsWith(WP_UPLOAD_ORIGIN)) return src
-  return `/api/image?url=${encodeURIComponent(src)}`
-}
-
 export function proxyContentImages(html: string): string {
-  // Rewrite src="..." for wp-content images
-  let out = html.replace(
-    /(<img[^>]+\s)src=["'](https:\/\/www\.sopat\.tn\/wp-content\/[^"']+)["']/g,
-    (_, prefix, src) => `${prefix}src="${proxyUrl(src)}"`,
-  )
-  // Rewrite srcset="..." — each entry is "url width" separated by commas
-  out = out.replace(
-    /(<img[^>]+\s)srcset=["']([^"']+)["']/g,
-    (_, prefix, srcset) => {
-      const rewritten = srcset
-        .split(',')
-        .map((entry: string) => {
-          const [url, descriptor] = entry.trim().split(/\s+/)
-          const proxied = proxyUrl(url)
-          return descriptor ? `${proxied} ${descriptor}` : proxied
-        })
-        .join(', ')
-      return `${prefix}srcset="${rewritten}"`
-    },
-  )
-  return out
+  return html
 }
 
 export function cleanWordPressContent(html: string): string {
   const isElementor = html.includes('data-elementor-type=') || html.includes('elementor-widget-container')
   if (!isElementor) return html
-
-  // Strip Elementor wrapper divs, keeping only inner content elements
-  const cleaned = html
-    // Remove outer elementor section/column/widget wrapper divs but keep their children
+  return html
     .replace(/<div[^>]*class="[^"]*elementor[^"]*"[^>]*>/gi, '')
-    // Remove closing divs that were part of elementor wrappers (best-effort by removing excess closing tags)
     .replace(/<\/div>/gi, '')
-    // Remove empty paragraphs left behind
     .replace(/<p[^>]*>\s*<\/p>/gi, '')
-    // Collapse multiple newlines
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
 
-  return cleaned
+export function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('fr-FR', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 
 export function extractImageUrlsFromHtml(html: string): string[] {
@@ -364,12 +331,4 @@ export function extractImageUrlsFromHtml(html: string): string[] {
     urls.push(match[1])
   }
   return urls
-}
-
-export function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('fr-FR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
 }
