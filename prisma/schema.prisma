@@ -55,3 +55,124 @@ model MediaMapping {
   publicId      String
   createdAt     DateTime @default(now())
 }
+
+// ── Finance models ──────────────────────────────────────────────────────────
+
+model Client {
+  id        String    @id @default(cuid())
+  name      String
+  type      String
+  email     String?
+  phone     String?
+  createdAt DateTime  @default(now())
+  projects  Project[]
+}
+
+model Project {
+  id               String               @id @default(cuid())
+  clientId         String
+  client           Client               @relation(fields: [clientId], references: [id])
+  name             String
+  status           String
+  currency         String               @default("TND")
+  startDate        DateTime
+  endDate          DateTime?
+  createdAt        DateTime             @default(now())
+  contracts        Contract[]
+  budgetItems      BudgetItem[]
+  costItems        CostItem[]
+  timeEntries      TimeEntry[]
+  invoices         Invoice[]
+  overheadAllocs   OverheadAllocation[]
+}
+
+model Contract {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id])
+  contractType String
+  totalValue   Float
+  startDate    DateTime
+  endDate      DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+model BudgetItem {
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id])
+  category      String
+  plannedAmount Float
+  createdAt     DateTime @default(now())
+}
+
+model CostItem {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  date        DateTime
+  description String
+  amount      Float
+  currency    String   @default("TND")
+  category    String
+  glAccount   String?
+  createdAt   DateTime @default(now())
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  employeeId  String
+  date        DateTime
+  hours       Float
+  hourlyRate  Float
+  amount      Float
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  date        DateTime
+  amount      Float
+  currency    String    @default("TND")
+  vatRate     Float     @default(0.19)
+  vatAmount   Float
+  totalAmount Float
+  status      String
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  payments    Payment[]
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  date      DateTime
+  amount    Float
+  method    String
+  createdAt DateTime @default(now())
+}
+
+model OverheadAllocation {
+  id               String   @id @default(cuid())
+  projectId        String
+  project          Project  @relation(fields: [projectId], references: [id])
+  allocationMethod String
+  rate             Float
+  amount           Float
+  createdAt        DateTime @default(now())
+}
+
+model Employee {
+  id         String   @id @default(cuid())
+  name       String
+  role       String
+  hourlyRate Float
+  department String
+  createdAt  DateTime @default(now())
+}
