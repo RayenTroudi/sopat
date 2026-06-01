@@ -6,9 +6,15 @@ import { notFound } from 'next/navigation'
 
 export const revalidate = 3600
 
+export const dynamicParams = true
+
 export async function generateStaticParams() {
-  const posts = await getAllBlogPosts()
-  return posts.map((p) => ({ slug: p.slug }))
+  try {
+    const posts = await getAllBlogPosts()
+    return posts.map((p) => ({ slug: p.slug }))
+  } catch {
+    return []
+  }
 }
 
 const FALLBACK_IMAGE = '/blog/ville-durable.jpeg'

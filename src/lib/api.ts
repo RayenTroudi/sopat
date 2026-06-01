@@ -224,9 +224,14 @@ async function resolvePostImage(post: WPPost): Promise<string | null> {
 }
 
 export async function getBlogPostBySlug(slug: string): Promise<(BlogPost & { content: string }) | null> {
-  const results = await wpFetch<WPPost[]>(
-    `/posts?slug=${encodeURIComponent(slug)}&_fields=id,slug,date,title,excerpt,content,featured_media,link`,
-  )
+  let results: WPPost[]
+  try {
+    results = await wpFetch<WPPost[]>(
+      `/posts?slug=${encodeURIComponent(slug)}&_fields=id,slug,date,title,excerpt,content,featured_media,link`,
+    )
+  } catch {
+    return null
+  }
   const post = results[0]
   if (!post) return null
   const title = stripHtml(post.title.rendered)
