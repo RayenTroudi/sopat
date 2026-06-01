@@ -1,8 +1,8 @@
 {
   "phase1_images": {
     "total": 1645,
-    "uploaded": 0,
-    "failed": 1645,
+    "uploaded": 1645,
+    "failed": 0,
     "skipped": 0
   },
   "phase2_content": {
@@ -17,5 +17,5 @@
   "phase4_verification": {
     "status": "failed"
   },
-  "lastRun": "2026-06-01T12:35:22.980Z"
+  "lastRun": "2026-06-01T13:31:51.085Z"
 }
