@@ -196,7 +196,9 @@ export default function PipelineKanban({ columns: initialColumns }: { columns: C
               className="rounded-xl overflow-hidden transition-all duration-150"
               style={{
                 background: 'var(--admin-card)',
-                border: `1px solid ${isOver ? col.color : 'var(--admin-border)'}`,
+                borderTop: `1px solid ${isOver ? col.color : 'var(--admin-border)'}`,
+                borderRight: `1px solid ${isOver ? col.color : 'var(--admin-border)'}`,
+                borderBottom: `1px solid ${isOver ? col.color : 'var(--admin-border)'}`,
                 borderLeft: `3px solid ${col.color}`,
                 boxShadow: isOver ? `0 0 0 2px ${col.color}40` : 'none',
               }}
