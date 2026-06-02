@@ -22,12 +22,12 @@ const STATUS_OPTIONS = ['New', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Los
 const SOURCE_OPTIONS = ['Website', 'Referral', 'Cold Call', 'Exhibition', 'Social Media', 'Other']
 
 const statusColor: Record<string, { bg: string; color: string; dot: string }> = {
-  New:       { bg: 'var(--admin-blue-dim)',   color: 'var(--admin-blue)',   dot: 'var(--admin-blue)' },
-  Contacted: { bg: 'var(--admin-amber-dim)',  color: 'var(--admin-amber)',  dot: 'var(--admin-amber)' },
-  Qualified: { bg: 'var(--admin-accent-dim)', color: 'var(--admin-accent)', dot: 'var(--admin-accent)' },
-  Proposal:  { bg: 'rgba(139,92,246,0.12)',   color: '#8b5cf6',             dot: '#8b5cf6' },
+  New:       { bg: 'var(--admin-blue-dim)',    color: 'var(--admin-blue)',    dot: 'var(--admin-blue)' },
+  Contacted: { bg: 'var(--admin-amber-dim)',   color: 'var(--admin-amber)',   dot: 'var(--admin-amber)' },
+  Qualified: { bg: 'var(--admin-accent-dim)',  color: 'var(--admin-accent)',  dot: 'var(--admin-accent)' },
+  Proposal:  { bg: 'rgba(139,92,246,0.12)',    color: '#8b5cf6',              dot: '#8b5cf6' },
   Won:       { bg: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)', dot: 'var(--admin-emerald)' },
-  Lost:      { bg: 'var(--admin-red-dim)',    color: 'var(--admin-red)',    dot: 'var(--admin-red)' },
+  Lost:      { bg: 'var(--admin-red-dim)',     color: 'var(--admin-red)',     dot: 'var(--admin-red)' },
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -41,11 +41,18 @@ function StatusBadge({ status }: { status: string }) {
   )
 }
 
+function toDateInput(val: string | null) {
+  if (!val) return ''
+  return new Date(val).toISOString().split('T')[0]
+}
+
 export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
   const [leads, setLeads] = useState(initial)
-  const [showAdd, setShowAdd] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [filter, setFilter] = useState('All')
+  const [showAdd, setShowAdd]       = useState(false)
+  const [editing, setEditing]       = useState<Lead | null>(null)
+  const [deleting, setDeleting]     = useState<Lead | null>(null)
+  const [loading, setLoading]       = useState(false)
+  const [filter, setFilter]         = useState('All')
 
   const filtered = filter === 'All' ? leads : leads.filter(l => l.status === filter)
 
@@ -71,6 +78,45 @@ export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
     if (data.success) {
       setLeads(prev => [{ ...data.data, client: null }, ...prev])
       setShowAdd(false)
+    }
+    setLoading(false)
+  }
+
+  async function handleEdit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!editing) return
+    setLoading(true)
+    const fd = new FormData(e.currentTarget)
+    const body = {
+      contactName: fd.get('contactName'),
+      email: fd.get('email'),
+      phone: fd.get('phone'),
+      company: fd.get('company'),
+      source: fd.get('source'),
+      status: fd.get('status'),
+      estimatedValue: fd.get('estimatedValue'),
+      notes: fd.get('notes'),
+      followUpDate: fd.get('followUpDate'),
+    }
+    const res = await fetch(`/api/admin/crm/leads/${editing.id}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    })
+    const data = await res.json()
+    if (data.success) {
+      setLeads(prev => prev.map(l => l.id === editing.id ? data.data : l))
+      setEditing(null)
+    }
+    setLoading(false)
+  }
+
+  async function handleDelete() {
+    if (!deleting) return
+    setLoading(true)
+    const res = await fetch(`/api/admin/crm/leads/${deleting.id}`, { method: 'DELETE' })
+    const data = await res.json()
+    if (data.success) {
+      setLeads(prev => prev.filter(l => l.id !== deleting.id))
+      setDeleting(null)
     }
     setLoading(false)
   }
@@ -133,14 +179,14 @@ export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
             <table className="w-full" style={{ fontFamily: 'var(--font-sans)' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
-                  {['Contact', 'Entreprise', 'Source', 'Valeur estimée', 'Suivi', 'Statut'].map((h, i) => (
-                    <th key={h}
+                  {['Contact', 'Entreprise', 'Source', 'Valeur estimée', 'Suivi', 'Statut', ''].map((h, i) => (
+                    <th key={i}
                       className="py-3 text-xs uppercase tracking-widest font-medium"
                       style={{
                         color: 'var(--admin-text-dim)',
                         paddingLeft: i === 0 ? '1.25rem' : '1rem',
-                        paddingRight: i === 5 ? '1.25rem' : '1rem',
-                        textAlign: i >= 3 ? 'right' : 'left',
+                        paddingRight: i === 6 ? '1.25rem' : '1rem',
+                        textAlign: i >= 3 && i < 6 ? 'right' : 'left',
                         letterSpacing: '0.08em',
                       }}>
                       {h}
@@ -171,8 +217,34 @@ export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
                     <td className="py-3.5 px-4 text-right text-xs" style={{ color: 'var(--admin-text-muted)' }}>
                       {lead.followUpDate ? new Date(lead.followUpDate).toLocaleDateString('fr-TN') : '—'}
                     </td>
-                    <td className="py-3.5 pl-4 pr-5 text-right">
+                    <td className="py-3.5 pl-4 pr-3 text-right">
                       <StatusBadge status={lead.status} />
+                    </td>
+                    <td className="py-3.5 pl-2 pr-5">
+                      <div className="flex items-center gap-1 justify-end">
+                        <button
+                          onClick={() => setEditing(lead)}
+                          className="p-1.5 rounded-md transition-colors"
+                          style={{ color: 'var(--admin-text-dim)' }}
+                          title="Modifier"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => setDeleting(lead)}
+                          className="p-1.5 rounded-md transition-colors"
+                          style={{ color: 'var(--admin-red)' }}
+                          title="Supprimer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.75}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -225,6 +297,89 @@ export default function LeadsClient({ leads: initial }: { leads: Lead[] }) {
             </Field>
             <SubmitBtn loading={loading} label="Créer le prospect" />
           </form>
+        </Modal>
+      )}
+
+      {/* Edit modal */}
+      {editing && (
+        <Modal title="Modifier le prospect" onClose={() => setEditing(null)}>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <Field label="Nom du contact *">
+              <input name="contactName" className={inputCls} required defaultValue={editing.contactName} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Email">
+                <input name="email" type="email" className={inputCls} defaultValue={editing.email ?? ''} />
+              </Field>
+              <Field label="Téléphone">
+                <input name="phone" className={inputCls} defaultValue={editing.phone ?? ''} />
+              </Field>
+            </div>
+            <Field label="Entreprise">
+              <input name="company" className={inputCls} defaultValue={editing.company ?? ''} />
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Source *">
+                <select name="source" className={inputCls} required defaultValue={editing.source}>
+                  {SOURCE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+              <Field label="Statut">
+                <select name="status" className={inputCls} defaultValue={editing.status}>
+                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Valeur estimée (TND)">
+                <input name="estimatedValue" type="number" step="0.001" className={inputCls}
+                  defaultValue={editing.estimatedValue ?? ''} />
+              </Field>
+              <Field label="Date de suivi">
+                <input name="followUpDate" type="date" className={inputCls}
+                  defaultValue={toDateInput(editing.followUpDate)} />
+              </Field>
+            </div>
+            <Field label="Notes">
+              <textarea name="notes" className={inputCls} rows={3} defaultValue={editing.notes ?? ''} />
+            </Field>
+            <SubmitBtn loading={loading} label="Enregistrer les modifications" />
+          </form>
+        </Modal>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleting && (
+        <Modal title="Supprimer le prospect" onClose={() => setDeleting(null)}>
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)' }}>
+              Êtes-vous sûr de vouloir supprimer{' '}
+              <span className="font-semibold" style={{ color: 'var(--admin-text)' }}>{deleting.contactName}</span>
+              {' '}? Cette action est irréversible.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeleting(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{
+                  background: 'var(--admin-card)',
+                  color: 'var(--admin-text-muted)',
+                  border: '1px solid var(--admin-border)',
+                  fontFamily: 'var(--font-sans)',
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={loading}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+                style={{ background: 'var(--admin-red)', color: '#fff', fontFamily: 'var(--font-sans)' }}
+              >
+                {loading ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
     </div>
