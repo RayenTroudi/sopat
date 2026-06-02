@@ -6,6 +6,8 @@ datasource db {
   provider = "postgresql"
 }
 
+// ── CMS models (WordPress migration) ────────────────────────────────────────
+
 model Post {
   id            Int       @id
   slug          String    @unique
@@ -59,32 +61,349 @@ model MediaMapping {
 // ── Finance models ──────────────────────────────────────────────────────────
 
 model Client {
-  id        String    @id @default(cuid())
-  name      String
-  type      String
-  email     String?
-  phone     String?
-  createdAt DateTime  @default(now())
-  projects  Project[]
+  id           String        @id @default(cuid())
+  name         String
+  type         String
+  email        String?
+  phone        String?
+  address      String?
+  city         String?
+  notes        String?       @db.Text
+  createdAt    DateTime      @default(now())
+  projects     Project[]
+  leads        Lead[]
 }
+
+model Employee {
+  id         String   @id @default(cuid())
+  name       String
+  role       String
+  hourlyRate Float
+  department String
+  createdAt  DateTime @default(now())
+}
+
+// ── CRM ─────────────────────────────────────────────────────────────────────
+
+model Lead {
+  id          String    @id @default(cuid())
+  clientId    String?
+  client      Client?   @relation(fields: [clientId], references: [id])
+  contactName String
+  email       String?
+  phone       String?
+  company     String?
+  source      String    // website, referral, cold-call, exhibition, etc.
+  status      String    @default("New") // New, Contacted, Qualified, Proposal, Won, Lost
+  notes       String?   @db.Text
+  estimatedValue Float?
+  assignedTo  String?
+  followUpDate DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  activities  ActivityLog[]
+}
+
+// ── Projects ─────────────────────────────────────────────────────────────────
 
 model Project {
   id               String               @id @default(cuid())
   clientId         String
   client           Client               @relation(fields: [clientId], references: [id])
   name             String
-  status           String
+  description      String?              @db.Text
+  status           String               // Active, On Hold, Completed, Cancelled
+  stage            Int                  @default(1) // 1-4: Consultation, Études, Réalisation, Entretien
+  stageUpdatedAt   DateTime?
+  stageNotes       String?              @db.Text
+  priority         String               @default("Medium") // Low, Medium, High, Critical
   currency         String               @default("TND")
   startDate        DateTime
   endDate          DateTime?
+  estimatedEndDate DateTime?
+  location         String?
+  area             Float?               // project area in m²
   createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  // Finance relations
   contracts        Contract[]
   budgetItems      BudgetItem[]
   costItems        CostItem[]
   timeEntries      TimeEntry[]
   invoices         Invoice[]
   overheadAllocs   OverheadAllocation[]
+
+  // Project relations
+  milestones       Milestone[]
+  tasks            Task[]
+  deliverables     Deliverable[]
+  documents        Document[]
+  siteReports      SiteReport[]
+  inspections      Inspection[]
+  maintenanceVisits MaintenanceVisit[]
+  activityLogs     ActivityLog[]
+  notifications    Notification[]
+  issues           Issue[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([stage])
 }
+
+
+// ── Milestones & Tasks ───────────────────────────────────────────────────────
+
+model Milestone {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  title       String
+  description String?   @db.Text
+  dueDate     DateTime
+  completedAt DateTime?
+  status      String    @default("Pending") // Pending, InProgress, Completed, Delayed
+  stageNumber Int?      // which stage this milestone belongs to
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([dueDate])
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  milestoneId String?
+  title       String
+  description String?   @db.Text
+  assignedTo  String?
+  priority    String    @default("Medium") // Low, Medium, High, Critical
+  status      String    @default("Todo") // Todo, InProgress, Review, Done, Cancelled
+  dueDate     DateTime?
+  completedAt DateTime?
+  stageNumber Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model Deliverable {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  title       String
+  description String?   @db.Text
+  type        String    // drawing, report, model, specification, permit, etc.
+  status      String    @default("Pending") // Pending, InProgress, Review, Approved, Rejected
+  dueDate     DateTime?
+  submittedAt DateTime?
+  approvedAt  DateTime?
+  stageNumber Int?
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+}
+
+// ── Documents ────────────────────────────────────────────────────────────────
+
+model Document {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  title       String
+  category    String    // contract, drawing, permit, report, photo, specification, other
+  fileUrl     String?
+  fileSize    Int?
+  mimeType    String?
+  version     String    @default("1.0")
+  stageNumber Int?
+  uploadedBy  String?
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([category])
+}
+
+// ── Execution ────────────────────────────────────────────────────────────────
+
+model SiteReport {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  type        String    // daily, weekly
+  reportDate  DateTime
+  reportedBy  String?
+  weather     String?
+  workersOnSite Int?
+  workDone    String    @db.Text
+  issues      String?   @db.Text
+  nextDayPlan String?   @db.Text
+  photos      String[]  // array of URLs
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([reportDate])
+}
+
+model Issue {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  title       String
+  description String    @db.Text
+  severity    String    @default("Medium") // Low, Medium, High, Critical
+  status      String    @default("Open") // Open, InProgress, Resolved, Closed
+  reportedBy  String?
+  assignedTo  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+}
+
+// ── Quality Control ──────────────────────────────────────────────────────────
+
+model Inspection {
+  id           String    @id @default(cuid())
+  projectId    String
+  project      Project   @relation(fields: [projectId], references: [id])
+  title        String
+  inspectionDate DateTime
+  inspectorName  String?
+  type         String    // routine, final, client, regulatory
+  result       String    @default("Pending") // Pending, Passed, Failed, ConditionalPass
+  notes        String?   @db.Text
+  punchListItems PunchListItem[]
+  createdAt    DateTime  @default(now())
+
+  @@index([projectId])
+}
+
+model PunchListItem {
+  id           String     @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id])
+  description  String
+  location     String?
+  severity     String     @default("Minor") // Minor, Major, Critical
+  status       String     @default("Open") // Open, InProgress, Resolved
+  assignedTo   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([inspectionId])
+}
+
+// ── Maintenance ──────────────────────────────────────────────────────────────
+
+model MaintenanceVisit {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id])
+  visitDate   DateTime
+  visitedBy   String?
+  type        String    @default("Scheduled") // Scheduled, Emergency, Warranty
+  status      String    @default("Planned") // Planned, Completed, Cancelled
+  notes       String?   @db.Text
+  nextVisitDate DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([visitDate])
+}
+
+// ── Procurement ──────────────────────────────────────────────────────────────
+
+model Supplier {
+  id          String         @id @default(cuid())
+  name        String
+  category    String         // plants, materials, equipment, labor, other
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  rating      Int?           // 1-5
+  notes       String?        @db.Text
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  rfqs        RFQ[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model RFQ {
+  id          String         @id @default(cuid())
+  supplierId  String
+  supplier    Supplier       @relation(fields: [supplierId], references: [id])
+  projectId   String?
+  title       String
+  description String?        @db.Text
+  status      String         @default("Draft") // Draft, Sent, Received, Accepted, Rejected
+  sentAt      DateTime?
+  responseDeadline DateTime?
+  quotedAmount Float?
+  createdAt   DateTime       @default(now())
+
+  @@index([supplierId])
+}
+
+model PurchaseOrder {
+  id          String         @id @default(cuid())
+  supplierId  String
+  supplier    Supplier       @relation(fields: [supplierId], references: [id])
+  projectId   String?
+  poNumber    String         @unique
+  title       String
+  amount      Float
+  status      String         @default("Draft") // Draft, Approved, Sent, Received, Cancelled
+  orderDate   DateTime       @default(now())
+  expectedDelivery DateTime?
+  notes       String?        @db.Text
+  createdAt   DateTime       @default(now())
+
+  @@index([supplierId])
+}
+
+// ── Activity & Notifications ─────────────────────────────────────────────────
+
+model ActivityLog {
+  id          String    @id @default(cuid())
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  leadId      String?
+  lead        Lead?     @relation(fields: [leadId], references: [id])
+  entityType  String    // project, lead, task, milestone, stage, inspection, etc.
+  entityId    String
+  action      String    // created, updated, stage_advanced, checklist_completed, etc.
+  description String
+  performedBy String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  @@index([projectId])
+  @@index([createdAt])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id])
+  type        String    // deadline, delay, approval, stage_change, budget_alert
+  title       String
+  message     String
+  isRead      Boolean   @default(false)
+  link        String?
+  createdAt   DateTime  @default(now())
+
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ── Existing Finance models (unchanged) ─────────────────────────────────────
 
 model Contract {
   id           String    @id @default(cuid())
@@ -166,13 +485,4 @@ model OverheadAllocation {
   rate             Float
   amount           Float
   createdAt        DateTime @default(now())
-}
-
-model Employee {
-  id         String   @id @default(cuid())
-  name       String
-  role       String
-  hourlyRate Float
-  department String
-  createdAt  DateTime @default(now())
 }

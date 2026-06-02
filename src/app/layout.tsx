@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Cormorant_Garamond, Inter } from 'next/font/google'
+import { Cormorant_Garamond, DM_Sans, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import BackToTop from '@/components/BackToTop'
 
@@ -11,10 +11,18 @@ const cormorant = Cormorant_Garamond({
   display: 'swap',
 })
 
-const inter = Inter({
+const dmSans = DM_Sans({
   variable: '--font-inter',
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+  weight: ['300', '400', '500', '600', '700'],
+  display: 'swap',
+})
+
+const playfair = Playfair_Display({
+  variable: '--font-playfair',
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  style: ['normal', 'italic'],
   display: 'swap',
 })
 
@@ -26,7 +34,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${cormorant.variable} ${inter.variable}`}>
+    <html lang="fr" className={`${cormorant.variable} ${dmSans.variable} ${playfair.variable}`}>
       <body suppressHydrationWarning>
         {children}
         <BackToTop />

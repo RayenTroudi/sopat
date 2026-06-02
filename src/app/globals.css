@@ -4,22 +4,59 @@
   --color-green: #1C3D2E;
   --color-green-dark: #0F2419;
   --color-gold: #C9A84C;
+  --color-gold-light: #E8C96A;
   --color-ivory: #F5F0E8;
   --color-charcoal: #2A2A2A;
   --color-mist: #E8E4DC;
 
+  /* Admin light palette */
+  --color-admin-bg: #F4F6F5;
+  --color-admin-surface: #FFFFFF;
+  --color-admin-card: #FFFFFF;
+  --color-admin-border: #E2EBE7;
+  --color-admin-text: #1A2E24;
+  --color-admin-muted: #5A7A6A;
+  --color-admin-accent: #C9A84C;
+  --color-admin-accent-dim: #FDF6E8;
+
   --font-display: var(--font-cormorant);
+  --font-playfair: var(--font-playfair);
   --font-sans: var(--font-inter);
+  --font-dm: var(--font-inter);
 }
 
 :root {
   --green: #1C3D2E;
   --green-dark: #0F2419;
   --gold: #C9A84C;
+  --gold-light: #E8C96A;
   --ivory: #F5F0E8;
   --charcoal: #2A2A2A;
   --mist: #E8E4DC;
   --white: #FFFFFF;
+
+  /* Admin light theme */
+  --admin-bg: #F4F6F5;
+  --admin-surface: #FFFFFF;
+  --admin-card: #FFFFFF;
+  --admin-card-hover: #F7FAF8;
+  --admin-border: #E2EBE7;
+  --admin-border-light: #C8DBD2;
+  --admin-text: #1A2E24;
+  --admin-text-muted: #5A7A6A;
+  --admin-text-dim: #9BB5A8;
+  --admin-accent: #C9A84C;
+  --admin-accent-dim: #FDF6E8;
+  --admin-accent-glow: rgba(201, 168, 76, 0.15);
+  --admin-green-dim: rgba(28, 61, 46, 0.08);
+  --admin-red: #D94F4F;
+  --admin-red-dim: rgba(217, 79, 79, 0.08);
+  --admin-amber: #B8870A;
+  --admin-amber-dim: rgba(184, 135, 10, 0.08);
+  --admin-emerald: #1C7A48;
+  --admin-emerald-dim: rgba(28, 122, 72, 0.08);
+  --admin-blue: #2563EB;
+  --admin-blue-dim: rgba(37, 99, 235, 0.08);
 }
 
 html {
@@ -105,6 +142,117 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--gold) var(--ivory);
+}
+
+/* ─── Admin utility ─── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--green);
+  color: var(--ivory);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s;
+  font-family: var(--font-sans);
+}
+.btn-primary:hover {
+  background-color: var(--green-dark);
+}
+
+/* ─── Admin dark button ─── */
+.btn-admin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background-color: var(--admin-accent);
+  color: #0B1012;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  transition: all 0.2s;
+  font-family: var(--font-sans);
+  letter-spacing: 0.01em;
+}
+.btn-admin:hover {
+  background-color: var(--gold-light);
+  box-shadow: 0 0 16px var(--admin-accent-glow);
+}
+
+/* ─── Admin card ─── */
+.admin-card-shine {
+  position: relative;
+}
+
+/* ─── Number counter animation ─── */
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.admin-count-in {
+  animation: countUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ─── Admin table row hover ─── */
+.admin-tr:hover {
+  background: var(--admin-card-hover) !important;
+}
+
+/* ─── Admin logout button ─── */
+.admin-logout-btn:hover {
+  color: var(--admin-red) !important;
+  border-color: rgba(224, 93, 93, 0.4) !important;
+}
+
+/* ─── Admin form inputs ─── */
+.admin-input {
+  width: 100%;
+  border-radius: 8px;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text);
+  font-family: var(--font-sans);
+  outline: none;
+}
+.admin-input:focus {
+  border-color: var(--admin-border-light);
+  box-shadow: 0 0 0 2px var(--admin-accent-glow);
+}
+.admin-input::placeholder {
+  color: var(--admin-text-dim);
+}
+.admin-input option {
+  background: var(--admin-card);
+  color: var(--admin-text);
+}
+
+/* ─── Admin glow line ─── */
+.admin-glow-line {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--admin-accent), transparent);
+  opacity: 0.4;
+}
+
+/* ─── Scrollbar for admin ─── */
+.admin-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.admin-scroll::-webkit-scrollbar-track {
+  background: var(--admin-surface);
+}
+.admin-scroll::-webkit-scrollbar-thumb {
+  background: var(--admin-border-light);
+  border-radius: 2px;
+}
+.admin-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--admin-accent);
 }
 
 /* ─── Scroll indicator ─── */
