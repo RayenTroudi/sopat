@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 }
 
 export default async function PostsPage() {
-  const posts = await getPosts({ perPage: 12 })
+  const posts = await getPosts({ perPage: 12 }).catch(() => [])
 
   const mediaMap: Record<number, WPMedia> = {}
   await Promise.all(
