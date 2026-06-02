@@ -248,8 +248,6 @@ const navGroups: NavGroup[] = [
     icon: icons.execution,
     children: [
       { href: '/admin/execution/site-reports', label: 'Rapports de chantier', icon: icons.report },
-      { href: '/admin/execution/daily-logs', label: 'Journaux quotidiens', icon: icons.sub },
-      { href: '/admin/execution/weekly-reports', label: 'Rapports hebdo.', icon: icons.reports },
       { href: '/admin/execution/issues', label: 'Problèmes', icon: icons.issue },
     ],
   },
