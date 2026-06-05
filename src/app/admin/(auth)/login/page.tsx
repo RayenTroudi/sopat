@@ -1,23 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 
 export default function AdminLoginPage() {
-  const router = useRouter()
   const [callbackUrl, setCallbackUrl] = useState('/admin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Read callbackUrl from search params safely after mount — avoids SSR/Suspense issues
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const cb = params.get('callbackUrl')
-    if (cb) setCallbackUrl(cb)
+    if (cb && cb.startsWith('/') && !cb.startsWith('//')) setCallbackUrl(cb)
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -25,16 +21,21 @@ export default function AdminLoginPage() {
     setError('')
     setLoading(true)
     try {
-      const result = await signIn('credentials', {
-        email,
-        password,
-        redirect: false,
+      const csrfRes = await fetch('/api/auth/csrf')
+      const { csrfToken } = await csrfRes.json()
+
+      const body = new URLSearchParams({ email, password, csrfToken, callbackUrl })
+      const res = await fetch('/api/auth/callback/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+        redirect: 'follow',
       })
-      if (result?.error) {
+
+      if (res.url.includes('error=')) {
         setError('Email ou mot de passe incorrect')
       } else {
-        router.push(callbackUrl)
-        router.refresh()
+        window.location.href = callbackUrl
       }
     } catch {
       setError('Erreur réseau, veuillez réessayer')
@@ -98,7 +99,7 @@ export default function AdminLoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                autoComplete="email"
+                autoComplete="off"
                 placeholder="admin@sopat.tn"
                 style={{
                   width: '100%',
@@ -126,7 +127,7 @@ export default function AdminLoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
                 placeholder="••••••••"
                 style={{
                   width: '100%',

@@ -12,7 +12,8 @@ const isDev = process.env.NODE_ENV === 'development'
 // Admin panel: tight policy, no iframes, no external scripts except Cloudinary widget
 const adminCsp = [
   `default-src 'self'`,
-  `script-src 'self' https://widget.cloudinary.com${isDev ? " 'unsafe-eval'" : ''}`,
+  // TODO: replace 'unsafe-inline' with a nonce-based CSP for production hardening
+  `script-src 'self' 'unsafe-inline' https://widget.cloudinary.com${isDev ? " 'unsafe-eval'" : ''}`,
   `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
   `img-src 'self' data: blob: https://res.cloudinary.com https://www.sopat.tn https://sopat.tn`,
   `font-src 'self' https://fonts.gstatic.com`,
@@ -21,7 +22,7 @@ const adminCsp = [
   `object-src 'none'`,
   `base-uri 'self'`,
   `form-action 'self'`,
-  `upgrade-insecure-requests`,
+  ...(isDev ? [] : [`upgrade-insecure-requests`]),
 ].join('; ')
 
 // Public website: allows Google Maps iframe, WordPress image CDN, external fonts
