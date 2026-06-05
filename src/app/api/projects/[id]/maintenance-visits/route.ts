@@ -8,6 +8,7 @@ import {
   getOrCreateDefaultSchedule,
   type VisitType,
 } from '@/lib/db/entretien'
+import { maybeSendMaintenanceReminder } from '@/lib/tasks/maintenance-reminders'
 import { z } from 'zod'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -78,6 +79,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     action:    'entretien.visit_scheduled',
     newState:  { visitDate: d.visitDate, visitType: d.visitType },
   })
+
+  // Send reminder now if the visit is tomorrow (replaces cron)
+  maybeSendMaintenanceReminder(visit.id).catch((e) =>
+    console.error('[maintenance reminder]', e)
+  )
 
   return NextResponse.json(visit, { status: 201 })
 }

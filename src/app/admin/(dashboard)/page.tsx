@@ -6,6 +6,7 @@ import {
   getAtRiskProjects,
   getUpcomingVisits,
 } from '@/lib/db/dashboard'
+import { runEmailReminderSweep } from '@/lib/tasks/email-reminders'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { MiniPie } from '@/components/dashboard/MiniPie'
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
@@ -46,6 +47,9 @@ function StarRating({ score }: { score: number }) {
 }
 
 export default async function AdminDashboard() {
+  // Fire-and-forget: runs at most once every 30 min (rate-gated in the task itself)
+  runEmailReminderSweep().catch((e) => console.error('[reminder sweep]', e))
+
   const [kpis, activity, atRisk, upcomingVisits] = await Promise.all([
     getDashboardKpis(),
     getRecentActivity(20),

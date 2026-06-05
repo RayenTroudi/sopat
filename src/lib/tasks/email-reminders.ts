@@ -1,43 +1,73 @@
 /**
- * Vercel Cron handler — runs every hour via vercel.json cron schedule.
- * Scans email_queue for prediction emails that are overdue for:
- *   - 48h: send reminder-48h.tsx to chef
- *   - 72h: send escalation to admin
+ * Email reminder sweep — replaces the Vercel cron at /api/cron/email-reminders.
  *
- * Protected by CRON_SECRET header (set in Vercel environment).
+ * Called from the dashboard server component on each load, but rate-limited via
+ * the system_settings table so the actual DB sweep only runs once every 30 minutes
+ * regardless of how often the dashboard is opened.
+ *
+ * Checks prediction emails that have been sitting in 'sent' state for:
+ *   ≥48h → reminder email to chef
+ *   ≥72h → escalation email to all admins
  */
 
-import { NextRequest, NextResponse } from 'next/server'
-import { db } from '../../../../../db/index'
+import { db } from '../../../db/index'
 import {
   emailQueue,
   budgetValidations,
   budgetPredictions,
   projects,
   users,
-} from '../../../../../db/schema'
+  systemSettings,
+} from '../../../db/schema'
 import { eq, and, desc } from 'drizzle-orm'
 import { sendEmail } from '@/lib/email'
 import { signValidationToken } from '@/lib/jwt'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sopat.vercel.app'
+const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sopat.vercel.app'
+const SWEEP_INTERVAL = 30 * 60 * 1000   // 30 minutes between sweeps
+const SETTINGS_KEY   = 'last_reminder_sweep'
 
-export async function GET(req: NextRequest) {
-  // Verify Vercel Cron secret to prevent public triggering
-  const authHeader = req.headers.get('authorization')
-  const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) {
-    return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
+// ─── Rate-gate: only sweep once every 30 min ─────────────────────────────────
+
+async function shouldSweep(): Promise<boolean> {
+  const [row] = await db
+    .select({ value: systemSettings.value })
+    .from(systemSettings)
+    .where(eq(systemSettings.key, SETTINGS_KEY))
+    .limit(1)
+
+  if (!row?.value) return true
+  const last = (row.value as { ts: number }).ts ?? 0
+  return Date.now() - last > SWEEP_INTERVAL
+}
+
+async function markSwept() {
+  const existing = await db
+    .select({ id: systemSettings.id })
+    .from(systemSettings)
+    .where(eq(systemSettings.key, SETTINGS_KEY))
+    .limit(1)
+
+  const val = { ts: Date.now() }
+  if (existing.length > 0) {
+    await db.update(systemSettings)
+      .set({ value: val, updatedAt: new Date(), updatedBy: 'system' })
+      .where(eq(systemSettings.key, SETTINGS_KEY))
+  } else {
+    await db.insert(systemSettings).values({ key: SETTINGS_KEY, value: val, updatedBy: 'system' })
   }
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+}
+
+// ─── Main sweep ───────────────────────────────────────────────────────────────
+
+export async function runEmailReminderSweep(): Promise<void> {
+  if (!(await shouldSweep())) return
+  await markSwept()
 
   const now = Date.now()
   const h48 = now - 48 * 60 * 60 * 1000
   const h72 = now - 72 * 60 * 60 * 1000
 
-  // Fetch all sent prediction emails with no validation yet
   const overdueEmails = await db
     .select()
     .from(emailQueue)
@@ -48,15 +78,11 @@ export async function GET(req: NextRequest) {
       )
     )
 
-  let reminded = 0
-  let escalated = 0
-
   for (const email of overdueEmails) {
     if (!email.sentAt || !email.relatedEntityId) continue
 
     const sentMs = email.sentAt.getTime()
 
-    // Check whether a validation already exists for this prediction
     const [validation] = await db
       .select({ status: budgetValidations.status })
       .from(budgetValidations)
@@ -65,7 +91,6 @@ export async function GET(req: NextRequest) {
       .limit(1)
 
     if (validation && (validation.status === 'validated' || validation.status === 'modified')) {
-      // Already handled — mark email as validated so we skip it next time
       await db.update(emailQueue).set({ status: 'validated' }).where(eq(emailQueue.id, email.id))
       continue
     }
@@ -73,34 +98,31 @@ export async function GET(req: NextRequest) {
     const meta = (email.metadata ?? {}) as Record<string, unknown>
 
     if (sentMs < h72 && !meta.escalationSent) {
-      // 72h: escalate to admin
-      await sendAdminEscalation(email, email.createdBy)
-      await db
-        .update(emailQueue)
+      await sendAdminEscalation(email, email.createdBy ?? 'system')
+      await db.update(emailQueue)
         .set({ metadata: { ...meta, escalationSent: true } })
         .where(eq(emailQueue.id, email.id))
-      escalated++
     } else if (sentMs < h48 && !meta.reminderSent) {
-      // 48h: send reminder to chef
       await send48hReminder(email)
-      await db
-        .update(emailQueue)
+      await db.update(emailQueue)
         .set({ metadata: { ...meta, reminderSent: true } })
         .where(eq(emailQueue.id, email.id))
-      reminded++
     }
   }
-
-  return NextResponse.json({ ok: true, reminded, escalated, checked: overdueEmails.length })
 }
+
+// ─── Helpers (same logic as the old cron route) ───────────────────────────────
 
 async function send48hReminder(email: typeof emailQueue.$inferSelect) {
   if (!email.recipientId || !email.projectId || !email.relatedEntityId) return
 
   const [[recipient], [prediction], [project]] = await Promise.all([
-    db.select({ id: users.id, name: users.name, email: users.email }).from(users).where(eq(users.id, email.recipientId)).limit(1),
-    db.select().from(budgetPredictions).where(eq(budgetPredictions.id, email.relatedEntityId)).limit(1),
-    db.select({ name: projects.name, reference: projects.reference }).from(projects).where(eq(projects.id, email.projectId)).limit(1),
+    db.select({ id: users.id, name: users.name, email: users.email })
+      .from(users).where(eq(users.id, email.recipientId)).limit(1),
+    db.select().from(budgetPredictions)
+      .where(eq(budgetPredictions.id, email.relatedEntityId)).limit(1),
+    db.select({ name: projects.name, reference: projects.reference })
+      .from(projects).where(eq(projects.id, email.projectId)).limit(1),
   ])
 
   if (!recipient || !prediction || !project) return
@@ -135,7 +157,7 @@ async function sendAdminEscalation(email: typeof emailQueue.$inferSelect, create
   if (!email.projectId || !email.relatedEntityId) return
 
   const [[project], [prediction]] = await Promise.all([
-    db.select({ name: projects.name, reference: projects.reference, assignedRealisationChefId: projects.assignedRealisationChefId })
+    db.select({ name: projects.name, reference: projects.reference })
       .from(projects).where(eq(projects.id, email.projectId)).limit(1),
     db.select({ predictedTotal: budgetPredictions.predictedTotal })
       .from(budgetPredictions).where(eq(budgetPredictions.id, email.relatedEntityId)).limit(1),
@@ -152,7 +174,7 @@ async function sendAdminEscalation(email: typeof emailQueue.$inferSelect, create
     adminUsers.map((admin) =>
       sendEmail({
         to:               admin.email,
-        subject:          `[SOPAT] 🚨 Escalade — Budget non validé depuis 72h · ${project.reference}`,
+        subject:          `[SOPAT] Escalade — Budget non validé depuis 72h · ${project.reference}`,
         template:         'reminder-48h',
         props: {
           chefName:         admin.name,
@@ -167,7 +189,7 @@ async function sendAdminEscalation(email: typeof emailQueue.$inferSelect, create
         recipientId:       admin.id,
         relatedEntityType: 'budget_prediction',
         relatedEntityId:   email.relatedEntityId ?? undefined,
-        createdBy:         createdBy ?? 'system',
+        createdBy,
       })
     )
   )
