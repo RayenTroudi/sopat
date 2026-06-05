@@ -1,3 +1,4 @@
-export default function EntretienPage({ params }: { params: { id: string } }) {
-  return <div>Entretien — projet {params.id} — en cours de construction.</div>
+export default async function EntretienPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <div>Entretien — projet {id} — en cours de construction.</div>
 }

@@ -1,3 +1,4 @@
-export default function RealisationPage({ params }: { params: { id: string } }) {
-  return <div>Réalisation — projet {params.id} — en cours de construction.</div>
+export default async function RealisationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <div>Réalisation — projet {id} — en cours de construction.</div>
 }

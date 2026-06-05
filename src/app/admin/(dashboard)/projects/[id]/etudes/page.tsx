@@ -1,3 +1,4 @@
-export default function EtudesPage({ params }: { params: { id: string } }) {
-  return <div>Études — projet {params.id} — en cours de construction.</div>
+export default async function EtudesPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <div>Études — projet {id} — en cours de construction.</div>
 }
