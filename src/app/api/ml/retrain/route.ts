@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { spawn } from 'child_process'
-import path from 'path'
 import { auth } from '@/auth'
 
-const REPO_ROOT  = process.cwd()
-const RETRAIN_PY = path.join(REPO_ROOT, 'scripts', 'retrain_model.py')
-const PYTHON     = process.env.PYTHON_PATH ?? 'python'
+// child_process and path are required dynamically so Turbopack does not
+// statically trace process.cwd() and bundle the whole project filesystem.
+// They are never imported on Vercel because IS_VERCEL returns early above.
+async function getSpawn() {
+  const [{ spawn }, { join }] = await Promise.all([
+    import('child_process'),
+    import('path'),
+  ])
+  return {
+    spawn,
+    retrainPy: join(process.cwd(), 'scripts', 'retrain_model.py'),
+    python: process.env.PYTHON_PATH ?? 'python',
+  }
+}
 
 type RetrainEvent = {
   status:   'starting' | 'progress' | 'done' | 'error'
@@ -36,10 +45,12 @@ export async function POST(_req: NextRequest) {
   // Stream progress lines back as NDJSON
   const encoder = new TextEncoder()
 
+  const { spawn, retrainPy, python } = await getSpawn()
+
   const stream = new ReadableStream({
     start(controller) {
-      const child = spawn(PYTHON, [RETRAIN_PY], {
-        cwd: REPO_ROOT,
+      const child = spawn(python, [retrainPy], {
+        cwd: process.cwd(),
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
       })
 

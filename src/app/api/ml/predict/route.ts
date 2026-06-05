@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { spawn } from 'child_process'
-import path from 'path'
 import { auth } from '@/auth'
 import { assertProjectAccess } from '@/lib/db/projects'
 import { savePrediction } from '@/lib/db/predictions'
@@ -64,17 +62,25 @@ function ruleBased(body: Body): PredictionResult {
 // When VERCEL=1 is set (injected automatically by Vercel on all deployments)
 // we skip Python entirely and go straight to the rule-based fallback below.
 // For self-hosted / local dev, the Python model runs as normal.
+//
+// REPO_ROOT / PREDICT_PY are evaluated lazily (inside the function) so Turbopack
+// does not statically trace process.cwd() and include the whole project in the NFT.
 
-const IS_VERCEL   = Boolean(process.env.VERCEL)
-const REPO_ROOT   = path.join(process.cwd())
-const PREDICT_PY  = path.join(REPO_ROOT, 'scripts', 'predict.py')
-const PYTHON      = process.env.PYTHON_PATH ?? 'python'
-const TIMEOUT_MS  = 30_000
+const IS_VERCEL  = Boolean(process.env.VERCEL)
+const TIMEOUT_MS = 30_000
 
-function runPython(input: object): Promise<PredictionResult> {
+async function runPython(input: object): Promise<PredictionResult> {
+  const [{ spawn }, { join }] = await Promise.all([
+    import('child_process'),
+    import('path'),
+  ])
+  const repoRoot  = process.cwd()
+  const predictPy = join(repoRoot, 'scripts', 'predict.py')
+  const python    = process.env.PYTHON_PATH ?? 'python'
+
   return new Promise((resolve, reject) => {
-    const child = spawn(PYTHON, [PREDICT_PY], {
-      cwd: REPO_ROOT,
+    const child = spawn(python, [predictPy], {
+      cwd: repoRoot,
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     })
 
