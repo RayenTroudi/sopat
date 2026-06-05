@@ -1,11 +1,23 @@
-import { prisma } from '@/lib/db'
-import { calcPnl } from '@/lib/pnl'
-import ReportsClient from './ReportsClient'
+import { getBudgetVarianceReport, getNcMonthlyBreakdown, getProjectTimeline, getMlAccuracyReport } from '@/lib/db/reports'
+import { ReportsClient } from './ReportsClient'
 
 export const dynamic = 'force-dynamic'
+export const metadata = { title: 'Rapports | SOPAT Admin' }
 
 export default async function ReportsPage() {
-  const projects = await prisma.project.findMany({ select: { id: true } })
-  const results = (await Promise.all(projects.map(p => calcPnl(p.id)))).filter(Boolean) as NonNullable<Awaited<ReturnType<typeof calcPnl>>>[]
-  return <ReportsClient rows={results} />
+  const [budgetVariance, ncMonthly, timeline, mlAccuracy] = await Promise.all([
+    getBudgetVarianceReport(),
+    getNcMonthlyBreakdown(),
+    getProjectTimeline(),
+    getMlAccuracyReport(),
+  ])
+
+  return (
+    <ReportsClient
+      budgetVariance={budgetVariance}
+      ncMonthly={ncMonthly}
+      timeline={timeline}
+      mlAccuracy={mlAccuracy}
+    />
+  )
 }

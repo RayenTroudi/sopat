@@ -1,46 +1,48 @@
-import { prisma } from '@/lib/db'
-import ProjectsClient from './ProjectsClient'
+import Link from 'next/link'
+import { getAllProjects } from '@/lib/db/projects'
+import { ProjectsTable } from './ProjectsTable'
+import type { ProjectStatus } from '@/lib/db/projects'
 
+export const metadata = { title: 'Projets — SOPAT Admin' }
 export const dynamic = 'force-dynamic'
 
-export default async function ProjectsPage() {
-  const [projects, clients] = await Promise.all([
-    prisma.project.findMany({
-      include: {
-        client: { select: { id: true, name: true } },
-        budgetItems: true,
-        costItems: true,
-        timeEntries: true,
-        invoices: true,
-        overheadAllocs: true,
-      },
-      orderBy: { createdAt: 'desc' },
-    }),
-    prisma.client.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
-  ])
+type SearchParams = Promise<{ status?: string; page?: string }>
 
-  const rows = projects.map(p => {
-    const totalBudget = p.budgetItems.reduce((s, b) => s + b.plannedAmount, 0)
-    const totalCosts = p.costItems.reduce((s, c) => s + c.amount, 0) +
-      p.timeEntries.reduce((s, t) => s + t.amount, 0)
-    const overhead = p.overheadAllocs.reduce((s, o) => s + o.amount, 0)
-    const revenue = p.invoices.filter(i => i.status === 'Paid').reduce((s, i) => s + i.amount, 0)
-    const netProfit = revenue - totalCosts - overhead
-    const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0
-    return {
-      id: p.id,
-      name: p.name,
-      client: p.client,
-      status: p.status,
-      currency: p.currency,
-      stage: p.stage,
-      totalBudget,
-      totalCosts,
-      revenue,
-      netProfit,
-      margin,
-    }
-  })
+export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
+  const sp = await searchParams
+  const status = sp.status as ProjectStatus | undefined
+  const page = parseInt(sp.page ?? '1', 10)
 
-  return <ProjectsClient rows={rows} clients={clients} />
+  const { rows, total, pageSize } = await getAllProjects({ status, page, pageSize: 25 })
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>
+            Projets
+          </h1>
+          <p className="text-sm mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            Gestion de tous les projets paysagers
+          </p>
+        </div>
+        <Link
+          href="/admin/projects/new"
+          className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
+          style={{ background: 'var(--green)' }}
+        >
+          + Nouveau projet
+        </Link>
+      </div>
+
+      {/* Table */}
+      <ProjectsTable
+        rows={rows as Parameters<typeof ProjectsTable>[0]['rows']}
+        total={total}
+        page={page}
+        pageSize={pageSize}
+      />
+    </div>
+  )
 }

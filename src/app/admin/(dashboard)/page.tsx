@@ -1,440 +1,255 @@
 import Link from 'next/link'
-import { prisma } from '@/lib/db'
-import { KpiCard, Badge } from '@/components/admin/ui'
-import { tnd } from '@/lib/fmt'
-import BudgetChart from '@/components/admin/BudgetChart'
-import { STAGES, SHORT_STAGE_NAMES } from '@/lib/stages'
+import { auth } from '@/auth'
+import {
+  getDashboardKpis,
+  getRecentActivity,
+  getAtRiskProjects,
+  getUpcomingVisits,
+} from '@/lib/db/dashboard'
+import { MetricCard } from '@/components/dashboard/MetricCard'
+import { MiniPie } from '@/components/dashboard/MiniPie'
+import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
+import { AtRiskTable } from '@/components/dashboard/AtRiskTable'
 
 export const dynamic = 'force-dynamic'
+export const metadata = { title: 'Tableau de bord | SOPAT Admin' }
 
-async function getDashboardData() {
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const in7days = new Date(now.getTime() + 7 * 86400000)
-
-  const [projects, alerts, recentActivity, upcomingMilestones, openIssues] = await Promise.all([
-    prisma.project.findMany({
-      include: {
-        client: { select: { name: true } },
-        budgetItems: true,
-        costItems: true,
-        timeEntries: true,
-        invoices: { include: { payments: true } },
-        overheadAllocs: true,
-        milestones: true,
-        tasks: { where: { status: { not: 'Done' } } },
-      },
-    }),
-    fetch(`${process.env.NEXT_PUBLIC_BASE_URL ?? 'http://localhost:3000'}/api/admin/alerts`, {
-      cache: 'no-store',
-    }).then(r => r.json()).then(d => d.data ?? []).catch(() => []),
-    prisma.activityLog.findMany({
-      orderBy: { createdAt: 'desc' },
-      take: 8,
-      include: { project: { select: { name: true } } },
-    }),
-    prisma.milestone.findMany({
-      where: { dueDate: { lte: in7days, gte: now }, status: { not: 'Completed' } },
-      orderBy: { dueDate: 'asc' },
-      take: 5,
-      include: { project: { select: { name: true } } },
-    }),
-    prisma.issue.count({ where: { status: 'Open', severity: 'Critical' } }),
-  ])
-
-  const activeProjects = projects.filter(p => p.status === 'Active')
-  const delayedProjects = projects.filter(p => p.endDate && new Date(p.endDate) < now && p.status === 'Active')
-
-  const revenueThisMonth = projects.flatMap(p => p.invoices)
-    .filter(i => i.status === 'Paid' && new Date(i.date) >= monthStart)
-    .reduce((s, i) => s + i.amount, 0)
-
-  const costsThisMonth = projects.flatMap(p => p.costItems)
-    .filter(c => new Date(c.date) >= monthStart)
-    .reduce((s, c) => s + c.amount, 0)
-
-  const pendingInvoices = projects.flatMap(p => p.invoices).filter(i => i.status === 'Issued')
-  const pendingTotal = pendingInvoices.reduce((s, i) => s + i.totalAmount, 0)
-
-  const atRisk = projects.filter(p => {
-    const budget = p.budgetItems.reduce((s, b) => s + b.plannedAmount, 0)
-    const costs = p.costItems.reduce((s, c) => s + c.amount, 0) +
-      p.timeEntries.reduce((s, t) => s + t.amount, 0)
-    return budget > 0 && costs / budget > 0.8
-  })
-
-  // Stage distribution
-  const stageDistribution: Record<number, number> = {}
-  for (const p of projects.filter(p => p.status === 'Active')) {
-    stageDistribution[p.stage] = (stageDistribution[p.stage] ?? 0) + 1
-  }
-
-  const top5 = projects.map(p => {
-    const revenue = p.invoices.filter(i => i.status === 'Paid').reduce((s, i) => s + i.amount, 0)
-    const costs = p.costItems.reduce((s, c) => s + c.amount, 0) +
-      p.timeEntries.reduce((s, t) => s + t.amount, 0) +
-      p.overheadAllocs.reduce((s, o) => s + o.amount, 0)
-    const netProfit = revenue - costs
-    const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0
-    return { id: p.id, name: p.name, client: p.client.name, status: p.status, stage: p.stage, revenue, netProfit, margin }
-  }).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
-
-  const chartData = projects.slice(0, 8).map(p => ({
-    name: p.name.length > 12 ? p.name.slice(0, 12) + '…' : p.name,
-    budget: p.budgetItems.reduce((s, b) => s + b.plannedAmount, 0),
-    actual: p.costItems.reduce((s, c) => s + c.amount, 0) +
-      p.timeEntries.reduce((s, t) => s + t.amount, 0),
-  }))
-
-  return {
-    totalProjects: projects.length,
-    activeCount: activeProjects.length,
-    delayedCount: delayedProjects.length,
-    revenueThisMonth,
-    costsThisMonth,
-    pendingCount: pendingInvoices.length,
-    pendingTotal,
-    atRiskCount: atRisk.length,
-    openCriticalIssues: openIssues,
-    top5,
-    chartData,
-    stageDistribution,
-    alerts: (alerts as Array<{ type: string; category: string; projectId?: string; projectName?: string; message: string }>).slice(0, 5),
-    recentActivity: JSON.parse(JSON.stringify(recentActivity)),
-    upcomingMilestones: JSON.parse(JSON.stringify(upcomingMilestones)),
-  }
+const VISIT_TYPE_LABELS: Record<string, string> = {
+  taille:                    'Taille',
+  arrosage:                  'Arrosage',
+  traitement_phytosanitaire: 'Traitement',
+  fertilisation:             'Fertilisation',
+  controle_general:          'Contrôle général',
+  other:                     'Autre',
 }
 
-function IconActive() {
-  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>
+function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+      <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'var(--admin-border)' }}>
+        <h2 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</h2>
+        {action}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  )
 }
-function IconDelay() {
-  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-}
-function IconRevenue() {
-  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 2v20M17 5H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6" /></svg>
-}
-function IconPending() {
-  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12h6m-6 4h6M7 4h10a2 2 0 012 2v14l-3-2-2 2-2-2-2 2-2-2-3 2V6a2 2 0 012-2z" /></svg>
-}
-function IconRisk() {
-  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
-}
-function IconIssue() {
-  return <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+
+function StarRating({ score }: { score: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <span key={s} className="text-lg" style={{ color: score >= s ? '#F59E0B' : 'var(--admin-border)' }}>★</span>
+      ))}
+    </div>
+  )
 }
 
 export default async function AdminDashboard() {
-  const d = await getDashboardData()
+  const [kpis, activity, atRisk, upcomingVisits] = await Promise.all([
+    getDashboardKpis(),
+    getRecentActivity(20),
+    getAtRiskProjects(),
+    getUpcomingVisits(7),
+  ])
 
-  const marginStyle = (pct: number) => ({
-    color: pct > 20 ? 'var(--admin-emerald)' : pct >= 5 ? 'var(--admin-amber)' : 'var(--admin-red)',
-    fontFamily: 'var(--font-sans)',
-  })
+  const { activeProjects, onTimeDeliveryRate, avgBudgetVariance, openNcs, ncSlaClosureRate, maintenanceThisMonth, satisfactionScore } = kpis
+
+  const phaseColors = {
+    etudes:      '#2D5A27',
+    realisation: '#D97706',
+    entretien:   '#2563EB',
+  }
+  const phasePieData = [
+    { name: 'Études',      value: activeProjects.byPhase.etudes,      color: phaseColors.etudes },
+    { name: 'Réalisation', value: activeProjects.byPhase.realisation,  color: phaseColors.realisation },
+    { name: 'Entretien',   value: activeProjects.byPhase.entretien,    color: phaseColors.entretien },
+  ]
+
+  const varianceAccent = avgBudgetVariance === null ? 'muted'
+    : avgBudgetVariance > 10 ? 'red'
+    : avgBudgetVariance > 0  ? 'amber'
+    : 'green'
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-
-      {/* Header */}
-      <div className="flex items-end justify-between">
+      {/* Page title */}
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs uppercase tracking-widest mb-1"
-            style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)', letterSpacing: '0.12em' }}>
-            SOPAT
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Tableau de bord</h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            Objectifs qualité ISO 9001:2015 · Mis à jour en temps réel
           </p>
-          <h1 className="text-3xl font-semibold" style={{ color: 'var(--admin-text)', fontFamily: 'var(--font-playfair)' }}>
-            Tableau de bord
-          </h1>
         </div>
-        <div className="text-xs px-3 py-1.5 rounded-lg"
-          style={{ background: 'var(--admin-card)', color: 'var(--admin-text-muted)', border: '1px solid var(--admin-border)', fontFamily: 'var(--font-sans)' }}>
-          {new Date().toLocaleDateString('fr-TN', { day: 'numeric', month: 'long', year: 'numeric' })}
-        </div>
+        <Link href="/admin/reports" className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>
+          Voir les rapports →
+        </Link>
       </div>
 
-      {/* KPI row — 6 cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-        <KpiCard label="Projets actifs" value={d.activeCount} accent="green" icon={<IconActive />} />
-        <KpiCard label="En retard" value={d.delayedCount} accent="red" icon={<IconDelay />} />
-        <KpiCard label="Revenus ce mois" value={tnd(d.revenueThisMonth)} accent="green" icon={<IconRevenue />} />
-        <KpiCard label="Factures en attente" value={d.pendingCount} sub={tnd(d.pendingTotal)} accent="orange" icon={<IconPending />} />
-        <KpiCard label="Projets à risque" value={d.atRiskCount} accent="red" icon={<IconRisk />} />
-        <KpiCard label="Problèmes critiques" value={d.openCriticalIssues} accent="red" icon={<IconIssue />} />
+      {/* KPI cards — 4 columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        {/* 1. Active projects */}
+        <MetricCard
+          title="Projets actifs"
+          value={activeProjects.total}
+          subtitle={`Études: ${activeProjects.byPhase.etudes} · Réalisation: ${activeProjects.byPhase.realisation} · Entretien: ${activeProjects.byPhase.entretien}`}
+          trend={{ value: activeProjects.trendVsLastMonth, suffix: ' vs mois préc.' }}
+          accent="green"
+        >
+          <MiniPie data={phasePieData} size={56} />
+        </MetricCard>
+
+        {/* 2. On-time delivery */}
+        <MetricCard
+          title="Livraison dans les délais"
+          value={`${onTimeDeliveryRate}%`}
+          subtitle="Projets terminés dans les délais prévus"
+          accent={onTimeDeliveryRate >= 80 ? 'green' : onTimeDeliveryRate >= 60 ? 'amber' : 'red'}
+          isoClause="8.1"
+        />
+
+        {/* 3. Budget variance */}
+        <MetricCard
+          title="Variance budgétaire moy."
+          value={avgBudgetVariance === null ? '—' : `${avgBudgetVariance > 0 ? '+' : ''}${avgBudgetVariance}%`}
+          subtitle="Écart moyen budget approuvé vs dépenses réelles"
+          accent={varianceAccent}
+          isoClause="8.1"
+        />
+
+        {/* 4. Open NCs */}
+        <MetricCard
+          title="Non-conformités ouvertes"
+          value={openNcs.count}
+          subtitle={openNcs.overdue > 0 ? `⚠ ${openNcs.overdue} en retard sur délai` : 'Toutes dans les délais'}
+          trend={{ value: openNcs.trendVsLastMonth, suffix: ' vs mois préc.' }}
+          accent={openNcs.count === 0 ? 'green' : openNcs.overdue > 0 ? 'red' : 'amber'}
+          isoClause="8.7"
+        />
+
       </div>
 
-      {/* Pipeline des projets — 4 stages */}
-      <div className="rounded-xl overflow-hidden" style={{ background: 'var(--admin-card)', border: '1px solid var(--admin-border)' }}>
-        <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-widest"
-              style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)', letterSpacing: '0.1em' }}>
-              Pipeline des Projets
-            </h3>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>
-              {d.activeCount} projets actifs
-            </p>
-          </div>
-          <Link href="/admin/projects/lifecycle"
-            className="text-xs font-medium px-3 py-1.5 rounded-lg"
-            style={{ color: 'var(--admin-accent)', background: 'var(--admin-accent-dim)', fontFamily: 'var(--font-sans)' }}>
-            Voir le pipeline complet →
-          </Link>
-        </div>
-        <div className="px-5 py-4 space-y-3">
-          {[1, 2, 3, 4].map(n => {
-            const count = d.stageDistribution[n] ?? 0
-            const maxCount = Math.max(1, ...Object.values(d.stageDistribution))
-            const barPct = Math.round((count / maxCount) * 100)
-            const color = STAGES[n].color
-            return (
-              <div key={n} className="flex items-center gap-3">
-                <p className="text-xs font-medium flex-shrink-0" style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)', width: 96 }}>
-                  {SHORT_STAGE_NAMES[n]}
-                </p>
-                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: 'var(--admin-border)' }}>
-                  <div className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${barPct}%`, background: color }} />
-                </div>
-                <span className="text-xs font-semibold flex-shrink-0 tabular-nums"
-                  style={{ color: count > 0 ? color : 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)', width: 64, textAlign: 'right' }}>
-                  {count} projet{count !== 1 ? 's' : ''}
-                </span>
-              </div>
-            )
-          })}
-        </div>
+      {/* Second row of KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+        {/* 5. NC SLA closure rate */}
+        <MetricCard
+          title="Taux clôture NC dans les délais"
+          value={`${ncSlaClosureRate}%`}
+          subtitle="NCs clôturées avant leur délai SLA"
+          accent={ncSlaClosureRate >= 80 ? 'green' : ncSlaClosureRate >= 60 ? 'amber' : 'red'}
+          isoClause="10.2"
+        />
+
+        {/* 6. Maintenance this month */}
+        <MetricCard
+          title="Visites maintenance ce mois"
+          value={`${maintenanceThisMonth.completed} / ${maintenanceThisMonth.scheduled}`}
+          subtitle={`${maintenanceThisMonth.scheduled - maintenanceThisMonth.completed} visite${maintenanceThisMonth.scheduled - maintenanceThisMonth.completed !== 1 ? 's' : ''} restante${maintenanceThisMonth.scheduled - maintenanceThisMonth.completed !== 1 ? 's' : ''}`}
+          accent={maintenanceThisMonth.scheduled === 0 ? 'muted' : maintenanceThisMonth.completed === maintenanceThisMonth.scheduled ? 'green' : 'blue'}
+        />
+
+        {/* 7. Client satisfaction */}
+        <MetricCard
+          title="Satisfaction client (12 mois)"
+          value={satisfactionScore !== null ? `${satisfactionScore} / 5` : '—'}
+          subtitle="Score moyen glissant sur 12 mois"
+          accent={satisfactionScore === null ? 'muted' : satisfactionScore >= 4 ? 'green' : satisfactionScore >= 3 ? 'amber' : 'red'}
+          isoClause="9.1.2"
+        >
+          {satisfactionScore !== null && <StarRating score={Math.round(satisfactionScore)} />}
+        </MetricCard>
+
       </div>
 
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      {/* Bottom grid: activity + risk + visits */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Top 5 projects */}
-        <div className="admin-card-shine lg:col-span-2 rounded-xl overflow-hidden"
-          style={{ background: 'var(--admin-card)', border: '1px solid var(--admin-border)' }}>
-          <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
-            <div>
-              <h3 className="font-semibold text-xs uppercase tracking-widest"
-                style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)', letterSpacing: '0.1em' }}>
-                Top 5 Projets
-              </h3>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>
-                classé par chiffre d&apos;affaires
+        {/* Activity feed — 1 col */}
+        <Section title="Activité récente">
+          <ActivityFeed entries={activity} />
+        </Section>
+
+        {/* At-risk projects + upcoming visits — 2 cols */}
+        <div className="lg:col-span-2 space-y-6">
+          <Section
+            title={`Projets à risque${atRisk.length > 0 ? ` — ${atRisk.length}` : ''}`}
+            action={
+              <Link href="/admin/projects" className="text-xs" style={{ color: 'var(--admin-blue)' }}>
+                Voir tous →
+              </Link>
+            }
+          >
+            <AtRiskTable projects={atRisk} />
+          </Section>
+
+          <Section
+            title="Visites de maintenance — 7 prochains jours"
+            action={
+              <Link href="/admin/projects" className="text-xs" style={{ color: 'var(--admin-blue)' }}>
+                Voir tous les projets →
+              </Link>
+            }
+          >
+            {upcomingVisits.length === 0 ? (
+              <p className="text-sm py-4 text-center" style={{ color: 'var(--admin-text-muted)' }}>
+                Aucune visite planifiée dans les 7 prochains jours.
               </p>
-            </div>
-            <Link href="/admin/projects"
-              className="text-xs font-medium px-3 py-1.5 rounded-lg"
-              style={{ color: 'var(--admin-accent)', background: 'var(--admin-accent-dim)', fontFamily: 'var(--font-sans)' }}>
-              Voir tout →
-            </Link>
-          </div>
-          <div className="overflow-x-auto admin-scroll">
-            <table className="w-full" style={{ fontFamily: 'var(--font-sans)' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
-                  {['#', 'Projet', 'Client', 'Étape', 'Statut', 'Revenu', 'Marge'].map((h, i) => (
-                    <th key={h} className="py-3 text-xs uppercase tracking-widest font-medium"
-                      style={{ color: 'var(--admin-text-dim)', paddingLeft: i === 0 ? '1.25rem' : '1rem', paddingRight: i === 6 ? '1.25rem' : '1rem', textAlign: i >= 5 ? 'right' : 'left', letterSpacing: '0.08em' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {d.top5.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-sm" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>
-                      Aucun projet
-                    </td>
-                  </tr>
-                )}
-                {d.top5.map((p, idx) => (
-                  <tr key={p.id} className="admin-tr transition-colors duration-100"
-                    style={{ borderBottom: '1px solid var(--admin-border)', position: 'relative' }}>
-                    <td className="py-3.5 pl-5 pr-4">
-                      <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ background: idx === 0 ? 'var(--admin-accent-dim)' : 'var(--admin-border)', color: idx === 0 ? 'var(--admin-accent)' : 'var(--admin-text-dim)', display: 'inline-flex', fontFamily: 'var(--font-sans)' }}>
-                        {idx + 1}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <Link href={`/admin/projects/${p.id}`}
-                        className="font-medium text-sm after:absolute after:inset-0"
-                        style={{ color: 'var(--admin-text)', fontFamily: 'var(--font-sans)' }}>
-                        {p.name}
-                      </Link>
-                    </td>
-                    <td className="py-3.5 px-4 text-sm" style={{ color: 'var(--admin-text-muted)' }}>{p.client}</td>
-                    <td className="py-3.5 px-4">
-                      <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                        style={{ background: STAGES[p.stage]?.color + '20', color: STAGES[p.stage]?.color, fontFamily: 'var(--font-sans)' }}>
-                        {SHORT_STAGE_NAMES[p.stage] ?? `Ét. ${p.stage}`}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4"><Badge status={p.status} /></td>
-                    <td className="py-3.5 px-4 text-right text-sm font-medium tabular-nums" style={{ color: 'var(--admin-text)' }}>
-                      {tnd(p.revenue)}
-                    </td>
-                    <td className="py-3.5 pl-4 pr-5 text-right">
-                      <span className="text-sm font-bold tabular-nums" style={marginStyle(p.margin)}>
-                        {p.margin.toFixed(1)}%
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Right column: Alerts + Upcoming milestones */}
-        <div className="space-y-5">
-          {/* Alerts */}
-          <div className="admin-card-shine rounded-xl overflow-hidden"
-            style={{ background: 'var(--admin-card)', border: '1px solid var(--admin-border)' }}>
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
-              <h3 className="font-semibold text-xs uppercase tracking-widest"
-                style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)', letterSpacing: '0.1em' }}>
-                Alertes récentes
-              </h3>
-              <Link href="/admin/alerts"
-                className="text-xs font-medium px-3 py-1.5 rounded-lg"
-                style={{ color: 'var(--admin-accent)', background: 'var(--admin-accent-dim)', fontFamily: 'var(--font-sans)' }}>
-                Voir tout →
-              </Link>
-            </div>
-            <div>
-              {d.alerts.length === 0 && (
-                <div className="px-5 py-8 text-center text-sm" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>
-                  Aucune alerte
-                </div>
-              )}
-              {d.alerts.map((a, i) => (
-                <div key={i} className="px-5 py-3 flex items-start gap-3 transition-colors duration-100"
-                  style={{ borderBottom: i < d.alerts.length - 1 ? '1px solid var(--admin-border)' : 'none' }}>
-                  <div className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: a.type === 'critical' ? 'var(--admin-red-dim)' : 'var(--admin-amber-dim)', color: a.type === 'critical' ? 'var(--admin-red)' : 'var(--admin-amber)' }}>
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    {a.projectName && (
-                      <p className="text-xs font-semibold truncate mb-0.5" style={{ color: 'var(--admin-text)', fontFamily: 'var(--font-sans)' }}>{a.projectName}</p>
-                    )}
-                    <p className="text-xs leading-relaxed" style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)' }}>{a.message}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Upcoming milestones */}
-          <div className="admin-card-shine rounded-xl overflow-hidden"
-            style={{ background: 'var(--admin-card)', border: '1px solid var(--admin-border)' }}>
-            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
-              <h3 className="font-semibold text-xs uppercase tracking-widest"
-                style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)', letterSpacing: '0.1em' }}>
-                Jalons cette semaine
-              </h3>
-              <Link href="/admin/projects/milestones"
-                className="text-xs font-medium px-3 py-1.5 rounded-lg"
-                style={{ color: 'var(--admin-accent)', background: 'var(--admin-accent-dim)', fontFamily: 'var(--font-sans)' }}>
-                Voir tout →
-              </Link>
-            </div>
-            <div>
-              {d.upcomingMilestones.length === 0 ? (
-                <div className="px-5 py-8 text-center text-sm" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>
-                  Aucun jalon cette semaine
-                </div>
-              ) : (
-                d.upcomingMilestones.map((m: { id: string; title: string; dueDate: string; project: { name: string } }, i: number) => (
-                  <div key={m.id} className="px-5 py-3 flex items-center gap-3"
-                    style={{ borderBottom: i < d.upcomingMilestones.length - 1 ? '1px solid var(--admin-border)' : 'none' }}>
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: 'var(--admin-amber)' }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate" style={{ color: 'var(--admin-text)', fontFamily: 'var(--font-sans)' }}>{m.title}</p>
-                      <p className="text-xs" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>{m.project.name}</p>
-                    </div>
-                    <span className="text-xs flex-shrink-0" style={{ color: 'var(--admin-amber)', fontFamily: 'var(--font-sans)' }}>
-                      {new Date(m.dueDate).toLocaleDateString('fr-TN', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity + Budget Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Recent activity */}
-        <div className="admin-card-shine rounded-xl overflow-hidden"
-          style={{ background: 'var(--admin-card)', border: '1px solid var(--admin-border)' }}>
-          <div className="px-5 py-4" style={{ borderBottom: '1px solid var(--admin-border)' }}>
-            <h3 className="font-semibold text-xs uppercase tracking-widest"
-              style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)', letterSpacing: '0.1em' }}>
-              Activité récente
-            </h3>
-          </div>
-          <div className="divide-y" style={{ borderColor: 'var(--admin-border)' }}>
-            {d.recentActivity.length === 0 ? (
-              <div className="px-5 py-8 text-center text-sm" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>
-                Aucune activité
-              </div>
             ) : (
-              d.recentActivity.map((log: { id: string; description: string; createdAt: string; project?: { name: string } | null }) => (
-                <div key={log.id} className="px-5 py-3 flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
-                    style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs leading-tight" style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)' }}>{log.description}</p>
-                    <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>
-                      {log.project?.name} · {new Date(log.createdAt).toLocaleDateString('fr-TN', { day: 'numeric', month: 'short' })}
-                    </p>
-                  </div>
-                </div>
-              ))
+              <div className="space-y-2">
+                {upcomingVisits.map((v) => {
+                  const dayDiff = Math.ceil((new Date(v.visitDate).getTime() - Date.now()) / 86400000)
+                  return (
+                    <div
+                      key={v.id}
+                      className="flex items-center gap-4 px-4 py-3 rounded-lg border"
+                      style={{ borderColor: 'var(--admin-border)' }}
+                    >
+                      {/* Date badge */}
+                      <div className="shrink-0 w-12 text-center">
+                        <p className="text-lg font-bold tabular-nums leading-none" style={{ color: 'var(--admin-emerald)' }}>
+                          {new Date(v.visitDate).getDate()}
+                        </p>
+                        <p className="text-xs uppercase" style={{ color: 'var(--admin-text-muted)' }}>
+                          {new Date(v.visitDate).toLocaleDateString('fr-FR', { month: 'short' })}
+                        </p>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: 'var(--admin-text)' }}>
+                          {v.projectName ?? '—'}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                          {VISIT_TYPE_LABELS[v.visitType] ?? v.visitType}
+                          {v.teamMemberName ? ` · ${v.teamMemberName}` : ''}
+                          {v.durationHours ? ` · ${v.durationHours}h` : ''}
+                        </p>
+                      </div>
+                      <span
+                        className="text-xs px-2 py-0.5 rounded font-medium shrink-0"
+                        style={{
+                          background: dayDiff <= 1 ? 'var(--admin-amber-dim)' : 'var(--admin-emerald-dim)',
+                          color:      dayDiff <= 1 ? 'var(--admin-amber)'     : 'var(--admin-emerald)',
+                        }}
+                      >
+                        {dayDiff <= 0 ? 'Aujourd\'hui' : dayDiff === 1 ? 'Demain' : `J+${dayDiff}`}
+                      </span>
+                      <Link
+                        href={`/admin/projects/${v.projectId}?tab=entretien`}
+                        className="text-xs shrink-0 hover:underline"
+                        style={{ color: 'var(--admin-blue)' }}
+                      >
+                        Voir →
+                      </Link>
+                    </div>
+                  )
+                })}
+              </div>
             )}
-          </div>
+          </Section>
         </div>
 
-        {/* Budget chart */}
-        <div className="admin-card-shine lg:col-span-2 rounded-xl"
-          style={{ background: 'var(--admin-card)', border: '1px solid var(--admin-border)' }}>
-          <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
-            <div>
-              <h3 className="font-semibold text-xs uppercase tracking-widest"
-                style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)', letterSpacing: '0.1em' }}>
-                Budget vs Coûts réels
-              </h3>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-dim)', fontFamily: 'var(--font-sans)' }}>
-                {d.chartData.length} projets · montants en TND
-              </p>
-            </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-1.5 rounded-full" style={{ background: '#4CAF80' }} />
-                <span className="text-xs" style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)' }}>Budget</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-1.5 rounded-full" style={{ background: '#E8C96A' }} />
-                <span className="text-xs" style={{ color: 'var(--admin-text-muted)', fontFamily: 'var(--font-sans)' }}>Coûts réels</span>
-              </div>
-            </div>
-          </div>
-          <div className="p-5">
-            <BudgetChart data={d.chartData} />
-          </div>
-        </div>
       </div>
-
     </div>
   )
 }

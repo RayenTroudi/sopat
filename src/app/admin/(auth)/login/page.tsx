@@ -1,11 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { signIn } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 
 export default function AdminLoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const callbackUrl = searchParams.get('callbackUrl') ?? '/admin'
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -16,16 +20,15 @@ export default function AdminLoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
       })
-      const data = await res.json()
-      if (!data.success) {
-        setError(data.error ?? 'Login failed')
+      if (result?.error) {
+        setError('Email ou mot de passe incorrect')
       } else {
-        router.push('/admin')
+        router.push(callbackUrl)
         router.refresh()
       }
     } catch {
@@ -40,7 +43,15 @@ export default function AdminLoginPage() {
       {/* Left panel — green brand strip */}
       <div className="hidden lg:flex w-1/2 bg-green flex-col justify-between p-12">
         <div>
-          <Image src="/logo-768x519.svg" alt="SOPAT" width={140} height={95} priority loading="eager" style={{ filter: 'brightness(0) invert(1)' }} />
+          <Image
+            src="/logo-768x519.svg"
+            alt="SOPAT"
+            width={140}
+            height={95}
+            priority
+            loading="eager"
+            style={{ filter: 'brightness(0) invert(1)' }}
+          />
         </div>
         <div>
           <p className="font-display text-4xl text-ivory font-light leading-snug">
@@ -48,7 +59,7 @@ export default function AdminLoginPage() {
           </p>
           <div className="mt-6 w-10 h-px bg-gold" />
         </div>
-        <p className="text-white/25 text-xs font-sans">SOPAT Finance v1.0</p>
+        <p className="text-white/25 text-xs font-sans">SOPAT Admin v2.0</p>
       </div>
 
       {/* Right panel — form */}
@@ -71,7 +82,7 @@ export default function AdminLoginPage() {
               <input
                 type="email"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
                 placeholder="admin@sopat.tn"
@@ -86,7 +97,7 @@ export default function AdminLoginPage() {
               <input
                 type="password"
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 required
                 autoComplete="current-password"
                 placeholder="••••••••"
@@ -95,7 +106,9 @@ export default function AdminLoginPage() {
             </div>
 
             {error && (
-              <p className="text-red-500 text-xs font-sans">{error}</p>
+              <p className="text-red-500 text-xs font-sans" role="alert">
+                {error}
+              </p>
             )}
 
             <button
