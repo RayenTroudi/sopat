@@ -12,8 +12,8 @@ model Post {
   id            Int       @id
   slug          String    @unique
   title         String
-  content       String    @db.Text
-  excerpt       String    @db.Text
+  content       String
+  excerpt       String
   date          DateTime
   modified      DateTime?
   author        Int
@@ -28,7 +28,7 @@ model Page {
   id            Int      @id
   slug          String   @unique
   title         String
-  content       String   @db.Text
+  content       String
   parent        Int
   menuOrder     Int
   featuredImage String?
