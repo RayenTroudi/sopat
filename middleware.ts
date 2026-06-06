@@ -1,8 +1,11 @@
-import { auth } from '@/auth'
+import NextAuth from 'next-auth'
+import { authConfig } from '@/auth.config'
 import { NextResponse } from 'next/server'
 import { canAccessPath } from '@/lib/auth-utils'
 import type { UserRole } from '@/lib/auth-utils'
 import type { NextAuthRequest } from 'next-auth'
+
+const { auth } = NextAuth(authConfig)
 
 export default auth((req: NextAuthRequest) => {
   const { pathname } = req.nextUrl
@@ -10,9 +13,7 @@ export default auth((req: NextAuthRequest) => {
 
   if (pathname.startsWith('/admin')) {
     if (pathname === '/admin/login') {
-      if (session) {
-        return NextResponse.redirect(new URL('/admin', req.url))
-      }
+      if (session) return NextResponse.redirect(new URL('/admin', req.url))
       return NextResponse.next()
     }
 
