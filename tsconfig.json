@@ -21,6 +21,7 @@
     "paths": {
       "@/*": ["./src/*"],
       "@/auth": ["./auth.ts"],
+      "@/auth.config": ["./auth.config.ts"],
       "@/db": ["./db/index.ts"],
       "@/db/*": ["./db/*"]
     }

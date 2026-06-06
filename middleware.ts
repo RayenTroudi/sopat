@@ -1,5 +1,5 @@
 import NextAuth from 'next-auth'
-import { authConfig } from '@/auth.config'
+import { authConfig } from './auth.config'
 import { NextResponse } from 'next/server'
 import { canAccessPath } from '@/lib/auth-utils'
 import type { UserRole } from '@/lib/auth-utils'
