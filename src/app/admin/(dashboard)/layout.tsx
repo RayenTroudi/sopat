@@ -1,10 +1,8 @@
 import { redirect } from 'next/navigation'
-import { headers } from 'next/headers'
 import { auth, signOut } from '@/auth'
 import SessionProvider from '@/components/SessionProvider'
 import { ToastProvider } from '@/components/ui/Toast'
-import { ROLE_LABELS, canAccessPath } from '@/lib/auth-utils'
-import type { UserRole } from '@/lib/auth-utils'
+import { ROLE_LABELS } from '@/lib/auth-utils'
 import { AdminNav } from '@/components/AdminNav'
 
 export const metadata = { title: 'SOPAT Admin' }
@@ -12,11 +10,6 @@ export const metadata = { title: 'SOPAT Admin' }
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   if (!session) redirect('/admin/login')
-
-  const headersList = await headers()
-  const pathname = headersList.get('x-invoke-path') ?? headersList.get('x-pathname') ?? '/admin'
-  const role = session.user.role as UserRole
-  if (!canAccessPath(role, pathname)) redirect('/admin')
 
   return (
     <SessionProvider session={session}>
