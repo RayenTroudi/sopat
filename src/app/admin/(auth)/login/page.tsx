@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 
 export default function AdminLoginPage() {
-  const [callbackUrl, setCallbackUrl] = useState('/admin')
+  const [redirectPath, setRedirectPath] = useState('/admin')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const cb = params.get('callbackUrl')
-    if (cb && cb.startsWith('/') && !cb.startsWith('//')) setCallbackUrl(cb)
+    if (cb && cb.startsWith('/') && !cb.startsWith('//')) setRedirectPath(cb)
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -23,6 +23,9 @@ export default function AdminLoginPage() {
     try {
       const csrfRes = await fetch('/api/auth/csrf')
       const { csrfToken } = await csrfRes.json()
+
+      // NextAuth v5 requires an absolute URL for callbackUrl in production
+      const callbackUrl = window.location.origin + redirectPath
 
       const body = new URLSearchParams({ email, password, csrfToken, callbackUrl })
       const res = await fetch('/api/auth/callback/credentials', {
@@ -35,7 +38,8 @@ export default function AdminLoginPage() {
       if (res.url.includes('error=')) {
         setError('Email ou mot de passe incorrect')
       } else {
-        window.location.href = callbackUrl
+        // Navigate directly — session cookie is set regardless of where NextAuth redirected
+        window.location.href = redirectPath
       }
     } catch {
       setError('Erreur réseau, veuillez réessayer')
