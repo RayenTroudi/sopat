@@ -1,36 +1,40 @@
-import NextAuth from 'next-auth'
-import { authConfig } from './auth.config'
 import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getToken } from 'next-auth/jwt'
 import { canAccessPath } from '@/lib/auth-utils'
 import type { UserRole } from '@/lib/auth-utils'
-import type { NextAuthRequest } from 'next-auth'
 
-const { auth } = NextAuth(authConfig)
-
-export default auth((req: NextAuthRequest) => {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const session = req.auth
 
-  if (pathname.startsWith('/admin')) {
-    if (pathname === '/admin/login') {
-      if (session) return NextResponse.redirect(new URL('/admin', req.url))
-      return NextResponse.next()
-    }
+  if (!pathname.startsWith('/admin')) return NextResponse.next()
 
-    if (!session) {
-      const loginUrl = new URL('/admin/login', req.url)
-      loginUrl.searchParams.set('callbackUrl', pathname)
-      return NextResponse.redirect(loginUrl)
-    }
+  const token = await getToken({
+    req,
+    secret: process.env.AUTH_SECRET,
+    secureCookie: true,
+    cookieName: '__Secure-authjs.session-token',
+    salt: '__Secure-authjs.session-token',
+  })
 
-    const role = session.user.role as UserRole
-    if (!canAccessPath(role, pathname)) {
-      return NextResponse.redirect(new URL('/admin', req.url))
-    }
+  if (pathname === '/admin/login') {
+    if (token) return NextResponse.redirect(new URL('/admin', req.url))
+    return NextResponse.next()
+  }
+
+  if (!token) {
+    const loginUrl = new URL('/admin/login', req.url)
+    loginUrl.searchParams.set('callbackUrl', pathname)
+    return NextResponse.redirect(loginUrl)
+  }
+
+  const role = token.role as UserRole
+  if (!canAccessPath(role, pathname)) {
+    return NextResponse.redirect(new URL('/admin', req.url))
   }
 
   return NextResponse.next()
-})
+}
 
 export const config = {
   matcher: ['/admin/:path*'],
