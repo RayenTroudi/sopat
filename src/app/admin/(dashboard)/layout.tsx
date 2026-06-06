@@ -1,4 +1,5 @@
-import { redirect, headers } from 'next/navigation'
+import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { auth, signOut } from '@/auth'
 import SessionProvider from '@/components/SessionProvider'
 import { ToastProvider } from '@/components/ui/Toast'
