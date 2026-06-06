@@ -4,6 +4,8 @@ import { getToken } from 'next-auth/jwt'
 import { canAccessPath } from '@/lib/auth-utils'
 import type { UserRole } from '@/lib/auth-utils'
 
+export const runtime = 'nodejs'
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
@@ -14,7 +16,6 @@ export async function middleware(req: NextRequest) {
     secret: process.env.AUTH_SECRET,
     secureCookie: true,
     cookieName: '__Secure-authjs.session-token',
-    salt: '__Secure-authjs.session-token',
   })
 
   if (pathname === '/admin/login') {
