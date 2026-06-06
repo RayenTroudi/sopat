@@ -51,10 +51,10 @@ async function markSwept() {
   const val = { ts: Date.now() }
   if (existing.length > 0) {
     await db.update(systemSettings)
-      .set({ value: val, updatedAt: new Date(), updatedBy: 'system' })
+      .set({ value: val, updatedAt: new Date(), updatedBy: null })
       .where(eq(systemSettings.key, SETTINGS_KEY))
   } else {
-    await db.insert(systemSettings).values({ key: SETTINGS_KEY, value: val, updatedBy: 'system' })
+    await db.insert(systemSettings).values({ key: SETTINGS_KEY, value: val, updatedBy: null })
   }
 }
 
