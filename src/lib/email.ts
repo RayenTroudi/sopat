@@ -34,6 +34,9 @@ export type EmailTemplate =
   | 'nc-assigned'
   | 'maintenance-reminder'
   | 'reminder-48h'
+  | 'rse-expiry-warning'
+  | 'rse-commitment-overdue'
+  | 'rse-communication-submitted'
 
 export type SendEmailOptions = {
   to:                  string | string[]
@@ -135,6 +138,22 @@ async function renderTemplate(
     case 'reminder-48h': {
       const { Reminder48hEmail } = await import('../../emails/reminder-48h')
       return render(Reminder48hEmail(props as Parameters<typeof Reminder48hEmail>[0]))
+    }
+    case 'rse-expiry-warning':
+    case 'rse-commitment-overdue':
+    case 'rse-communication-submitted': {
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+      const title = template === 'rse-expiry-warning'
+        ? 'Convention RSE arrivant à échéance'
+        : template === 'rse-commitment-overdue'
+        ? 'Engagement RSE en retard'
+        : 'Nouvelle demande de communication RSE'
+      return `<html><body style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px">
+        <h2 style="color:#166534">[SOPAT RSE] ${esc(title)}</h2>
+        <pre style="font-size:14px;white-space:pre-wrap">${esc(JSON.stringify(props, null, 2))}</pre>
+        <hr/><p style="color:#6b7280;font-size:12px">SOPAT Admin — Ne pas répondre à cet e-mail.</p>
+      </body></html>`
     }
   }
 }

@@ -22,6 +22,7 @@ import {
 import { eq, and, desc } from 'drizzle-orm'
 import { sendEmail } from '@/lib/email'
 import { signValidationToken } from '@/lib/jwt'
+import { runRseReminderSweep } from '@/lib/tasks/rse-reminders'
 
 const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sopat.vercel.app'
 const SWEEP_INTERVAL = 30 * 60 * 1000   // 30 minutes between sweeps
@@ -63,6 +64,8 @@ async function markSwept() {
 export async function runEmailReminderSweep(): Promise<void> {
   if (!(await shouldSweep())) return
   await markSwept()
+
+  void runRseReminderSweep().catch((e) => console.error('[rse reminder sweep]', e))
 
   const now = Date.now()
   const h48 = now - 48 * 60 * 60 * 1000

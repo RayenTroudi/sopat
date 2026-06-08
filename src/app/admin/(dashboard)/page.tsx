@@ -7,6 +7,7 @@ import {
   getUpcomingVisits,
 } from '@/lib/db/dashboard'
 import { runEmailReminderSweep } from '@/lib/tasks/email-reminders'
+import { getRseDashboardData } from '@/lib/db/rse'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { MiniPie } from '@/components/dashboard/MiniPie'
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
@@ -50,11 +51,12 @@ export default async function AdminDashboard() {
   // Fire-and-forget: runs at most once every 30 min (rate-gated in the task itself)
   runEmailReminderSweep().catch((e) => console.error('[reminder sweep]', e))
 
-  const [kpis, activity, atRisk, upcomingVisits] = await Promise.all([
+  const [kpis, activity, atRisk, upcomingVisits, rseData] = await Promise.all([
     getDashboardKpis(),
     getRecentActivity(20),
     getAtRiskProjects(),
     getUpcomingVisits(7),
+    getRseDashboardData(),
   ])
 
   const { activeProjects, onTimeDeliveryRate, avgBudgetVariance, openNcs, ncSlaClosureRate, maintenanceThisMonth, satisfactionScore } = kpis
@@ -167,6 +169,51 @@ export default async function AdminDashboard() {
 
       </div>
 
+      {/* RSE Partnerships card */}
+      {(rseData.activeCount > 0 || rseData.overdueCommitmentsCount > 0) && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <MetricCard
+            title="Partenariats RSE actifs"
+            value={rseData.activeCount}
+            subtitle={
+              rseData.overdueCommitmentsCount > 0
+                ? `⚠ ${rseData.overdueCommitmentsCount} engagement${rseData.overdueCommitmentsCount !== 1 ? 's' : ''} en retard`
+                : 'Tous les engagements à jour'
+            }
+            accent={rseData.overdueCommitmentsCount > 0 ? 'red' : 'green'}
+          />
+          <MetricCard
+            title="Prochain renouvellement RSE"
+            value={
+              rseData.nextExpiring
+                ? `J-${rseData.nextExpiring.daysUntil}`
+                : '—'
+            }
+            subtitle={
+              rseData.nextExpiring
+                ? `${rseData.nextExpiring.partnerName} · ${rseData.nextExpiring.conventionReference}`
+                : 'Aucune convention expirant dans 90 jours'
+            }
+            accent={
+              !rseData.nextExpiring
+                ? 'muted'
+                : rseData.nextExpiring.daysUntil <= 30
+                ? 'red'
+                : 'amber'
+            }
+          />
+          <div className="flex items-center justify-center">
+            <Link
+              href="/admin/rse/partnerships"
+              className="text-sm font-medium px-4 py-2 rounded-lg"
+              style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}
+            >
+              Voir les partenariats →
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Bottom grid: activity + risk + visits */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -186,6 +233,25 @@ export default async function AdminDashboard() {
             }
           >
             <AtRiskTable projects={atRisk} />
+            {rseData.overdueCommitmentsCount > 0 && (
+              <div
+                className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg border"
+                style={{ borderColor: 'var(--admin-red)', background: 'var(--admin-red-dim)' }}
+              >
+                <span style={{ color: 'var(--admin-red)' }}>⚠</span>
+                <p className="text-sm flex-1" style={{ color: 'var(--admin-red)' }}>
+                  <span className="font-semibold">{rseData.overdueCommitmentsCount} engagement{rseData.overdueCommitmentsCount !== 1 ? 's' : ''} RSE</span>
+                  {' '}en retard
+                </p>
+                <Link
+                  href="/admin/rse/partnerships?status=actif"
+                  className="text-xs font-medium shrink-0"
+                  style={{ color: 'var(--admin-red)' }}
+                >
+                  Voir →
+                </Link>
+              </div>
+            )}
           </Section>
 
           <Section

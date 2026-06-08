@@ -98,6 +98,8 @@ export const assetTypeEnum = pgEnum('asset_type', [
   'invoice',
   'reception_document',
   'contract',
+  'rse_convention',
+  'rse_communication',
   'other',
 ])
 
@@ -740,6 +742,159 @@ export const systemSettings = pgTable('system_settings', {
   ...timestamps,
   updatedBy: uuid('updated_by'),
 })
+
+// ─── Project Activity Log (immutable audit trail) ─────────────────────────────
+
+// ─── RSE Partnerships ─────────────────────────────────────────────────────────
+
+export const rsePartnerTypeEnum = pgEnum('rse_partner_type', [
+  'hotel',
+  'municipalite',
+  'entreprise',
+  'institution',
+  'autre',
+])
+
+export const rsePartnershipStatusEnum = pgEnum('rse_partnership_status', [
+  'actif',
+  'expire',
+  'resilie',
+  'en_cours_de_negociation',
+])
+
+export const rseCommitmentTypeEnum = pgEnum('rse_commitment_type', [
+  'action_annuelle',
+  'sensibilisation',
+  'communication',
+  'projet_paysager',
+  'autre',
+])
+
+export const rseCommitmentFrequencyEnum = pgEnum('rse_commitment_frequency', [
+  'unique',
+  'annuel',
+  'semestriel',
+  'trimestriel',
+  'mensuel',
+])
+
+export const rseResponsiblePartyEnum = pgEnum('rse_responsible_party', [
+  'sopat',
+  'partenaire',
+  'conjoint',
+])
+
+export const rseCommitmentStatusEnum = pgEnum('rse_commitment_status', [
+  'respecte',
+  'en_retard',
+  'a_venir',
+])
+
+export const rseCommunicationTypeEnum = pgEnum('rse_communication_type', [
+  'logo_sopat',
+  'logo_partenaire',
+  'publication_commune',
+])
+
+export const rseCommunicationValidationEnum = pgEnum('rse_communication_validation', [
+  'en_attente',
+  'approuve',
+  'refuse',
+])
+
+export const rsePartnerships = pgTable('rse_partnerships', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  partnerName: varchar('partner_name', { length: 255 }).notNull(),
+  partnerType: rsePartnerTypeEnum('partner_type').notNull(),
+  partnerAddress: text('partner_address'),
+  partnerContactName: varchar('partner_contact_name', { length: 255 }),
+  partnerContactEmail: varchar('partner_contact_email', { length: 255 }),
+  partnerContactPhone: varchar('partner_contact_phone', { length: 50 }),
+  sopatReferentId: uuid('sopat_referent_id').notNull(),
+  partnerReferentName: varchar('partner_referent_name', { length: 255 }),
+  conventionReference: varchar('convention_reference', { length: 50 }).notNull().unique(),
+  signedDate: timestamp('signed_date'),
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  autoRenewal: boolean('auto_renewal').notNull().default(false),
+  noticePeriodDays: integer('notice_period_days').notNull().default(30),
+  status: rsePartnershipStatusEnum('status').notNull().default('en_cours_de_negociation'),
+  conventionPdfCloudinaryId: uuid('convention_pdf_cloudinary_id'),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_partnerships_status_idx').on(t.status),
+  index('rse_partnerships_referent_idx').on(t.sopatReferentId),
+  foreignKey({ columns: [t.sopatReferentId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.conventionPdfCloudinaryId], foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const rsePartnershipCommitments = pgTable('rse_partnership_commitments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  partnershipId: uuid('partnership_id').notNull(),
+  articleNumber: varchar('article_number', { length: 50 }),
+  commitmentDescription: text('commitment_description').notNull(),
+  commitmentType: rseCommitmentTypeEnum('commitment_type').notNull().default('autre'),
+  frequency: rseCommitmentFrequencyEnum('frequency').notNull().default('annuel'),
+  responsibleParty: rseResponsiblePartyEnum('responsible_party').notNull().default('sopat'),
+  lastCompletedDate: timestamp('last_completed_date'),
+  nextDueDate: timestamp('next_due_date'),
+  status: rseCommitmentStatusEnum('status').notNull().default('a_venir'),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_commitments_partnership_id_idx').on(t.partnershipId),
+  index('rse_commitments_status_idx').on(t.status),
+  foreignKey({ columns: [t.partnershipId], foreignColumns: [rsePartnerships.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const rsePartnershipCommunications = pgTable('rse_partnership_communications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  partnershipId: uuid('partnership_id').notNull(),
+  communicationType: rseCommunicationTypeEnum('communication_type').notNull(),
+  description: text('description').notNull(),
+  submittedBy: uuid('submitted_by').notNull(),
+  submittedAt: timestamp('submitted_at').notNull().defaultNow(),
+  validationStatus: rseCommunicationValidationEnum('validation_status').notNull().default('en_attente'),
+  validatedByName: varchar('validated_by_name', { length: 255 }),
+  validatedAt: timestamp('validated_at'),
+  assetCloudinaryId: uuid('asset_cloudinary_id'),
+  requiredByDate: timestamp('required_by_date'),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_communications_partnership_id_idx').on(t.partnershipId),
+  index('rse_communications_status_idx').on(t.validationStatus),
+  foreignKey({ columns: [t.partnershipId], foreignColumns: [rsePartnerships.id] }),
+  foreignKey({ columns: [t.submittedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.assetCloudinaryId], foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const rseActivityLog = pgTable('rse_activity_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  partnershipId: uuid('partnership_id').notNull(),
+  actorId: uuid('actor_id').notNull(),
+  actorName: varchar('actor_name', { length: 255 }).notNull(),
+  action: varchar('action', { length: 100 }).notNull(),
+  previousState: jsonb('previous_state'),
+  newState: jsonb('new_state'),
+  metadata: jsonb('metadata'),
+  occurredAt: timestamp('occurred_at').notNull().defaultNow(),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_activity_log_partnership_id_idx').on(t.partnershipId),
+  index('rse_activity_log_actor_id_idx').on(t.actorId),
+  foreignKey({ columns: [t.partnershipId], foreignColumns: [rsePartnerships.id] }),
+  foreignKey({ columns: [t.actorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
 
 // ─── Project Activity Log (immutable audit trail) ─────────────────────────────
 

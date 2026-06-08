@@ -330,3 +330,166 @@ export async function triggerNcAssignedEmail({
     console.error('[triggerNcAssignedEmail] failed:', err)
   }
 }
+
+// ─── RSE: partnership expiry warning ─────────────────────────────────────────
+
+export async function triggerRseExpiryWarningEmail({
+  partnershipId,
+  conventionReference,
+  partnerName,
+  endDate,
+  daysUntil,
+  referentEmail,
+  referentName,
+  referentId,
+}: {
+  partnershipId: string
+  conventionReference: string
+  partnerName: string
+  endDate: Date
+  daysUntil: number
+  referentEmail: string
+  referentName: string
+  referentId: string
+}) {
+  try {
+    await sendEmail({
+      to: referentEmail,
+      subject: `[SOPAT RSE] Convention arrivant à échéance dans ${daysUntil} jours — ${conventionReference}`,
+      template: 'rse-expiry-warning',
+      props: {
+        referentName,
+        conventionReference,
+        partnerName,
+        endDate: endDate.toISOString(),
+        daysUntil,
+        partnershipUrl: `${APP_URL}/admin/rse/partnerships/${partnershipId}`,
+      },
+      recipientId: referentId,
+      relatedEntityType: 'rse_partnership',
+      relatedEntityId: partnershipId,
+      createdBy: 'system',
+    })
+  } catch (err) {
+    console.error('[triggerRseExpiryWarningEmail] failed:', err)
+  }
+}
+
+// ─── RSE: commitment overdue alert ───────────────────────────────────────────
+
+export async function triggerRseCommitmentOverdueEmail({
+  partnershipId,
+  commitmentId,
+  conventionReference,
+  partnerName,
+  commitmentDescription,
+  nextDueDate,
+  referentEmail,
+  referentName,
+  referentId,
+}: {
+  partnershipId: string
+  commitmentId: string
+  conventionReference: string
+  partnerName: string
+  commitmentDescription: string
+  nextDueDate: Date
+  referentEmail: string
+  referentName: string
+  referentId: string
+}) {
+  try {
+    await sendEmail({
+      to: referentEmail,
+      subject: `[SOPAT RSE] Engagement en retard — ${conventionReference} · ${partnerName}`,
+      template: 'rse-commitment-overdue',
+      props: {
+        referentName,
+        conventionReference,
+        partnerName,
+        commitmentDescription,
+        nextDueDate: nextDueDate.toISOString(),
+        partnershipUrl: `${APP_URL}/admin/rse/partnerships/${partnershipId}?tab=engagements`,
+      },
+      recipientId: referentId,
+      relatedEntityType: 'rse_commitment',
+      relatedEntityId: commitmentId,
+      createdBy: 'system',
+    })
+  } catch (err) {
+    console.error('[triggerRseCommitmentOverdueEmail] failed:', err)
+  }
+}
+
+// ─── RSE: communication submitted for validation ─────────────────────────────
+
+export async function triggerRseCommunicationSubmittedEmail({
+  partnershipId,
+  communicationId,
+  communicationType,
+  description,
+  requiredByDate,
+  submittedByName,
+  submittedById,
+}: {
+  partnershipId: string
+  communicationId: string
+  communicationType: string
+  description: string
+  requiredByDate: Date | null
+  submittedByName: string
+  submittedById: string
+}) {
+  try {
+    const { db } = await import('../../db/index')
+    const { rsePartnerships, users } = await import('../../db/schema')
+    const { eq } = await import('drizzle-orm')
+
+    const [partnership] = await db
+      .select({
+        conventionReference: rsePartnerships.conventionReference,
+        partnerName: rsePartnerships.partnerName,
+        sopatReferentId: rsePartnerships.sopatReferentId,
+      })
+      .from(rsePartnerships)
+      .where(eq(rsePartnerships.id, partnershipId))
+      .limit(1)
+
+    if (!partnership) return
+
+    const [referent] = await db
+      .select({ id: users.id, name: users.name, email: users.email })
+      .from(users)
+      .where(eq(users.id, partnership.sopatReferentId))
+      .limit(1)
+
+    if (!referent) return
+
+    const deadlineWarning = requiredByDate
+      ? Math.ceil((requiredByDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+      : null
+
+    await sendEmail({
+      to: referent.email,
+      subject: `[SOPAT RSE] Demande de validation communication — ${partnership.conventionReference}`,
+      template: 'rse-communication-submitted',
+      props: {
+        referentName: referent.name,
+        conventionReference: partnership.conventionReference,
+        partnerName: partnership.partnerName,
+        communicationType,
+        description,
+        submittedByName,
+        requiredByDate: requiredByDate?.toISOString() ?? null,
+        deadlineWarning,
+        partnershipUrl: `${APP_URL}/admin/rse/partnerships/${partnershipId}?tab=communication`,
+      },
+      recipientId: referent.id,
+      relatedEntityType: 'rse_communication',
+      relatedEntityId: communicationId,
+      createdBy: submittedById,
+    })
+  } catch (err) {
+    console.error('[triggerRseCommunicationSubmittedEmail] failed:', err)
+  }
+}
