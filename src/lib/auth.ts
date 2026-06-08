@@ -1,10 +1,16 @@
-import { SignJWT, jwtVerify } from 'jose'
-import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { getSession } from '@/lib/session'
+import type { SessionData } from '@/lib/session'
 import type { UserRole } from '@/lib/auth-utils'
 
-const COOKIE = 'sopat_admin'
+export type { SessionData }
 
-export type AdminSession = {
+// ── Compatibility shim ────────────────────────────────────────────────────────
+// All existing routes use `const session = await auth()` and then access
+// `session.user.userId`, `session.user.role`, `session.user.name`.
+// This re-exports auth() returning that same shape so no route files need changing.
+
+export interface LegacySession {
   user: {
     userId: string
     role: UserRole
@@ -14,57 +20,53 @@ export type AdminSession = {
   }
 }
 
-function getSecret(): Uint8Array {
-  const raw = process.env.ADMIN_JWT_SECRET
-  if (!raw || raw.length < 32) {
-    throw new Error('ADMIN_JWT_SECRET must be set in .env and be at least 32 characters')
-  }
-  return new TextEncoder().encode(raw)
-}
-
-export async function signAdminToken() {
-  return new SignJWT({ role: 'admin' })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setIssuedAt()
-    .setExpirationTime('8h')
-    .sign(getSecret())
-}
-
-export async function verifyAdminToken(token: string) {
-  try {
-    const { payload } = await jwtVerify(token, getSecret())
-    return payload.role === 'admin'
-  } catch {
-    return false
-  }
-}
-
-export async function getAdminSession() {
-  const jar = await cookies()
-  const token = jar.get(COOKIE)?.value
-  if (!token) return false
-  return verifyAdminToken(token)
-}
-
-// Compatibility shim for code that previously used NextAuth's auth().
-// Returns a minimal session object when the admin cookie is valid, or null.
-export async function auth(): Promise<AdminSession | null> {
-  const ok = await getAdminSession()
-  if (!ok) return null
+export async function auth(): Promise<LegacySession | null> {
+  const session = await getSession()
+  if (!session.isLoggedIn) return null
   return {
     user: {
-      userId: 'admin',
-      role: 'admin' as UserRole,
-      name: 'Admin',
-      email: null,
+      userId: session.userId,
+      role: session.role,
+      name: session.name,
+      email: session.email,
       image: null,
     },
   }
 }
 
-export async function signOut(_opts?: { redirectTo?: string }) {
-  const jar = await cookies()
-  jar.delete(COOKIE)
+// ── New helpers ───────────────────────────────────────────────────────────────
+
+export async function getAuthSession(): Promise<SessionData | null> {
+  const session = await getSession()
+  if (!session.isLoggedIn) return null
+  return {
+    isLoggedIn: true,
+    userId: session.userId,
+    email: session.email,
+    name: session.name,
+    role: session.role,
+  }
 }
 
-export { COOKIE as ADMIN_COOKIE }
+export async function requireAuth(): Promise<SessionData> {
+  const session = await getAuthSession()
+  if (!session) redirect('/login')
+  return session
+}
+
+export async function requireRole(roles: UserRole[]): Promise<SessionData> {
+  const session = await getAuthSession()
+  if (!session) redirect('/login')
+  if (!roles.includes(session.role)) redirect('/admin/dashboard')
+  return session
+}
+
+// ── Legacy cookie cleanup ─────────────────────────────────────────────────────
+// Kept for backward-compat; routes that imported these from the old auth.ts
+
+export async function signOut(_opts?: { redirectTo?: string }) {
+  const session = await getSession()
+  session.destroy()
+}
+
+export const ADMIN_COOKIE = 'sopat_session'

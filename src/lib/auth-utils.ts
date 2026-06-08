@@ -67,3 +67,30 @@ export function canAccessPath(role: UserRole, pathname: string): boolean {
   if (pathname === '/admin') return true
   return ROLE_ALLOWED_PREFIXES[role].some((prefix) => pathname.startsWith(prefix))
 }
+
+export function canAccessDocuments(role: UserRole): boolean {
+  return hasFullAccess(role) || role === 'etudes_chef'
+}
+
+export function canAccessNC(role: UserRole): boolean {
+  return (
+    hasFullAccess(role) ||
+    role === 'etudes_chef' ||
+    role === 'realisation_chef' ||
+    role === 'entretien_chef'
+  )
+}
+
+export function getTeamLabel(role: UserRole): string {
+  const labels: Record<UserRole, string> = {
+    admin: 'Administration',
+    direction: 'Direction',
+    etudes_chef: 'Équipe Études',
+    etudes_team: 'Équipe Études',
+    realisation_chef: 'Équipe Réalisation',
+    realisation_team: 'Équipe Réalisation',
+    entretien_chef: 'Équipe Entretien',
+    entretien_team: 'Équipe Entretien',
+  }
+  return labels[role]
+}

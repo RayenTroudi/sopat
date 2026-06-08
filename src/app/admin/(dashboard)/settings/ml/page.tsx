@@ -7,7 +7,7 @@ export const metadata = { title: 'Modèle ML | SOPAT Admin' }
 
 export default async function MLSettingsPage() {
   const session = await auth()
-  if (!session) redirect('/admin/login')
+  if (!session) redirect('/login')
   if (session.user.role !== 'admin') redirect('/admin')
 
   return <MLSettingsClient />

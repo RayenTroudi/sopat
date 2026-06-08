@@ -1,24 +1,27 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
 import { ToastProvider } from '@/components/ui/Toast'
 import { AdminNav } from '@/components/AdminNav'
+import { ROLE_LABELS } from '@/lib/auth-utils'
+import LogoutButton from '@/components/auth/LogoutButton'
 
 export const metadata = { title: 'SOPAT Admin' }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const authenticated = await auth()
-  if (!authenticated) redirect('/admin/login')
+  let session
+  try {
+    session = await requireAuth()
+  } catch {
+    redirect('/login')
+  }
 
   return (
     <ToastProvider>
       <div className="min-h-screen flex" style={{ background: 'var(--admin-bg)', fontFamily: 'var(--font-sans)' }}>
 
-        {/* Sidebar */}
         <AdminNav />
 
-        {/* Main area */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* Top bar */}
           <header
             className="h-14 flex items-center justify-between px-6 flex-shrink-0 sticky top-0 z-30"
             style={{ background: 'var(--admin-surface)', borderBottom: '1px solid var(--admin-border)' }}
@@ -28,7 +31,20 @@ export default async function DashboardLayout({ children }: { children: React.Re
             </span>
             <div className="flex-1" />
             <div className="flex items-center gap-4">
-              <LogoutButton />
+              <span className="text-xs hidden sm:block" style={{ color: 'var(--admin-text-muted)' }}>
+                {session.name} ·{' '}
+                <span className="font-medium">{ROLE_LABELS[session.role]}</span>
+              </span>
+              <LogoutButton
+                className="text-xs font-medium px-3 py-1.5 rounded transition-all duration-150"
+                style={{
+                  color: 'var(--admin-text-muted)',
+                  border: '1px solid var(--admin-border)',
+                  background: 'transparent',
+                  fontFamily: 'var(--font-sans)',
+                  cursor: 'pointer',
+                }}
+              />
             </div>
           </header>
 
@@ -38,19 +54,5 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </div>
     </ToastProvider>
-  )
-}
-
-function LogoutButton() {
-  return (
-    <form action="/api/admin/auth/logout" method="POST">
-      <button
-        type="submit"
-        className="text-xs font-medium px-3 py-1.5 rounded transition-all duration-150"
-        style={{ color: 'var(--admin-text-muted)', border: '1px solid var(--admin-border)', background: 'transparent', fontFamily: 'var(--font-sans)' }}
-      >
-        Déconnexion
-      </button>
-    </form>
   )
 }
