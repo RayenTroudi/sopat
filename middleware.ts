@@ -1,49 +1,29 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Edge runtime — no Node.js imports, no iron-session.
-// We check for the lightweight "sopat_auth" presence cookie set on login.
-// The actual session data (role, userId) is verified server-side per route
-// via iron-session (Node runtime) in lib/auth.ts.
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-const PUBLIC_PATHS = [
-  '/login',
-  '/api/auth',
-  '/validate/',
-  '/edit/',
-  '/_next/',
-  '/favicon.ico',
-  '/icon.svg',
-  '/logo',
-]
+  const isProtected = pathname.startsWith('/admin')
+  const isAuthRoute =
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/validate') ||
+    pathname.startsWith('/edit')
 
-function isPublic(pathname: string): boolean {
-  return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p))
-}
+  const isLoggedIn = request.cookies.get('sopat_auth')?.value === '1'
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl
-
-  // Only protect /admin routes
-  if (!pathname.startsWith('/admin')) {
-    return NextResponse.next()
+  if (isProtected && !isLoggedIn) {
+    return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  if (isPublic(pathname)) {
-    return NextResponse.next()
-  }
-
-  const authCookie = req.cookies.get('sopat_auth')?.value
-
-  if (!authCookie) {
-    const loginUrl = new URL('/login', req.url)
-    loginUrl.searchParams.set('callbackUrl', pathname)
-    return NextResponse.redirect(loginUrl)
+  if (isAuthRoute && isLoggedIn) {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url))
   }
 
   return NextResponse.next()
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
 }

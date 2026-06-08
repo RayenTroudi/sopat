@@ -12,15 +12,17 @@ const loginSchema = z.object({
 })
 
 const ROLE_REDIRECTS: Record<string, string> = {
-  admin: '/admin/dashboard',
-  direction: '/admin/dashboard',
-  etudes_chef: '/admin/projects',
-  etudes_team: '/admin/projects',
-  realisation_chef: '/admin/projects',
-  realisation_team: '/admin/projects',
-  entretien_chef: '/admin/projects',
-  entretien_team: '/admin/projects',
+  admin:             '/admin/dashboard',
+  direction:         '/admin/dashboard',
+  etudes_chef:       '/admin/projects',
+  etudes_team:       '/admin/projects',
+  realisation_chef:  '/admin/projects',
+  realisation_team:  '/admin/projects',
+  entretien_chef:    '/admin/projects',
+  entretien_team:    '/admin/projects',
 }
+
+const IS_PROD = process.env.NODE_ENV === 'production'
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
@@ -50,6 +52,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email ou mot de passe incorrect' }, { status: 401 })
   }
 
+  // Write the encrypted iron-session cookie (sopat_session)
   const session = await getSession()
   session.isLoggedIn = true
   session.userId = user.id
@@ -59,17 +62,17 @@ export async function POST(req: NextRequest) {
   await session.save()
 
   const redirectTo = ROLE_REDIRECTS[user.role] ?? '/admin/dashboard'
-
   const response = NextResponse.json({ success: true, role: user.role, redirectTo })
 
-  // Lightweight presence cookie: Edge middleware reads this to decide redirects.
-  // Cannot decode iron-session in Edge runtime, so we use a separate plain cookie.
+  // Lightweight presence cookie read by Edge middleware.
+  // Middleware runs server-side so httpOnly is fine — it cannot be
+  // read by client JS but IS readable by Next.js Edge middleware.
   response.cookies.set('sopat_auth', '1', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: IS_PROD,
     sameSite: 'lax',
-    maxAge: 60 * 60 * 8,
     path: '/',
+    maxAge: 60 * 60 * 8,
   })
 
   return response

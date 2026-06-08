@@ -1,4 +1,3 @@
-import { redirect } from 'next/navigation'
 import { requireAuth } from '@/lib/auth'
 import { ToastProvider } from '@/components/ui/Toast'
 import { AdminNav } from '@/components/AdminNav'
@@ -8,12 +7,10 @@ import LogoutButton from '@/components/auth/LogoutButton'
 export const metadata = { title: 'SOPAT Admin' }
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  let session
-  try {
-    session = await requireAuth()
-  } catch {
-    redirect('/login')
-  }
+  // requireAuth() calls redirect('/login') if not authenticated.
+  // Do NOT wrap in try/catch — Next.js redirect() throws a special
+  // error that must propagate for the redirect to work.
+  const session = await requireAuth()
 
   return (
     <ToastProvider>

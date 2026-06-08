@@ -19,22 +19,21 @@ function getPassword(): string {
   return secret
 }
 
-export const SESSION_OPTIONS: SessionOptions = {
-  cookieName: 'sopat_session',
-  // password is read lazily so we don't blow up at module-load time
-  password: '',
-  cookieOptions: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 60 * 60 * 8,
-  },
+function getOptions(): SessionOptions {
+  return {
+    cookieName: 'sopat_session',
+    password: getPassword(),
+    cookieOptions: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 8,
+    },
+  }
 }
 
 export async function getSession() {
   const jar = await cookies()
-  return getIronSession<SessionData>(jar, {
-    ...SESSION_OPTIONS,
-    password: getPassword(),
-  })
+  return getIronSession<SessionData>(jar, getOptions())
 }
