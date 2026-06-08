@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { getProjectById } from '@/lib/db/projects'
 import { getLatestBudgetValidation } from '@/lib/db/predictions'
 import { getPlantList, getActiveSuppliers } from '@/lib/db/etudes'

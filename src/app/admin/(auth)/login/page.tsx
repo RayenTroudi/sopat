@@ -21,24 +21,15 @@ export default function AdminLoginPage() {
     setError('')
     setLoading(true)
     try {
-      const csrfRes = await fetch('/api/auth/csrf')
-      const { csrfToken } = await csrfRes.json()
-
-      // NextAuth v5 requires an absolute URL for callbackUrl in production
-      const callbackUrl = window.location.origin + redirectPath
-
-      const body = new URLSearchParams({ email, password, csrfToken, callbackUrl })
-      const res = await fetch('/api/auth/callback/credentials', {
+      const res = await fetch('/api/admin/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-        redirect: 'follow',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
       })
 
-      if (res.url.includes('error=')) {
+      if (!res.ok) {
         setError('Email ou mot de passe incorrect')
       } else {
-        // Navigate directly — session cookie is set regardless of where NextAuth redirected
         window.location.href = redirectPath
       }
     } catch {

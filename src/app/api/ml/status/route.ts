@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { db } from '../../../../../db/index'
 import { budgetPredictions, projects } from '../../../../../db/schema'
 import { eq, and, desc, isNull, sql } from 'drizzle-orm'

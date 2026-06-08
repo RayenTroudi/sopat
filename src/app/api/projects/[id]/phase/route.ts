@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../../../auth'
+import { auth } from '@/lib/auth'
 import { transitionPhase } from '@/lib/db/projects'
 import type { Phase } from '@/lib/db/projects'
 import { z } from 'zod'

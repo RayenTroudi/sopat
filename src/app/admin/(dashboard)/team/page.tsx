@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { listUsers } from '@/lib/db/team'
 import { TeamClient } from './TeamClient'
 

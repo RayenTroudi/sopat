@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 
 // child_process and path are required dynamically so Turbopack does not
 // statically trace process.cwd() and bundle the whole project filesystem.

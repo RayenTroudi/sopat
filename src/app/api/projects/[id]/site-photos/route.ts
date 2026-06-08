@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../../../auth'
+import { auth } from '@/lib/auth'
 import { assertProjectAccess, logActivity } from '@/lib/db/projects'
 import { getSitePhotoCheckpoints, SITE_PHOTO_MILESTONES, buildMilestoneLinkedEntity } from '@/lib/db/realisation'
 import { db } from '../../../../../../db/index'

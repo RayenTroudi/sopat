@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { getAllSettings } from '@/lib/db/settings'
 import { SettingsClient } from './SettingsClient'
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../auth'
+import { auth } from '@/lib/auth'
 import { getAllProjects, createProject, logActivity } from '@/lib/db/projects'
 import type { ProjectStatus, Phase, ProjectType } from '@/lib/db/projects'
 import { z } from 'zod'

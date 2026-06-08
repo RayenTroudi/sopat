@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../../../auth'
+import { auth } from '@/lib/auth'
 import { assertProjectAccess, transitionPhase } from '@/lib/db/projects'
 import { checkRealisationSignoffPrerequisites } from '@/lib/db/realisation'
 import { triggerPhaseTransitionEmail } from '@/lib/email-triggers'

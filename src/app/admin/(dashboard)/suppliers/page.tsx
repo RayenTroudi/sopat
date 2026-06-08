@@ -1,4 +1,4 @@
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { listSuppliers } from '@/lib/db/suppliers'
 import { SuppliersClient } from './SuppliersClient'
 

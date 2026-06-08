@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { MLSettingsClient } from './MLSettingsClient'
 
 export const dynamic = 'force-dynamic'

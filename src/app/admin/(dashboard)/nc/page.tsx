@@ -1,4 +1,4 @@
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { listNcs, getActiveUsers, type NcStatus, type NcProcess } from '@/lib/db/iso'
 import { NcPageClient } from './NcPageClient'
 

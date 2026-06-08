@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../../auth'
+import { auth } from '@/lib/auth'
 import { getUserById, updateUser } from '@/lib/db/team'
 import type { UserRole } from '@/lib/auth-utils'
 import { z } from 'zod'

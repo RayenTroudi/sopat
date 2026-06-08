@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../../../auth'
+import { auth } from '@/lib/auth'
 import { getPlantList, savePlantList } from '@/lib/db/etudes'
 import { assertProjectAccess } from '@/lib/db/projects'
 import { z } from 'zod'

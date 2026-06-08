@@ -1,4 +1,4 @@
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { listAudits, getActiveUsers, type AuditStatus } from '@/lib/db/iso'
 import { AuditsClient } from './AuditsClient'
 

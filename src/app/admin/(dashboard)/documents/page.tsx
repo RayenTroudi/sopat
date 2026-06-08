@@ -1,4 +1,4 @@
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { listDocuments, getActiveUsers, type DocumentStatus, type DocumentCategory } from '@/lib/db/iso'
 import { DocumentsClient } from './DocumentsClient'
 

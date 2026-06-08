@@ -1,7 +1,18 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
+import type { UserRole } from '@/lib/auth-utils'
 
 const COOKIE = 'sopat_admin'
+
+export type AdminSession = {
+  user: {
+    userId: string
+    role: UserRole
+    name: string | null
+    email: string | null
+    image: string | null
+  }
+}
 
 function getSecret(): Uint8Array {
   const raw = process.env.ADMIN_JWT_SECRET
@@ -33,6 +44,27 @@ export async function getAdminSession() {
   const token = jar.get(COOKIE)?.value
   if (!token) return false
   return verifyAdminToken(token)
+}
+
+// Compatibility shim for code that previously used NextAuth's auth().
+// Returns a minimal session object when the admin cookie is valid, or null.
+export async function auth(): Promise<AdminSession | null> {
+  const ok = await getAdminSession()
+  if (!ok) return null
+  return {
+    user: {
+      userId: 'admin',
+      role: 'admin' as UserRole,
+      name: 'Admin',
+      email: null,
+      image: null,
+    },
+  }
+}
+
+export async function signOut(_opts?: { redirectTo?: string }) {
+  const jar = await cookies()
+  jar.delete(COOKIE)
 }
 
 export { COOKIE as ADMIN_COOKIE }

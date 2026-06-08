@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { getNcById, getActiveUsers } from '@/lib/db/iso'
 import { NcDetailClient } from './NcDetailClient'
 

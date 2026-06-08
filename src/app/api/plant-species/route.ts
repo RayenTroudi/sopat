@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../auth'
+import { auth } from '@/lib/auth'
 import { searchPlantSpecies, getAllPlantSpecies } from '@/lib/db/etudes'
 
 export async function GET(req: NextRequest) {

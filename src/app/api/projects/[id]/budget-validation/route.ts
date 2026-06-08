@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { assertProjectAccess, logActivity } from '@/lib/db/projects'
 import { saveBudgetValidation, getLatestBudgetValidation } from '@/lib/db/predictions'
 import { z } from 'zod'

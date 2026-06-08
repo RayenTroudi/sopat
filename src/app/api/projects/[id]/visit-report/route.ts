@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../../../auth'
+import { auth } from '@/lib/auth'
 import { assertProjectAccess, logActivity } from '@/lib/db/projects'
 import { saveVisitReport, getOrCreateDefaultSchedule, type VisitType, type HealthStatus } from '@/lib/db/entretien'
 import { z } from 'zod'

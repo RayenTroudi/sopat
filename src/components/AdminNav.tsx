@@ -8,11 +8,11 @@ import type { UserRole } from '@/lib/auth-utils'
 // ─── Nav items ────────────────────────────────────────────────────────────────
 
 type NavItem = {
-  href:      string
-  label:     string
-  icon:      string
-  roles?:    UserRole[]   // undefined = all roles
-  exact?:    boolean
+  href:   string
+  label:  string
+  icon:   string
+  roles?: UserRole[]
+  exact?: boolean
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -29,12 +29,10 @@ const NAV_ITEMS: NavItem[] = [
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function AdminNav({ role }: { role: UserRole }) {
+export function AdminNav() {
   const pathname = usePathname()
 
-  const visible = NAV_ITEMS.filter((item) =>
-    !item.roles || item.roles.includes(role)
-  )
+  const visible = NAV_ITEMS
 
   function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href

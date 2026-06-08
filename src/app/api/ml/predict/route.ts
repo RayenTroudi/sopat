@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/auth'
+import { auth } from '@/lib/auth'
 import { assertProjectAccess } from '@/lib/db/projects'
 import { savePrediction } from '@/lib/db/predictions'
 import type { PredictionResult } from '@/lib/ml'

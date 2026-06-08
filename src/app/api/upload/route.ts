@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../auth'
+import { auth } from '@/lib/auth'
 import { generateSignedUploadParams } from '@/lib/cloudinary'
 import { saveAssetRecord } from '@/lib/db/etudes'
 import { assertProjectAccess } from '@/lib/db/projects'

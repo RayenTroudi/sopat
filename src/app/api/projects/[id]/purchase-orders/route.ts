@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '../../../../../../auth'
+import { auth } from '@/lib/auth'
 import { assertProjectAccess, logActivity } from '@/lib/db/projects'
 import { getPurchaseOrders, createPurchaseOrder } from '@/lib/db/realisation'
 import { z } from 'zod'
