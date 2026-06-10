@@ -13,7 +13,7 @@ export type CreateZoneInput = {
   zoneName: string
   zoneType?: ZoneType
   floorNumber?: number
-  surfaceM2?: string | number
+  surfaceM2?: string
   plantPaletteNotes?: string
   lightingNotes?: string
   status?: ZoneStatus
@@ -30,12 +30,14 @@ export async function getZonesByProject(projectId: string) {
 
 export async function saveProjectZones(
   projectId: string,
-  zones: Omit<CreateZoneInput, 'projectId'>[],
+  zones: Omit<CreateZoneInput, 'projectId' | 'createdBy'>[],
   createdBy: string
 ) {
-  await db.delete(projectZones).where(eq(projectZones.projectId, projectId))
-  if (zones.length === 0) return []
-  return db.insert(projectZones).values(
-    zones.map((z) => ({ ...z, projectId, createdBy }))
-  ).returning()
+  return db.transaction(async (tx) => {
+    await tx.delete(projectZones).where(eq(projectZones.projectId, projectId))
+    if (zones.length === 0) return []
+    return tx.insert(projectZones).values(
+      zones.map((z) => ({ ...z, projectId, createdBy }))
+    ).returning()
+  })
 }

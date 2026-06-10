@@ -131,7 +131,8 @@ export function maskClientName(clientName: string, anonymized: boolean, role: st
   if (!anonymized) return clientName
   if (role === 'admin' || role === 'direction') return clientName
   // Build initials: "Mohamed Karim Ben Salah" → "M. K. B. S."
-  const parts = clientName.trim().split(/\s+/)
+  const parts = clientName.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return clientName
   return parts.map((p) => p[0].toUpperCase() + '.').join(' ')
 }
 
@@ -139,7 +140,6 @@ export function maskClientName(clientName: string, anonymized: boolean, role: st
 
 export async function getAllProjects(filters?: {
   status?: ProjectStatus
-  phase?: Phase
   projectType?: ProjectType
   page?: number
   pageSize?: number

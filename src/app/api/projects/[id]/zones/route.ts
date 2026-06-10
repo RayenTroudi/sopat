@@ -40,6 +40,6 @@ export async function POST(req: NextRequest, { params }: { params: Params }) {
   const body = await req.json()
   const parsed = saveSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Données invalides', details: parsed.error.flatten() }, { status: 400 })
-  const zones = await saveProjectZones(id, parsed.data.zones as any, session.user.userId)
+  const zones = await saveProjectZones(id, parsed.data.zones, session.user.userId)
   return NextResponse.json(zones)
 }

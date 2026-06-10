@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   const pageSize = parseInt(searchParams.get('pageSize') ?? '25', 10)
 
   try {
-    const result = await getAllProjects({ status: status ?? undefined, phase: phase ?? undefined, page, pageSize })
+    const result = await getAllProjects({ status: status ?? undefined, page, pageSize })
     return NextResponse.json(result)
   } catch (err) {
     console.error('[GET /api/projects]', err)
