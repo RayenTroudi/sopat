@@ -13,7 +13,20 @@ import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 export type ProjectStatus = 'draft' | 'etudes' | 'realisation' | 'entretien' | 'completed' | 'cancelled'
 export type PhaseStatus = 'pending' | 'in_progress' | 'awaiting_signoff' | 'completed'
 export type Phase = 'etudes' | 'realisation' | 'entretien'
-export type ProjectType = 'ingenierie_territoriale' | 'espace_public' | 'siege_social' | 'hotelier_touristique' | 'residentiel' | 'interieur'
+export type ProjectType =
+  | 'ingenierie_territoriale'
+  | 'espace_public'
+  | 'siege_social'
+  | 'hotelier_touristique'
+  | 'residentiel'
+  | 'interieur'
+
+export type Currency = 'TND' | 'EUR' | 'OMR' | 'XOF' | 'QAR' | 'LYD' | 'USD'
+
+export type ClientSector =
+  | 'banque' | 'hotellerie' | 'automobile'
+  | 'institutionnel_public' | 'institutionnel_prive'
+  | 'residentiel_prive' | 'diplomatique' | 'autre'
 
 // Phase state machine: each status maps to the phase it belongs to, and what comes next
 const PHASE_ORDER: Phase[] = ['etudes', 'realisation', 'entretien']
@@ -36,6 +49,20 @@ export type CreateProjectInput = {
   siteAddress: string
   siteAreaM2?: string
   projectType: ProjectType
+  country?: string
+  currency?: Currency
+  clientSector?: ClientSector
+  clientAnonymized?: boolean
+  conceptTitle?: string
+  conceptDescription?: string
+  designVocabulary?: string[]
+  plantPalettePhilosophy?: string[]
+  linearMeters?: string
+  floorCount?: number
+  municipalityClient?: string
+  territorySurfaceKm2?: string
+  numberOfMunicipalities?: number
+  lightingIncluded?: boolean
   startDate?: Date
   estimatedDeliveryDate?: Date
   assignedEtudesChefId?: string
@@ -98,11 +125,22 @@ export async function logActivity({
   })
 }
 
+// ─── Privacy helpers ──────────────────────────────────────────────────────────
+
+export function maskClientName(clientName: string, anonymized: boolean, role: string): string {
+  if (!anonymized) return clientName
+  if (role === 'admin' || role === 'direction') return clientName
+  // Build initials: "Mohamed Karim Ben Salah" → "M. K. B. S."
+  const parts = clientName.trim().split(/\s+/)
+  return parts.map((p) => p[0].toUpperCase() + '.').join(' ')
+}
+
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
 export async function getAllProjects(filters?: {
   status?: ProjectStatus
   phase?: Phase
+  projectType?: ProjectType
   page?: number
   pageSize?: number
 }) {
@@ -113,6 +151,7 @@ export async function getAllProjects(filters?: {
   // Build where conditions
   const conditions = [isNull(projects.deletedAt)]
   if (filters?.status) conditions.push(eq(projects.status, filters.status))
+  if (filters?.projectType) conditions.push(eq(projects.projectType, filters.projectType))
 
   const etudesChef = db.$with('etudes_chef').as(
     db.select({ id: users.id, name: users.name }).from(users)
@@ -129,6 +168,9 @@ export async function getAllProjects(filters?: {
       siteAddress: projects.siteAddress,
       siteAreaM2: projects.siteAreaM2,
       projectType: projects.projectType,
+      country: projects.country,
+      currency: projects.currency,
+      clientAnonymized: projects.clientAnonymized,
       status: projects.status,
       startDate: projects.startDate,
       estimatedDeliveryDate: projects.estimatedDeliveryDate,
@@ -264,6 +306,20 @@ export async function createProject(input: CreateProjectInput) {
       estimatedDeliveryDate: input.estimatedDeliveryDate,
       assignedEtudesChefId: input.assignedEtudesChefId,
       notes: input.notes,
+      country: input.country ?? 'TN',
+      currency: input.currency ?? 'TND',
+      clientSector: input.clientSector,
+      clientAnonymized: input.clientAnonymized ?? false,
+      conceptTitle: input.conceptTitle,
+      conceptDescription: input.conceptDescription,
+      designVocabulary: input.designVocabulary,
+      plantPalettePhilosophy: input.plantPalettePhilosophy,
+      linearMeters: input.linearMeters,
+      floorCount: input.floorCount,
+      municipalityClient: input.municipalityClient,
+      territorySurfaceKm2: input.territorySurfaceKm2,
+      numberOfMunicipalities: input.numberOfMunicipalities,
+      lightingIncluded: input.lightingIncluded ?? false,
       createdBy: input.createdBy,
     })
     .returning()
