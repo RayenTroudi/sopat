@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { getAllProjects, createProject, logActivity } from '@/lib/db/projects'
-import type { ProjectStatus, Phase, ProjectType } from '@/lib/db/projects'
+import type { ProjectStatus, ProjectType } from '@/lib/db/projects'
 import { z } from 'zod'
 
 const createSchema = z.object({
@@ -49,12 +49,12 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = req.nextUrl
   const status = searchParams.get('status') as ProjectStatus | null
-  const phase = searchParams.get('phase') as Phase | null
+  const projectType = searchParams.get('projectType') as ProjectType | null
   const page = parseInt(searchParams.get('page') ?? '1', 10)
   const pageSize = parseInt(searchParams.get('pageSize') ?? '25', 10)
 
   try {
-    const result = await getAllProjects({ status: status ?? undefined, page, pageSize })
+    const result = await getAllProjects({ status: status ?? undefined, projectType: projectType ?? undefined, page, pageSize })
     return NextResponse.json(result)
   } catch (err) {
     console.error('[GET /api/projects]', err)

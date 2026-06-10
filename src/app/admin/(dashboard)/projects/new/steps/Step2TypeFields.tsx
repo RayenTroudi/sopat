@@ -163,18 +163,14 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
               <input {...register('floorCount', { valueAsNumber: true })} type="number" className={inputClass} style={inputStyle} />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Estimation pots (total)">
-              <input {...register('numberOfMunicipalities', { valueAsNumber: true })} type="number" className={inputClass} style={inputStyle} placeholder="120" />
-            </Field>
-            <Field label="Fréquence d'entretien">
-              <select className={inputClass} style={inputStyle} {...register('linearMeters')}>
-                <option value="">—</option>
-                <option value="weekly">Hebdomadaire</option>
-                <option value="biweekly">Bihebdomadaire</option>
-                <option value="monthly">Mensuelle</option>
-              </select>
-            </Field>
+          <Field label="Estimation pots (total)" error={errors.numberOfMunicipalities?.message}>
+            <input {...register('numberOfMunicipalities', { valueAsNumber: true })} type="number" className={inputClass} style={inputStyle} placeholder="120" />
+          </Field>
+          <div
+            className="rounded-lg border p-3 text-sm"
+            style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text-muted)' }}
+          >
+            ℹ️ La fréquence d'entretien et autres détails opérationnels peuvent être précisés dans les notes (étape 4).
           </div>
         </>
       )}
