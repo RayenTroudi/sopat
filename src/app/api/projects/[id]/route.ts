@@ -10,7 +10,7 @@ const updateSchema = z.object({
   clientPhone: z.string().optional(),
   siteAddress: z.string().optional(),
   siteAreaM2: z.string().optional(),
-  projectType: z.enum(['residential', 'commercial', 'public']).optional(),
+  projectType: z.enum(['ingenierie_territoriale', 'espace_public', 'siege_social', 'hotelier_touristique', 'residentiel', 'interieur']).optional(),
   startDate: z.string().optional(),
   estimatedDeliveryDate: z.string().optional(),
   assignedEtudesChefId: z.string().uuid().optional(),

@@ -8,6 +8,13 @@
       "when": 1780652317891,
       "tag": "0000_magical_william_stryker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781082178605,
+      "tag": "0001_workable_spot",
+      "breakpoints": true
     }
   ]
 }

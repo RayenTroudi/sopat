@@ -13,7 +13,7 @@ import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 export type ProjectStatus = 'draft' | 'etudes' | 'realisation' | 'entretien' | 'completed' | 'cancelled'
 export type PhaseStatus = 'pending' | 'in_progress' | 'awaiting_signoff' | 'completed'
 export type Phase = 'etudes' | 'realisation' | 'entretien'
-export type ProjectType = 'residential' | 'commercial' | 'public'
+export type ProjectType = 'ingenierie_territoriale' | 'espace_public' | 'siege_social' | 'hotelier_touristique' | 'residentiel' | 'interieur'
 
 // Phase state machine: each status maps to the phase it belongs to, and what comes next
 const PHASE_ORDER: Phase[] = ['etudes', 'realisation', 'entretien']

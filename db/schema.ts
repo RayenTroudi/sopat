@@ -27,9 +27,27 @@ export const userRoleEnum = pgEnum('user_role', [
 ])
 
 export const projectTypeEnum = pgEnum('project_type', [
-  'residential',
-  'commercial',
-  'public',
+  'ingenierie_territoriale',
+  'espace_public',
+  'siege_social',
+  'hotelier_touristique',
+  'residentiel',
+  'interieur',
+])
+
+export const currencyEnum = pgEnum('currency', [
+  'TND', 'EUR', 'OMR', 'XOF', 'QAR', 'LYD', 'USD',
+])
+
+export const clientSectorEnum = pgEnum('client_sector', [
+  'banque',
+  'hotellerie',
+  'automobile',
+  'institutionnel_public',
+  'institutionnel_prive',
+  'residentiel_prive',
+  'diplomatique',
+  'autre',
 ])
 
 export const projectStatusEnum = pgEnum('project_status', [
@@ -222,6 +240,21 @@ export const projects = pgTable('projects', {
   assignedEntretienChefId: uuid('assigned_entretien_chef_id'),
   approvedBudget: decimal('approved_budget', { precision: 12, scale: 3 }),
   notes: text('notes'),
+  // ── Extended project type fields ──
+  country: varchar('country', { length: 2 }).notNull().default('TN'),
+  currency: currencyEnum('currency').notNull().default('TND'),
+  clientSector: clientSectorEnum('client_sector'),
+  clientAnonymized: boolean('client_anonymized').notNull().default(false),
+  conceptTitle: varchar('concept_title', { length: 255 }),
+  conceptDescription: text('concept_description'),
+  designVocabulary: text('design_vocabulary').array(),
+  plantPalettePhilosophy: text('plant_palette_philosophy').array(),
+  linearMeters: decimal('linear_meters', { precision: 10, scale: 2 }),
+  floorCount: integer('floor_count'),
+  municipalityClient: varchar('municipality_client', { length: 255 }),
+  territorySurfaceKm2: decimal('territory_surface_km2', { precision: 12, scale: 4 }),
+  numberOfMunicipalities: integer('number_of_municipalities'),
+  lightingIncluded: boolean('lighting_included').notNull().default(false),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by').notNull(),
@@ -234,6 +267,48 @@ export const projects = pgTable('projects', {
   foreignKey({ columns: [t.assignedEtudesChefId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.assignedRealisationChefId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.assignedEntretienChefId], foreignColumns: [users.id] }),
+])
+
+// ─── Project Zones ────────────────────────────────────────────────────────────
+
+export const zoneTypeEnum = pgEnum('zone_type', [
+  'entree',
+  'piscine',
+  'rooftop',
+  'restaurant',
+  'aquapark',
+  'acces_plage',
+  'etage',
+  'cour_interieure',
+  'parking',
+  'jardin_chef',
+  'autre',
+])
+
+export const zoneStatusEnum = pgEnum('zone_status', [
+  'etude',
+  'realisation',
+  'entretien',
+  'termine',
+])
+
+export const projectZones = pgTable('project_zones', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull(),
+  zoneName: varchar('zone_name', { length: 255 }).notNull(),
+  zoneType: zoneTypeEnum('zone_type').notNull().default('autre'),
+  floorNumber: integer('floor_number'),
+  surfaceM2: decimal('surface_m2', { precision: 10, scale: 2 }),
+  plantPaletteNotes: text('plant_palette_notes'),
+  lightingNotes: text('lighting_notes'),
+  status: zoneStatusEnum('status').notNull().default('etude'),
+  cloudinaryPlanId: uuid('cloudinary_plan_id'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('project_zones_project_id_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
 // ─── Project Phases ───────────────────────────────────────────────────────────
@@ -893,6 +968,188 @@ export const rseActivityLog = pgTable('rse_activity_log', {
   index('rse_activity_log_actor_id_idx').on(t.actorId),
   foreignKey({ columns: [t.partnershipId], foreignColumns: [rsePartnerships.id] }),
   foreignKey({ columns: [t.actorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RSE Events ───────────────────────────────────────────────────────────────
+
+export const rseEventTypeEnum = pgEnum('rse_event_type', [
+  'nettoyage_plage',
+  'plantation',
+  'sensibilisation',
+  'team_building',
+  'journee_environnement',
+  'autre',
+])
+
+export const rseEventStatusEnum = pgEnum('rse_event_status', [
+  'planifie',
+  'en_cours',
+  'termine',
+  'annule',
+])
+
+export const rseEventTeamNameEnum = pgEnum('rse_event_team_name', [
+  'rse',
+  'rh_communication',
+  'logistique',
+  'communication_marketing',
+  'direction',
+])
+
+export const rseLogisticsCategoryEnum = pgEnum('rse_logistics_category', [
+  'materiel_environnement',
+  'materiel_evenementiel',
+  'confort',
+])
+
+export const rseRetroStatusEnum = pgEnum('rse_retro_status', [
+  'a_faire',
+  'en_cours',
+  'termine',
+])
+
+export const rseCommPhaseEnum = pgEnum('rse_comm_phase', [
+  'avant',
+  'pendant',
+  'apres',
+])
+
+export const rseCommChannelEnum = pgEnum('rse_comm_channel', [
+  'reseaux_sociaux',
+  'email_interne',
+  'presse',
+  'affichage',
+  'autre',
+])
+
+export const rseCommPlanStatusEnum = pgEnum('rse_comm_plan_status', [
+  'planifie',
+  'publie',
+  'annule',
+])
+
+export const rseEvents = pgTable('rse_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventReference: varchar('event_reference', { length: 50 }).notNull().unique(),
+  title: varchar('title', { length: 255 }).notNull(),
+  eventType: rseEventTypeEnum('event_type').notNull(),
+  date: timestamp('date').notNull(),
+  location: varchar('location', { length: 255 }).notNull(),
+  partnerId: uuid('partner_id'),
+  status: rseEventStatusEnum('status').notNull().default('planifie'),
+  participantCountPlanned: integer('participant_count_planned'),
+  participantCountActual: integer('participant_count_actual'),
+  sopatCoordinatorId: uuid('sopat_coordinator_id').notNull(),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_events_status_idx').on(t.status),
+  index('rse_events_type_idx').on(t.eventType),
+  index('rse_events_date_idx').on(t.date),
+  foreignKey({ columns: [t.partnerId], foreignColumns: [rsePartnerships.id] }),
+  foreignKey({ columns: [t.sopatCoordinatorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const rseEventTeams = pgTable('rse_event_teams', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull(),
+  teamName: rseEventTeamNameEnum('team_name').notNull(),
+  teamLeaderId: uuid('team_leader_id'),
+  missions: text('missions').array(),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_event_teams_event_id_idx').on(t.eventId),
+  foreignKey({ columns: [t.eventId], foreignColumns: [rseEvents.id] }),
+  foreignKey({ columns: [t.teamLeaderId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const rseEventLogistics = pgTable('rse_event_logistics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull(),
+  category: rseLogisticsCategoryEnum('category').notNull(),
+  itemName: varchar('item_name', { length: 255 }).notNull(),
+  quantityPlanned: integer('quantity_planned'),
+  quantityActual: integer('quantity_actual'),
+  unit: varchar('unit', { length: 50 }),
+  supplier: varchar('supplier', { length: 255 }),
+  cost: decimal('cost', { precision: 10, scale: 3 }),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_event_logistics_event_id_idx').on(t.eventId),
+  foreignKey({ columns: [t.eventId], foreignColumns: [rseEvents.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const rseEventRetroplanning = pgTable('rse_event_retroplanning', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull(),
+  taskDescription: text('task_description').notNull(),
+  deadline: timestamp('deadline'),
+  assignedTeam: rseEventTeamNameEnum('assigned_team'),
+  status: rseRetroStatusEnum('status').notNull().default('a_faire'),
+  completedAt: timestamp('completed_at'),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_event_retroplanning_event_id_idx').on(t.eventId),
+  foreignKey({ columns: [t.eventId], foreignColumns: [rseEvents.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const rseEventCommunicationPlan = pgTable('rse_event_communication_plan', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull(),
+  phase: rseCommPhaseEnum('phase').notNull(),
+  actionDescription: text('action_description').notNull(),
+  channel: rseCommChannelEnum('channel').notNull(),
+  responsibleId: uuid('responsible_id'),
+  status: rseCommPlanStatusEnum('status').notNull().default('planifie'),
+  publishedAt: timestamp('published_at'),
+  assetCloudinaryId: uuid('asset_cloudinary_id'),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_event_comm_plan_event_id_idx').on(t.eventId),
+  foreignKey({ columns: [t.eventId], foreignColumns: [rseEvents.id] }),
+  foreignKey({ columns: [t.responsibleId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.assetCloudinaryId], foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const rseEventResults = pgTable('rse_event_results', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  eventId: uuid('event_id').notNull().unique(),
+  wasteCollectedKg: decimal('waste_collected_kg', { precision: 10, scale: 2 }),
+  treesPlanted: integer('trees_planted'),
+  participantsActual: integer('participants_actual'),
+  beachLengthCleanedM: decimal('beach_length_cleaned_m', { precision: 10, scale: 2 }),
+  zonesTreated: integer('zones_treated'),
+  mediaCoverage: boolean('media_coverage').notNull().default(false),
+  pressArticlesCount: integer('press_articles_count'),
+  socialMediaReach: integer('social_media_reach'),
+  satisfactionScore: integer('satisfaction_score'),
+  lessonsLearned: text('lessons_learned'),
+  postEventReportCloudinaryId: uuid('post_event_report_cloudinary_id'),
+  photosAlbumCloudinaryIds: text('photos_album_cloudinary_ids').array(),
+  submittedBy: uuid('submitted_by'),
+  submittedAt: timestamp('submitted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('rse_event_results_event_id_idx').on(t.eventId),
+  foreignKey({ columns: [t.eventId], foreignColumns: [rseEvents.id] }),
+  foreignKey({ columns: [t.postEventReportCloudinaryId], foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.submittedBy], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
