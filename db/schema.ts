@@ -8,6 +8,7 @@ import {
   decimal,
   boolean,
   timestamp,
+  date,
   jsonb,
   index,
   foreignKey,
@@ -261,6 +262,7 @@ export const projects = pgTable('projects', {
   assignedEntretienChefId: uuid('assigned_entretien_chef_id'),
   approvedBudget: decimal('approved_budget', { precision: 12, scale: 3 }),
   notes: text('notes'),
+  coordinateurTerrain: varchar('coordinateur_terrain', { length: 255 }),
   // ── Extended project type fields ──
   country: varchar('country', { length: 2 }).notNull().default('TN'),
   currency: currencyEnum('currency').notNull().default('TND'),
@@ -310,6 +312,20 @@ export const projectZones = pgTable('project_zones', {
   index('project_zones_status_idx').on(t.status),
   foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Exchange Rates ───────────────────────────────────────────────────────────
+
+export const exchangeRates = pgTable('exchange_rates', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  fromCurrency:  currencyEnum('from_currency').notNull(),
+  toCurrency:    varchar('to_currency', { length: 3 }).notNull().default('TND'),
+  rate:          decimal('rate', { precision: 18, scale: 6 }).notNull(),
+  effectiveDate: date('effective_date').notNull(),
+  source:        varchar('source', { length: 255 }),
+  createdAt:     timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('exchange_rates_currency_date_idx').on(t.fromCurrency, t.effectiveDate),
 ])
 
 // ─── Project Phases ───────────────────────────────────────────────────────────

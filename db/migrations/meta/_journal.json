@@ -15,6 +15,13 @@
       "when": 1781082178605,
       "tag": "0001_workable_spot",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781101847046,
+      "tag": "0002_exchange_rates",
+      "breakpoints": true
     }
   ]
 }
