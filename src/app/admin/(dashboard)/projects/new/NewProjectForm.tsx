@@ -100,11 +100,17 @@ export function NewProjectForm() {
     const project = await res.json()
 
     if (zones.length > 0) {
-      await fetch(`/api/projects/${project.id}/zones`, {
+      const zonesRes = await fetch(`/api/projects/${project.id}/zones`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ zones }),
       })
+      if (!zonesRes.ok) {
+        setError('root', { message: 'Projet créé mais erreur lors de la sauvegarde des zones.' })
+        router.push(`/admin/projects/${project.id}`)
+        router.refresh()
+        return
+      }
     }
 
     router.push(`/admin/projects/${project.id}`)
@@ -174,7 +180,16 @@ export function NewProjectForm() {
         {step < 4 ? (
           <button
             type="button"
-            onClick={() => setStep(step + 1)}
+            onClick={async () => {
+              const stepFields: Record<number, (keyof WizardFormValues)[]> = {
+                1: ['name', 'clientName', 'projectType', 'siteAddress'],
+                2: [],
+                3: [],
+              }
+              const fields = stepFields[step] ?? []
+              const valid = fields.length === 0 || await form.trigger(fields)
+              if (valid) setStep(step + 1)
+            }}
             className="text-sm font-medium px-5 py-2.5 rounded-lg text-white transition-colors"
             style={{ background: 'var(--green)' }}
           >

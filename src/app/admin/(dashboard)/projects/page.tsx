@@ -46,7 +46,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
 
       {/* Table */}
       <ProjectsTable
-        rows={maskedRows as Parameters<typeof ProjectsTable>[0]['rows']}
+        rows={maskedRows}
         total={total}
         page={page}
         pageSize={pageSize}

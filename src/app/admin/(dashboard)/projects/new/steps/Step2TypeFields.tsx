@@ -47,19 +47,13 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
               <input {...register('territorySurfaceKm2')} type="number" step="0.0001" className={inputClass} style={inputStyle} />
             </Field>
           </div>
-          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Livrables attendus</p>
+          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Livrables types (indicatif)</p>
           <div className="space-y-1.5 pl-1">
-            {[
-              'Diagnostic territorial',
-              'Identification des carences',
-              'Plan de masse',
-              'Ratio espaces verts/habitant',
-              'Rapport final',
-            ].map((item) => (
-              <label key={item} className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--admin-text)' }}>
-                <input type="checkbox" className="rounded" />
+            {['Diagnostic territorial', 'Identification des carences', 'Plan de masse', 'Ratio espaces verts/habitant', 'Rapport final'].map((item) => (
+              <p key={item} className="flex items-center gap-2 text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+                <span className="text-xs">•</span>
                 {item}
-              </label>
+              </p>
             ))}
           </div>
         </>
@@ -94,14 +88,11 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
               <input {...register('siteAreaM2')} type="number" step="0.01" className={inputClass} style={inputStyle} />
             </Field>
           </div>
-          <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Services inclus</p>
-          <div className="flex gap-4 flex-wrap">
-            {['Extérieur', 'Intérieur', 'Rooftop', 'Parking'].map((s) => (
-              <label key={s} className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--admin-text)' }}>
-                <input type="checkbox" className="rounded" />
-                {s}
-              </label>
-            ))}
+          <div
+            className="rounded-lg border p-3 text-sm"
+            style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text-muted)' }}
+          >
+            ℹ️ Précisez les services inclus (extérieur, intérieur, rooftop, parking) dans la description du concept (étape 3).
           </div>
           <Field label="Zones par étage">
             <ZoneBuilder value={zones} onChange={(z) => setValue('zones', z)} showFloor />
@@ -115,14 +106,12 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
             <Field label="Surface du site (m²)" error={errors.siteAreaM2?.message}>
               <input {...register('siteAreaM2')} type="number" step="0.01" className={inputClass} style={inputStyle} />
             </Field>
-            <Field label="Classement étoiles">
-              <select {...register('floorCount', { valueAsNumber: true })} className={inputClass} style={inputStyle}>
-                <option value="">—</option>
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <option key={n} value={n}>{n} étoile{n > 1 ? 's' : ''}</option>
-                ))}
-              </select>
-            </Field>
+            <div
+              className="rounded-lg border p-3 text-sm"
+              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text-muted)' }}
+            >
+              ℹ️ Le classement étoiles peut être précisé dans la description du concept (étape 3).
+            </div>
           </div>
           <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--admin-text)' }}>
             <input type="checkbox" {...register('lightingIncluded')} className="rounded" />

@@ -4,7 +4,6 @@ import {
   projectPhases,
   projectActivityLog,
   cloudinaryAssets,
-  users,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 
@@ -152,10 +151,6 @@ export async function getAllProjects(filters?: {
   const conditions = [isNull(projects.deletedAt)]
   if (filters?.status) conditions.push(eq(projects.status, filters.status))
   if (filters?.projectType) conditions.push(eq(projects.projectType, filters.projectType))
-
-  const etudesChef = db.$with('etudes_chef').as(
-    db.select({ id: users.id, name: users.name }).from(users)
-  )
 
   const rows = await db
     .select({
