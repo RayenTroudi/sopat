@@ -11,6 +11,7 @@ import {
   date,
   jsonb,
   index,
+  uniqueIndex,
   foreignKey,
 } from 'drizzle-orm/pg-core'
 
@@ -319,13 +320,13 @@ export const projectZones = pgTable('project_zones', {
 export const exchangeRates = pgTable('exchange_rates', {
   id:            uuid('id').primaryKey().defaultRandom(),
   fromCurrency:  currencyEnum('from_currency').notNull(),
-  toCurrency:    varchar('to_currency', { length: 3 }).notNull().default('TND'),
+  toCurrency:    currencyEnum('to_currency').notNull().default('TND'),
   rate:          decimal('rate', { precision: 18, scale: 6 }).notNull(),
   effectiveDate: date('effective_date').notNull(),
   source:        varchar('source', { length: 255 }),
   createdAt:     timestamp('created_at').notNull().defaultNow(),
 }, (t) => [
-  index('exchange_rates_currency_date_idx').on(t.fromCurrency, t.effectiveDate),
+  uniqueIndex('exchange_rates_currency_date_uidx').on(t.fromCurrency, t.toCurrency, t.effectiveDate),
 ])
 
 // ─── Project Phases ───────────────────────────────────────────────────────────
