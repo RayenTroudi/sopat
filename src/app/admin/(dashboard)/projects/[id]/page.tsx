@@ -8,6 +8,8 @@ import { getActiveUsers } from '@/lib/db/iso'
 import { PhaseBadge } from '@/components/projects/PhaseBadge'
 import { BudgetBadge } from '@/components/projects/BudgetBadge'
 import { ProjectTabs } from './ProjectTabs'
+import { ConceptCard } from '@/components/projects/ConceptCard'
+import { maskClientName } from '@/lib/db/projects'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,9 +24,12 @@ export async function generateMetadata({ params }: { params: Params }) {
 }
 
 const TYPE_LABELS: Record<string, string> = {
-  residential: 'Résidentiel',
-  commercial:  'Commercial',
-  public:      'Public',
+  ingenierie_territoriale: 'Ingénierie territoriale',
+  espace_public:           'Espace public',
+  siege_social:            'Siège social',
+  hotelier_touristique:    'Hôtelier & touristique',
+  residentiel:             'Résidentiel',
+  interieur:               'Intérieur',
 }
 
 function fmt(date: Date | null | undefined): string {
@@ -93,7 +98,7 @@ export default async function ProjectDetailPage({
               <PhaseBadge status={project.status} />
             </div>
             <p className="text-sm mt-1" style={{ color: 'var(--admin-text-muted)' }}>
-              {project.reference} · {TYPE_LABELS[project.projectType] ?? project.projectType} · {project.clientName}
+              {project.reference} · {TYPE_LABELS[project.projectType] ?? project.projectType} · {maskClientName(project.clientName, project.clientAnonymized ?? false, session?.user.role ?? '')}
             </p>
           </div>
           <BudgetBadge approved={project.approvedBudget} />
@@ -108,7 +113,7 @@ export default async function ProjectDetailPage({
             {
               label: 'Budget approuvé',
               value: project.approvedBudget
-                ? `${Number(project.approvedBudget).toLocaleString('fr-FR')} TND`
+                ? `${Number(project.approvedBudget).toLocaleString('fr-FR')} ${project.currency ?? 'TND'}`
                 : '—',
             },
           ].map(({ label, value }) => (
@@ -119,6 +124,13 @@ export default async function ProjectDetailPage({
           ))}
         </div>
       </div>
+
+      <ConceptCard
+        conceptTitle={project.conceptTitle}
+        conceptDescription={project.conceptDescription}
+        designVocabulary={project.designVocabulary}
+        plantPalettePhilosophy={project.plantPalettePhilosophy}
+      />
 
       {/* Tabs */}
       <ProjectTabs
@@ -147,6 +159,8 @@ export default async function ProjectDetailPage({
         plantZones={plantZones}
         users={users}
         currentUserId={session?.user.userId ?? ''}
+        country={project.country}
+        currency={project.currency}
       />
     </div>
   )
