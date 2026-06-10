@@ -9,6 +9,7 @@ import { RealisationTab } from '@/components/realisation/RealisationTab'
 import { EntretienTab } from '@/components/entretien/EntretienTab'
 import { BudgetSummaryBanner } from '@/components/budget/OfficialBudgetCard'
 import type { UploadedAsset } from '@/components/upload/CloudinaryUploader'
+import { ZonesTab } from '@/components/projects/ZonesTab'
 
 type Phase = {
   id: string
@@ -58,15 +59,19 @@ type Props = {
   plantZones: string[]
   users: User[]
   currentUserId: string
+  country?: string | null
+  currency?: string | null
 }
 
-const TABS = [
+const BASE_TABS = [
   { key: 'etudes',      label: 'Études' },
   { key: 'realisation', label: 'Réalisation' },
   { key: 'entretien',   label: 'Entretien' },
   { key: 'documents',   label: 'Documents' },
   { key: 'activite',    label: 'Activité' },
 ]
+
+const ZONES_PROJECT_TYPES = ['siege_social', 'hotelier_touristique']
 
 const PHASE_STATUS_LABELS: Record<string, string> = {
   pending:           'En attente',
@@ -119,6 +124,10 @@ export function ProjectTabs({
   currentUserId,
 }: Props) {
   const pathname = usePathname()
+
+  const TABS = ZONES_PROJECT_TYPES.includes(projectType)
+    ? [...BASE_TABS, { key: 'zones', label: 'Zones' }]
+    : BASE_TABS
 
   function tabHref(key: string) {
     return `${pathname}?tab=${key}`
@@ -182,6 +191,9 @@ export function ProjectTabs({
             <PlaceholderTab title="Contrôle documentaire" />
           </div>
         )
+
+      case 'zones':
+        return <ZonesTab projectId={projectId} />
 
       case 'activite':
       default:
