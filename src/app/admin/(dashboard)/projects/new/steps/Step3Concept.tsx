@@ -1,9 +1,7 @@
 'use client'
 
 import { UseFormReturn } from 'react-hook-form'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type WizardFormValues = any
+import type { WizardFormValues } from '../NewProjectForm'
 
 const inputClass = 'w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-green/20 transition'
 const inputStyle = { background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }
