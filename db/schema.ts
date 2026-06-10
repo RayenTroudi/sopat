@@ -68,6 +68,27 @@ export const phaseStatusEnum = pgEnum('phase_status', [
   'completed',
 ])
 
+export const zoneTypeEnum = pgEnum('zone_type', [
+  'entree',
+  'piscine',
+  'rooftop',
+  'restaurant',
+  'aquapark',
+  'acces_plage',
+  'etage',
+  'cour_interieure',
+  'parking',
+  'jardin_chef',
+  'autre',
+])
+
+export const zoneStatusEnum = pgEnum('zone_status', [
+  'etude',
+  'realisation',
+  'entretien',
+  'termine',
+])
+
 export const plantCategoryEnum = pgEnum('plant_category', [
   'tree',
   'shrub',
@@ -271,27 +292,6 @@ export const projects = pgTable('projects', {
 
 // ─── Project Zones ────────────────────────────────────────────────────────────
 
-export const zoneTypeEnum = pgEnum('zone_type', [
-  'entree',
-  'piscine',
-  'rooftop',
-  'restaurant',
-  'aquapark',
-  'acces_plage',
-  'etage',
-  'cour_interieure',
-  'parking',
-  'jardin_chef',
-  'autre',
-])
-
-export const zoneStatusEnum = pgEnum('zone_status', [
-  'etude',
-  'realisation',
-  'entretien',
-  'termine',
-])
-
 export const projectZones = pgTable('project_zones', {
   id: uuid('id').primaryKey().defaultRandom(),
   projectId: uuid('project_id').notNull(),
@@ -307,6 +307,7 @@ export const projectZones = pgTable('project_zones', {
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
   index('project_zones_project_id_idx').on(t.projectId),
+  index('project_zones_status_idx').on(t.status),
   foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
