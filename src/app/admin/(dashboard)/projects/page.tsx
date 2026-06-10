@@ -1,19 +1,27 @@
 import Link from 'next/link'
-import { getAllProjects } from '@/lib/db/projects'
+import { getAllProjects, maskClientName } from '@/lib/db/projects'
 import { ProjectsTable } from './ProjectsTable'
-import type { ProjectStatus } from '@/lib/db/projects'
+import type { ProjectStatus, ProjectType } from '@/lib/db/projects'
+import { auth } from '@/lib/auth'
 
 export const metadata = { title: 'Projets — SOPAT Admin' }
 export const dynamic = 'force-dynamic'
 
-type SearchParams = Promise<{ status?: string; page?: string }>
+type SearchParams = Promise<{ status?: string; page?: string; projectType?: string }>
 
 export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
-  const sp = await searchParams
+  const [sp, session] = await Promise.all([searchParams, auth()])
   const status = sp.status as ProjectStatus | undefined
+  const projectType = sp.projectType as ProjectType | undefined
   const page = parseInt(sp.page ?? '1', 10)
+  const userRole = session?.user.role ?? 'etudes_team'
 
-  const { rows, total, pageSize } = await getAllProjects({ status, page, pageSize: 25 })
+  const { rows, total, pageSize } = await getAllProjects({ status, projectType, page, pageSize: 25 })
+
+  const maskedRows = rows.map((r) => ({
+    ...r,
+    clientName: maskClientName(r.clientName, r.clientAnonymized ?? false, userRole),
+  }))
 
   return (
     <div className="space-y-6">
@@ -38,7 +46,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
 
       {/* Table */}
       <ProjectsTable
-        rows={rows as Parameters<typeof ProjectsTable>[0]['rows']}
+        rows={maskedRows as Parameters<typeof ProjectsTable>[0]['rows']}
         total={total}
         page={page}
         pageSize={pageSize}
