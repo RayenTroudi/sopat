@@ -22,6 +22,20 @@
       "when": 1781101847046,
       "tag": "0002_exchange_rates",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781171383648,
+      "tag": "0003_crm_phase1",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781186999820,
+      "tag": "0004_nursery_stock",
+      "breakpoints": true
     }
   ]
 }
