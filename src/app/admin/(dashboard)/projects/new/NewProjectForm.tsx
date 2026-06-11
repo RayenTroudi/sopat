@@ -54,6 +54,8 @@ const wizardSchema = z.object({
   startDate: z.string().optional(),
   estimatedDeliveryDate: z.string().optional(),
   notes: z.string().optional(),
+  // CRM
+  clientId: z.string().uuid().optional(),
 })
 
 export type WizardFormValues = z.infer<typeof wizardSchema>
@@ -65,7 +67,9 @@ const STEPS = [
   { label: 'Dates & équipe', number: 4 },
 ]
 
-export function NewProjectForm() {
+type ClientOption = { id: string; displayName: string; clientType: string; country: string }
+
+export function NewProjectForm({ clientOptions = [] }: { clientOptions?: ClientOption[] }) {
   const router = useRouter()
   const [step, setStep] = useState(1)
 
@@ -154,7 +158,7 @@ export function NewProjectForm() {
           Étape {step} — {stepTitles[step - 1]}
         </h2>
 
-        {step === 1 && <Step1Basic form={form as UseFormReturn<WizardFormValues>} />}
+        {step === 1 && <Step1Basic form={form as UseFormReturn<WizardFormValues>} clientOptions={clientOptions} />}
         {step === 2 && <Step2TypeFields form={form as UseFormReturn<WizardFormValues>} />}
         {step === 3 && <Step3Concept form={form as UseFormReturn<WizardFormValues>} />}
         {step === 4 && <Step4Dates form={form as UseFormReturn<WizardFormValues>} />}

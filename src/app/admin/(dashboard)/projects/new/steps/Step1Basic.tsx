@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { UseFormReturn } from 'react-hook-form'
 import type { WizardFormValues } from '../NewProjectForm'
 
@@ -48,8 +49,43 @@ const CURRENCY_OPTIONS = [
   { value: 'USD', label: 'USD — Dollar américain' },
 ]
 
-export function Step1Basic({ form }: { form: UseFormReturn<WizardFormValues> }) {
-  const { register, formState: { errors } } = form
+const TYPE_LABELS: Record<string, string> = {
+  banque: 'Banque', hotellerie: 'Hôtellerie', automobile: 'Automobile',
+  institutionnel_public: 'Institutionnel public', institutionnel_prive: 'Institutionnel privé',
+  residentiel_prive: 'Résidentiel privé', diplomatique: 'Diplomatique', autre: 'Autre',
+}
+
+type ClientOption = { id: string; displayName: string; clientType: string; country: string }
+
+export function Step1Basic({
+  form,
+  clientOptions = [],
+}: {
+  form: UseFormReturn<WizardFormValues>
+  clientOptions?: ClientOption[]
+}) {
+  const { register, setValue, watch, formState: { errors } } = form
+  const [clientSearch, setClientSearch] = useState('')
+  const [showFreeText, setShowFreeText] = useState(clientOptions.length === 0)
+  const selectedClientId = watch('clientId')
+
+  const filtered = clientOptions.filter((c) =>
+    c.displayName.toLowerCase().includes(clientSearch.toLowerCase()) ||
+    (TYPE_LABELS[c.clientType] ?? c.clientType).toLowerCase().includes(clientSearch.toLowerCase())
+  )
+
+  const selectedClient = clientOptions.find((c) => c.id === selectedClientId)
+
+  function selectClient(c: ClientOption | null) {
+    if (c) {
+      setValue('clientId', c.id)
+      setValue('clientName', c.displayName)
+      setClientSearch(c.displayName)
+    } else {
+      setValue('clientId', undefined)
+      setClientSearch('')
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -90,10 +126,103 @@ export function Step1Basic({ form }: { form: UseFormReturn<WizardFormValues> }) 
           </select>
         </Field>
 
-        <div className="sm:col-span-2">
-          <Field label="Nom du client" error={errors.clientName?.message} required>
-            <input {...register('clientName')} className={inputClass} style={inputStyle} placeholder="M. Ahmed Ben Salah" />
-          </Field>
+        {/* CRM client selector */}
+        <div className="sm:col-span-2 space-y-2">
+          <label className="block text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>
+            Client <span className="text-red-500">*</span>
+          </label>
+
+          {clientOptions.length > 0 && !showFreeText && (
+            <div className="space-y-2">
+              <input
+                value={selectedClient ? selectedClient.displayName : clientSearch}
+                onChange={(e) => {
+                  setClientSearch(e.target.value)
+                  if (selectedClientId) selectClient(null)
+                }}
+                placeholder="Rechercher un client CRM…"
+                className={inputClass}
+                style={inputStyle}
+              />
+
+              {clientSearch && !selectedClientId && filtered.length > 0 && (
+                <div
+                  className="rounded-lg border divide-y text-sm max-h-48 overflow-y-auto"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
+                >
+                  {filtered.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => selectClient(c)}
+                      className="w-full flex items-center justify-between px-3 py-2 hover:bg-[var(--admin-bg)] transition-colors text-left"
+                    >
+                      <span style={{ color: 'var(--admin-text)' }}>{c.displayName}</span>
+                      <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                        {TYPE_LABELS[c.clientType] ?? c.clientType} · {c.country}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedClient && (
+                <div
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
+                  style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}
+                >
+                  <span>✓ {selectedClient.displayName}</span>
+                  <button
+                    type="button"
+                    onClick={() => selectClient(null)}
+                    className="ml-auto text-xs opacity-70 hover:opacity-100"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowFreeText(true)}
+                  className="hover:underline"
+                >
+                  Ou saisir un nom libre
+                </button>
+                <a
+                  href="/admin/clients/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  Créer un nouveau client →
+                </a>
+              </div>
+            </div>
+          )}
+
+          {(showFreeText || clientOptions.length === 0) && (
+            <div className="space-y-2">
+              <input
+                {...register('clientName')}
+                className={inputClass}
+                style={inputStyle}
+                placeholder="M. Ahmed Ben Salah"
+              />
+              {errors.clientName && <p className="text-xs text-red-500">{errors.clientName.message}</p>}
+              {clientOptions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowFreeText(false)}
+                  className="text-xs hover:underline"
+                  style={{ color: 'var(--admin-text-muted)' }}
+                >
+                  ← Utiliser le CRM
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <Field label="Email du client" error={errors.clientEmail?.message}>

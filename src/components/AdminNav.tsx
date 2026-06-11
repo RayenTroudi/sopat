@@ -18,14 +18,18 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { href: '/admin',           label: 'Tableau de bord', icon: '◉', exact: true },
   { href: '/admin/projects',  label: 'Projets',          icon: '📁' },
+  { href: '/admin/clients',   label: 'Clients',           icon: '🏢', roles: ['admin','direction','etudes_chef','realisation_chef'] },
   { href: '/admin/nc',        label: 'Non-conformités',  icon: '⚠', roles: ['admin','direction','etudes_chef','realisation_chef','entretien_chef'] },
   { href: '/admin/audits',    label: 'Audits',           icon: '✓', roles: ['admin','direction'] },
   { href: '/admin/documents', label: 'Documents ISO',    icon: '📄', roles: ['admin','direction','etudes_chef'] },
   { href: '/admin/suppliers', label: 'Fournisseurs',     icon: '🌿', roles: ['admin','direction','etudes_chef','realisation_chef'] },
-  { href: '/admin/rse',       label: 'Partenariats RSE',  icon: '🤝', roles: ['admin','direction'] },
-  { href: '/admin/reports',   label: 'Rapports',         icon: '📊', roles: ['admin','direction','realisation_chef','entretien_chef'] },
+  { href: '/admin/rse/partnerships', label: 'Partenariats RSE', icon: '🤝', roles: ['admin','direction'] },
+  { href: '/admin/rse/events',       label: 'Événements RSE',   icon: '🌱', roles: ['admin','direction'] },
+  { href: '/admin/rse/impact',       label: 'Impact RSE',        icon: '📊', roles: ['admin','direction'] },
+  { href: '/admin/reports',    label: 'Rapports',          icon: '📊', roles: ['admin','direction','realisation_chef','entretien_chef'] },
   { href: '/admin/team',      label: 'Équipe',           icon: '👥', roles: ['admin'] },
   { href: '/admin/settings',  label: 'Paramètres',       icon: '⚙',  roles: ['admin'] },
+  { href: '/admin/settings/currencies', label: 'Taux de change', icon: '💱', roles: ['admin', 'direction'] },
 ]
 
 // ─── Component ────────────────────────────────────────────────────────────────
