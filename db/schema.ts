@@ -1336,6 +1336,7 @@ export const nurseryStock = pgTable('nursery_stock', {
 }, (t) => [
   index('nursery_stock_botanical_name_idx').on(t.botanicalName),
   index('nursery_stock_category_idx').on(t.category),
+  index('nursery_stock_deleted_at_idx').on(t.deletedAt),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
@@ -1354,6 +1355,7 @@ export const nurseryStockMovements = pgTable('nursery_stock_movements', {
 }, (t) => [
   index('nursery_movements_stock_id_idx').on(t.stockId),
   index('nursery_movements_project_id_idx').on(t.projectId),
+  index('nursery_movements_moved_at_idx').on(t.movedAt),
   foreignKey({ columns: [t.stockId], foreignColumns: [nurseryStock.id] }),
   foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
   foreignKey({ columns: [t.plantListItemId], foreignColumns: [plantListItems.id] }),
