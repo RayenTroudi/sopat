@@ -217,6 +217,28 @@ export const supplierStatusEnum = pgEnum('supplier_status', [
   'suspendu',
 ])
 
+export const nurseryHealthEnum = pgEnum('nursery_health', [
+  'healthy',
+  'attention',
+  'critical',
+  'dead',
+])
+
+export const nurseryMovementTypeEnum = pgEnum('nursery_movement_type', [
+  'reception',          // stock received from outside
+  'internal_use',       // consumed on a project (réalisation)
+  'reservation',        // reserved for a project (études)
+  'reservation_cancel', // reservation cancelled
+  'loss',               // damaged / dead stock
+  'transfer',           // moved between locations
+  'adjustment',         // manual correction
+])
+
+export const nurserySourceEnum = pgEnum('nursery_source', [
+  'fournisseur_externe',
+  'pepiniere_sopat',
+])
+
 export const interactionTypeEnum = pgEnum('interaction_type', [
   'appel', 'email', 'reunion', 'visite_site', 'autre',
 ])
@@ -565,6 +587,8 @@ export const purchaseOrders = pgTable('purchase_orders', {
   purchaseDate: timestamp('purchase_date').notNull(),
   purchasedBy: uuid('purchased_by').notNull(),
   status: purchaseStatusEnum('status').notNull().default('pending'),
+  nurserySource: nurserySourceEnum('nursery_source').default('fournisseur_externe'),
+  nurseryStockId: uuid('nursery_stock_id'),
   notes: text('notes'),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
@@ -1290,4 +1314,49 @@ export const equipmentRentals = pgTable('equipment_rentals', {
   foreignKey({ columns: [t.equipmentTypeId], foreignColumns: [equipmentTypes.id] }),
   foreignKey({ columns: [t.invoiceAssetId],  foreignColumns: [cloudinaryAssets.id] }),
   foreignKey({ columns: [t.createdBy],       foreignColumns: [users.id] }),
+])
+
+// ─── Nursery Stock ────────────────────────────────────────────────────────────
+
+export const nurseryStock = pgTable('nursery_stock', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  botanicalName: varchar('botanical_name', { length: 255 }).notNull(),
+  commonName: varchar('common_name', { length: 255 }),
+  category: plantCategoryEnum('category').notNull(),
+  currentQuantity: decimal('current_quantity', { precision: 10, scale: 2 }).notNull().default('0'),
+  reservedQuantity: decimal('reserved_quantity', { precision: 10, scale: 2 }).notNull().default('0'),
+  unit: plantUnitEnum('unit').notNull().default('unit'),
+  location: varchar('location', { length: 255 }),
+  healthStatus: nurseryHealthEnum('health_status').notNull().default('healthy'),
+  notes: text('notes'),
+  photoCloudinaryId: varchar('photo_cloudinary_id', { length: 500 }),
+  ...timestamps,
+  deletedAt: timestamp('deleted_at'),
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('nursery_stock_botanical_name_idx').on(t.botanicalName),
+  index('nursery_stock_category_idx').on(t.category),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const nurseryStockMovements = pgTable('nursery_stock_movements', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  stockId: uuid('stock_id').notNull(),
+  movementType: nurseryMovementTypeEnum('movement_type').notNull(),
+  quantityDelta: decimal('quantity_delta', { precision: 10, scale: 2 }).notNull(),
+  projectId: uuid('project_id'),
+  plantListItemId: uuid('plant_list_item_id'),
+  purchaseOrderId: uuid('purchase_order_id'),
+  notes: text('notes'),
+  movedAt: timestamp('moved_at').notNull().defaultNow(),
+  movedBy: uuid('moved_by').notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('nursery_movements_stock_id_idx').on(t.stockId),
+  index('nursery_movements_project_id_idx').on(t.projectId),
+  foreignKey({ columns: [t.stockId], foreignColumns: [nurseryStock.id] }),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.plantListItemId], foreignColumns: [plantListItems.id] }),
+  foreignKey({ columns: [t.purchaseOrderId], foreignColumns: [purchaseOrders.id] }),
+  foreignKey({ columns: [t.movedBy], foreignColumns: [users.id] }),
 ])
