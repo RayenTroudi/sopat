@@ -207,6 +207,7 @@ export const supplierCategoryEnum = pgEnum('supplier_category', [
   'equipements',
   'produits_phytosanitaires',
   'logistique',
+  'location_engins',
   'autre',
 ])
 
@@ -214,6 +215,10 @@ export const supplierStatusEnum = pgEnum('supplier_status', [
   'approuve',
   'en_evaluation',
   'suspendu',
+])
+
+export const interactionTypeEnum = pgEnum('interaction_type', [
+  'appel', 'email', 'reunion', 'visite_site', 'autre',
 ])
 
 // ─── Shared column helpers ─────────────────────────────────────────────────────
@@ -240,6 +245,34 @@ export const users = pgTable('users', {
 }, (t) => [
   index('users_role_idx').on(t.role),
   index('users_email_idx').on(t.email),
+])
+
+// ─── Clients (CRM) ───────────────────────────────────────────────────────────
+
+export const clients = pgTable('clients', {
+  id:                   uuid('id').primaryKey().defaultRandom(),
+  companyName:          varchar('company_name', { length: 255 }).notNull(),
+  displayName:          varchar('display_name', { length: 255 }).notNull(),
+  clientType:           varchar('client_type', { length: 50 }).notNull(),
+  country:              varchar('country', { length: 2 }).notNull().default('TN'),
+  city:                 varchar('city', { length: 100 }),
+  address:              text('address'),
+  primaryContactName:   varchar('primary_contact_name', { length: 255 }),
+  primaryContactTitle:  varchar('primary_contact_title', { length: 255 }),
+  primaryContactEmail:  varchar('primary_contact_email', { length: 255 }),
+  primaryContactPhone:  varchar('primary_contact_phone', { length: 50 }),
+  secondaryContactName:  varchar('secondary_contact_name', { length: 255 }),
+  secondaryContactEmail: varchar('secondary_contact_email', { length: 255 }),
+  logoCloudinaryId:     uuid('logo_cloudinary_id'),
+  isFeatured:           boolean('is_featured').notNull().default(false),
+  notes:                text('notes'),
+  ...timestamps,
+  deletedAt:            timestamp('deleted_at'),
+  createdBy:            uuid('created_by').notNull(),
+}, (t) => [
+  index('clients_client_type_idx').on(t.clientType),
+  index('clients_country_idx').on(t.country),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
@@ -279,6 +312,7 @@ export const projects = pgTable('projects', {
   territorySurfaceKm2: decimal('territory_surface_km2', { precision: 12, scale: 4 }),
   numberOfMunicipalities: integer('number_of_municipalities'),
   lightingIncluded: boolean('lighting_included').notNull().default(false),
+  clientId: uuid('client_id'),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by').notNull(),
@@ -291,6 +325,7 @@ export const projects = pgTable('projects', {
   foreignKey({ columns: [t.assignedEtudesChefId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.assignedRealisationChefId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.assignedEntretienChefId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.clientId], foreignColumns: [clients.id] }),
 ])
 
 // ─── Project Zones ────────────────────────────────────────────────────────────
@@ -327,6 +362,25 @@ export const exchangeRates = pgTable('exchange_rates', {
   createdAt:     timestamp('created_at').notNull().defaultNow(),
 }, (t) => [
   uniqueIndex('exchange_rates_currency_date_uidx').on(t.fromCurrency, t.toCurrency, t.effectiveDate),
+])
+
+// ─── Client Interactions (CRM) ───────────────────────────────────────────────
+
+export const clientInteractions = pgTable('client_interactions', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  clientId:        uuid('client_id').notNull(),
+  interactionType: interactionTypeEnum('interaction_type').notNull(),
+  date:            date('date').notNull(),
+  summary:         text('summary').notNull(),
+  outcome:         text('outcome'),
+  nextAction:      text('next_action'),
+  nextActionDate:  date('next_action_date'),
+  loggedBy:        uuid('logged_by').notNull(),
+  createdAt:       timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('client_interactions_client_id_idx').on(t.clientId),
+  foreignKey({ columns: [t.clientId], foreignColumns: [clients.id] }),
+  foreignKey({ columns: [t.loggedBy], foreignColumns: [users.id] }),
 ])
 
 // ─── Project Phases ───────────────────────────────────────────────────────────
@@ -1193,4 +1247,47 @@ export const projectActivityLog = pgTable('project_activity_log', {
   foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
   foreignKey({ columns: [t.actorId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Equipment Types (reference table) ───────────────────────────────────────
+
+export const equipmentTypes = pgTable('equipment_types', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  name:          varchar('name', { length: 100 }).notNull().unique(),
+  displayNameFr: varchar('display_name_fr', { length: 255 }).notNull(),
+  iconName:      varchar('icon_name', { length: 100 }),
+  notes:         text('notes'),
+  createdAt:     timestamp('created_at').notNull().defaultNow(),
+})
+
+// ─── Equipment Rentals ────────────────────────────────────────────────────────
+
+export const equipmentRentals = pgTable('equipment_rentals', {
+  id:                    uuid('id').primaryKey().defaultRandom(),
+  projectId:             uuid('project_id').notNull(),
+  equipmentTypeId:       uuid('equipment_type_id').notNull(),
+  equipmentDescription:  varchar('equipment_description', { length: 255 }),
+  rentalCompany:         varchar('rental_company', { length: 255 }),
+  rentalCompanyContact:  varchar('rental_company_contact', { length: 255 }),
+  startDate:             date('start_date').notNull(),
+  endDate:               date('end_date').notNull(),
+  rentalDays:            integer('rental_days').notNull(),
+  dailyRate:             decimal('daily_rate', { precision: 10, scale: 3 }).notNull(),
+  totalCost:             decimal('total_cost', { precision: 12, scale: 3 }).notNull(),
+  currency:              currencyEnum('currency').notNull().default('TND'),
+  invoiceNumber:         varchar('invoice_number', { length: 100 }),
+  invoiceAssetId:        uuid('invoice_asset_id'),
+  operatorName:          varchar('operator_name', { length: 255 }),
+  purposeDescription:    text('purpose_description'),
+  linkedPlantItemIds:    uuid('linked_plant_item_ids').array(),
+  ...timestamps,
+  deletedAt:             timestamp('deleted_at'),
+  createdBy:             uuid('created_by').notNull(),
+}, (t) => [
+  index('equipment_rentals_project_id_idx').on(t.projectId),
+  index('equipment_rentals_type_id_idx').on(t.equipmentTypeId),
+  foreignKey({ columns: [t.projectId],       foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.equipmentTypeId], foreignColumns: [equipmentTypes.id] }),
+  foreignKey({ columns: [t.invoiceAssetId],  foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.createdBy],       foreignColumns: [users.id] }),
 ])
