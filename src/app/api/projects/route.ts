@@ -41,6 +41,7 @@ const createSchema = z.object({
   estimatedDeliveryDate: z.string().optional(),
   assignedEtudesChefId: z.string().uuid().optional(),
   notes: z.string().optional(),
+  clientId: z.string().uuid().optional(),
 })
 
 export async function GET(req: NextRequest) {

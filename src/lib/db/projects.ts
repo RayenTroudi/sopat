@@ -4,6 +4,7 @@ import {
   projectPhases,
   projectActivityLog,
   cloudinaryAssets,
+  clients,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 
@@ -62,6 +63,7 @@ export type CreateProjectInput = {
   territorySurfaceKm2?: string
   numberOfMunicipalities?: number
   lightingIncluded?: boolean
+  clientId?: string
   startDate?: Date
   estimatedDeliveryDate?: Date
   assignedEtudesChefId?: string
@@ -74,6 +76,7 @@ export type UpdateProjectInput = Partial<Omit<CreateProjectInput, 'createdBy'>> 
   assignedEntretienChefId?: string
   approvedBudget?: string
   status?: ProjectStatus
+  clientId?: string | null
 }
 
 export type ProjectRow = typeof projects.$inferSelect & {
@@ -140,6 +143,7 @@ export function maskClientName(clientName: string, anonymized: boolean, role: st
 export async function getAllProjects(filters?: {
   status?: ProjectStatus
   projectType?: ProjectType
+  country?: string
   page?: number
   pageSize?: number
 }) {
@@ -151,6 +155,7 @@ export async function getAllProjects(filters?: {
   const conditions = [isNull(projects.deletedAt)]
   if (filters?.status) conditions.push(eq(projects.status, filters.status))
   if (filters?.projectType) conditions.push(eq(projects.projectType, filters.projectType))
+  if (filters?.country) conditions.push(eq(projects.country, filters.country))
 
   const rows = await db
     .select({
@@ -179,8 +184,11 @@ export async function getAllProjects(filters?: {
       updatedAt: projects.updatedAt,
       deletedAt: projects.deletedAt,
       createdBy: projects.createdBy,
+      clientId: projects.clientId,
+      clientDisplayName: clients.displayName,
     })
     .from(projects)
+    .leftJoin(clients, eq(projects.clientId, clients.id))
     .where(and(...conditions))
     .orderBy(desc(projects.createdAt))
     .limit(pageSize)
@@ -315,6 +323,7 @@ export async function createProject(input: CreateProjectInput) {
       territorySurfaceKm2: input.territorySurfaceKm2,
       numberOfMunicipalities: input.numberOfMunicipalities,
       lightingIncluded: input.lightingIncluded ?? false,
+      clientId: input.clientId ?? null,
       createdBy: input.createdBy,
     })
     .returning()
