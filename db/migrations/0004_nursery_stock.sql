@@ -46,4 +46,6 @@ CREATE INDEX "nursery_stock_category_idx" ON "nursery_stock" USING btree ("categ
 CREATE INDEX "nursery_stock_deleted_at_idx" ON "nursery_stock" USING btree ("deleted_at");--> statement-breakpoint
 CREATE INDEX "nursery_movements_stock_id_idx" ON "nursery_stock_movements" USING btree ("stock_id");--> statement-breakpoint
 CREATE INDEX "nursery_movements_project_id_idx" ON "nursery_stock_movements" USING btree ("project_id");--> statement-breakpoint
-CREATE INDEX "nursery_movements_moved_at_idx" ON "nursery_stock_movements" USING btree ("moved_at");
+CREATE INDEX "nursery_movements_moved_at_idx" ON "nursery_stock_movements" USING btree ("moved_at");--> statement-breakpoint
+ALTER TABLE "purchase_orders" ADD CONSTRAINT "purchase_orders_nursery_stock_id_fkey" FOREIGN KEY ("nursery_stock_id") REFERENCES "public"."nursery_stock"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "purchase_orders" ADD CONSTRAINT "chk_nursery_source_stock_id" CHECK (nursery_source <> 'pepiniere_sopat' OR nursery_stock_id IS NOT NULL);
