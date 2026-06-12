@@ -1,4 +1,3 @@
-import type { InferSelectModel } from 'drizzle-orm'
 import type {
   portfolioExports,
   portfolioSettings,
@@ -8,13 +7,8 @@ import type {
   clients,
 } from '@/db/schema'
 
-export type ProjectType =
-  | 'ingenierie_territoriale'
-  | 'espace_public'
-  | 'siege_social'
-  | 'hotelier_touristique'
-  | 'residentiel'
-  | 'interieur'
+export type { ProjectType } from '@/lib/db/projects'
+import type { ProjectType } from '@/lib/db/projects'
 
 export type SectionToggles = {
   cover: boolean
@@ -50,20 +44,20 @@ export type ExportConfig = {
   notes?: string
 }
 
-export type PortfolioSettings = InferSelectModel<typeof portfolioSettings>
-export type PortfolioExport = InferSelectModel<typeof portfolioExports>
+export type PortfolioSettings = typeof portfolioSettings.$inferSelect
+export type PortfolioExport = typeof portfolioExports.$inferSelect
 
-export type ProjectWithAssets = InferSelectModel<typeof projects> & {
-  renders3d: InferSelectModel<typeof cloudinaryAssets>[]
-  sitePlans: InferSelectModel<typeof cloudinaryAssets>[]
-  sitePhotos: InferSelectModel<typeof cloudinaryAssets>[]
+export type ProjectWithAssets = typeof projects.$inferSelect & {
+  renders3d: (typeof cloudinaryAssets.$inferSelect)[]
+  sitePlans: (typeof cloudinaryAssets.$inferSelect)[]
+  sitePhotos: (typeof cloudinaryAssets.$inferSelect)[]
   plants: { botanicalName: string; commonName: string | null; quantity: string }[]
 }
 
 export type TeamGroup = {
   roleKey: 'direction' | 'etudes' | 'realisation' | 'entretien' | 'admin'
   labelFr: string
-  members: InferSelectModel<typeof users>[]
+  members: (typeof users.$inferSelect)[]
 }
 
 export type AchievementsNumbers = {
@@ -75,7 +69,7 @@ export type AchievementsNumbers = {
   yearsExperience: number
 }
 
-export type FeaturedClient = InferSelectModel<typeof clients>
+export type FeaturedClient = typeof clients.$inferSelect
 
 export type RseEventSummary = {
   id: string
@@ -93,5 +87,5 @@ export type PortfolioBundle = {
   achievements: AchievementsNumbers
   featuredClients: FeaturedClient[]
   rseEvents: RseEventSummary[]
-  maintenanceVisitsAfterPhotos: InferSelectModel<typeof cloudinaryAssets>[]
+  maintenanceVisitsAfterPhotos: (typeof cloudinaryAssets.$inferSelect)[]
 }
