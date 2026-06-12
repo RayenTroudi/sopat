@@ -16,6 +16,7 @@ export type BudgetVarianceRow = {
   name:           string
   clientName:     string
   status:         string
+  country:        string
   approvedBudget: number | null
   mlPrediction:   number | null
   actualSpend:    number
@@ -31,6 +32,7 @@ export async function getBudgetVarianceReport(): Promise<BudgetVarianceRow[]> {
       name:           projects.name,
       clientName:     projects.clientName,
       status:         projects.status,
+      country:        projects.country,
       approvedBudget: projects.approvedBudget,
     })
     .from(projects)
@@ -57,7 +59,7 @@ export async function getBudgetVarianceReport(): Promise<BudgetVarianceRow[]> {
     const variancePct    = approved && approved > 0 ? Math.round(((actualSpend - approved) / approved) * 1000) / 10 : null
     const mlErrorPct     = mlPrediction && mlPrediction > 0 ? Math.round(((actualSpend - mlPrediction) / mlPrediction) * 1000) / 10 : null
 
-    rows.push({ id: p.id, reference: p.reference, name: p.name, clientName: p.clientName, status: p.status, approvedBudget: approved, mlPrediction, actualSpend, variancePct, mlErrorPct })
+    rows.push({ id: p.id, reference: p.reference, name: p.name, clientName: p.clientName, status: p.status, country: p.country, approvedBudget: approved, mlPrediction, actualSpend, variancePct, mlErrorPct })
   }
 
   return rows

@@ -7,16 +7,17 @@ import { auth } from '@/lib/auth'
 export const metadata = { title: 'Projets — SOPAT Admin' }
 export const dynamic = 'force-dynamic'
 
-type SearchParams = Promise<{ status?: string; page?: string; projectType?: string }>
+type SearchParams = Promise<{ status?: string; page?: string; projectType?: string; country?: string }>
 
 export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
   const [sp, session] = await Promise.all([searchParams, auth()])
   const status = sp.status as ProjectStatus | undefined
   const projectType = sp.projectType as ProjectType | undefined
+  const country = sp.country || undefined
   const page = parseInt(sp.page ?? '1', 10)
   const userRole = session?.user.role ?? 'etudes_team'
 
-  const { rows, total, pageSize } = await getAllProjects({ status, projectType, page, pageSize: 25 })
+  const { rows, total, pageSize } = await getAllProjects({ status, projectType, country, page, pageSize: 25 })
 
   const maskedRows = rows.map((r) => ({
     ...r,

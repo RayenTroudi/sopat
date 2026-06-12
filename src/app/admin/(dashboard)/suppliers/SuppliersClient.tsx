@@ -12,6 +12,7 @@ const CATEGORY_OPTIONS: { value: SupplierCategory; label: string }[] = [
   { value: 'equipements',              label: 'Équipements' },
   { value: 'produits_phytosanitaires', label: 'Produits phytosanitaires' },
   { value: 'logistique',               label: 'Logistique' },
+  { value: 'location_engins',          label: 'Location d\'engins' },
   { value: 'autre',                    label: 'Autre' },
 ]
 

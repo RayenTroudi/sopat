@@ -16,7 +16,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <ToastProvider>
       <div className="min-h-screen flex" style={{ background: 'var(--admin-bg)', fontFamily: 'var(--font-sans)' }}>
 
-        <AdminNav />
+        <AdminNav role={session.role} />
 
         <div className="flex-1 flex flex-col min-w-0">
           <header

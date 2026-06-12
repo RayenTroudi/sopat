@@ -6,6 +6,7 @@ import {
   saveBudgetReconciliation,
   getTotalSpent,
 } from '@/lib/db/realisation'
+import { getEquipmentTotalCost } from '@/lib/db/equipment'
 import { z } from 'zod'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -24,12 +25,20 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: access.error === 'NOT_FOUND' ? 404 : 403 })
   }
 
-  const [reconciliation, totalSpent] = await Promise.all([
+  const [reconciliation, purchasesSpent, equipmentSpent] = await Promise.all([
     getBudgetReconciliation(id),
     getTotalSpent(id),
+    getEquipmentTotalCost(id),
   ])
 
-  return NextResponse.json({ reconciliation, totalSpent })
+  const totalSpent = (parseFloat(purchasesSpent) + equipmentSpent).toFixed(3)
+  const spendBreakdown = {
+    purchases: parseFloat(purchasesSpent),
+    equipment: equipmentSpent,
+    total:     parseFloat(totalSpent),
+  }
+
+  return NextResponse.json({ reconciliation, totalSpent, spendBreakdown })
 }
 
 export async function POST(req: NextRequest, { params }: RouteParams) {
@@ -49,7 +58,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   }
 
   const { project } = access
-  const totalSpent = await getTotalSpent(id)
+  const [purchasesSpent, equipmentSpent] = await Promise.all([
+    getTotalSpent(id),
+    getEquipmentTotalCost(id),
+  ])
+  const totalSpent = (parseFloat(purchasesSpent) + equipmentSpent).toFixed(3)
 
   const recon = await saveBudgetReconciliation({
     projectId:      id,

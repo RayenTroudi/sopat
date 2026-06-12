@@ -66,6 +66,17 @@ const STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: 'cancelled', label: 'Annulé' },
 ]
 
+const COUNTRY_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'Tous les pays' },
+  { value: 'TN', label: '🇹🇳 Tunisie' },
+  { value: 'FR', label: '🇫🇷 France' },
+  { value: 'CI', label: "🇨🇮 Côte d'Ivoire" },
+  { value: 'MR', label: '🇲🇷 Mauritanie' },
+  { value: 'OM', label: '🇴🇲 Oman' },
+  { value: 'QA', label: '🇶🇦 Qatar' },
+  { value: 'LY', label: '🇱🇾 Libye' },
+]
+
 function countryFlag(code: string): string {
   if (!code || code.length !== 2) return ''
   return code.toUpperCase().replace(/./g, (c) => String.fromCodePoint(127397 + c.charCodeAt(0)))
@@ -117,6 +128,16 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
           style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
         >
           {TYPE_FILTER_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+        <select
+          value={searchParams.get('country') ?? ''}
+          onChange={(e) => updateParam('country', e.target.value)}
+          className="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green/20"
+          style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
+        >
+          {COUNTRY_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
         </select>

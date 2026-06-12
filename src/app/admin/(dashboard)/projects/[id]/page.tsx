@@ -122,6 +122,14 @@ export default async function ProjectDetailPage({
               <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--admin-text)' }}>{value}</p>
             </div>
           ))}
+          {project.country && project.country !== 'TN' && (
+            <div>
+              <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Coord. terrain international</p>
+              <p className="text-sm font-medium mt-0.5" style={{ color: project.coordinateurTerrain ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>
+                {project.coordinateurTerrain ?? 'Non renseigné'}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

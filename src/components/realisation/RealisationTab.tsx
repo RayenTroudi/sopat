@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { BudgetMonitorWidget } from './BudgetMonitorWidget'
 import { PurchaseDrawer } from './PurchaseDrawer'
+import { EquipmentDrawer } from './EquipmentDrawer'
+import { EquipmentTable, type EquipmentRentalRow } from './EquipmentTable'
 import { PhotoCheckpoints, type CheckpointState } from './PhotoCheckpoints'
 import { RealisationSignoffPanel } from './RealisationSignoffPanel'
 import { CloudinaryUploader, type UploadedAsset } from '@/components/upload/CloudinaryUploader'
@@ -79,6 +81,11 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
   const [reconError, setReconError] = useState('')
   const [phaseCompleted, setPhaseCompleted] = useState(phaseStatus === 'completed')
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [rentals, setRentals] = useState<EquipmentRentalRow[]>([])
+  const [rentalsLoading, setRentalsLoading] = useState(true)
+  const [equipmentDrawerOpen, setEquipmentDrawerOpen] = useState(false)
+  const [equipmentPlantItems, setEquipmentPlantItems] = useState<PlantItem[]>([])
+  const [deletingRentalId, setDeletingRentalId] = useState<string | null>(null)
 
   const receptionDocs = assets.filter((a) => a.assetType === 'reception_document')
 
@@ -118,12 +125,28 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
     }
   }, [projectId])
 
+  // Load equipment rentals
+  const loadRentals = useCallback(async () => {
+    setRentalsLoading(true)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/equipment-rentals`)
+      if (res.ok) {
+        const data = await res.json() as { rentals: EquipmentRentalRow[]; plantItems: PlantItem[] }
+        setRentals(data.rentals)
+        setEquipmentPlantItems(data.plantItems)
+      }
+    } finally {
+      setRentalsLoading(false)
+    }
+  }, [projectId])
+
   useEffect(() => {
     void loadOrders()
     void loadDrawerData()
     void loadCheckpoints()
     void loadRecon()
-  }, [loadOrders, loadDrawerData, loadCheckpoints, loadRecon])
+    void loadRentals()
+  }, [loadOrders, loadDrawerData, loadCheckpoints, loadRecon, loadRentals])
 
   // Total spent from orders (client-side sum for instant feedback)
   const totalSpent = orders.reduce((sum, o) => sum + parseFloat(o.totalCost), 0)
@@ -138,6 +161,17 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
       }
     } finally {
       setDeletingId(null)
+    }
+  }
+
+  async function deleteRental(rentalId: string) {
+    if (!confirm('Supprimer cette location ?')) return
+    setDeletingRentalId(rentalId)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/equipment-rentals/${rentalId}`, { method: 'DELETE' })
+      if (res.ok) setRentals((prev) => prev.filter((r) => r.id !== rentalId))
+    } finally {
+      setDeletingRentalId(null)
     }
   }
 
@@ -289,7 +323,35 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
         )}
       </Section>
 
-      {/* ── 3. Site photo checkpoints ── */}
+      {/* ── 3. Equipment rentals ── */}
+      <Section
+        title="Matériel & Engins"
+        action={
+          !phaseCompleted && (
+            <button
+              type="button"
+              onClick={() => setEquipmentDrawerOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              style={{ background: 'var(--admin-emerald)' }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              Ajouter un engin
+            </button>
+          )
+        }
+      >
+        <EquipmentTable
+          rentals={rentals}
+          loading={rentalsLoading}
+          phaseCompleted={phaseCompleted}
+          onDelete={(id) => void deleteRental(id)}
+          deletingId={deletingRentalId}
+        />
+      </Section>
+
+      {/* ── 5. Site photo checkpoints ── */}
       <Section title="Photos de Jalons Qualité">
         <p className="text-xs mb-3" style={{ color: 'var(--admin-text-muted)' }}>
           5 photos obligatoires pour le dossier qualité (ISO 9001 – clause 8.6). Téléchargez une photo pour chaque jalon d&apos;avancement.
@@ -301,7 +363,7 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
         />
       </Section>
 
-      {/* ── 4. Reception document upload ── */}
+      {/* ── 6. Reception document upload ── */}
       <Section title="Document de Réception Client">
         <p className="text-xs mb-3" style={{ color: 'var(--admin-text-muted)' }}>
           Téléchargez le procès-verbal de réception signé par le client.
@@ -319,7 +381,7 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
         />
       </Section>
 
-      {/* ── 5. Budget reconciliation ── */}
+      {/* ── 7. Budget reconciliation ── */}
       <Section title="Rapprochement Budgétaire">
         {recon ? (
           <div
@@ -420,7 +482,7 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
         )}
       </Section>
 
-      {/* ── 6. Sign-off ── */}
+      {/* ── 8. Sign-off ── */}
       {canSignOff && (
         <Section title="">
           <RealisationSignoffPanel
@@ -432,7 +494,7 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
         </Section>
       )}
 
-      {/* Drawer */}
+      {/* Purchase drawer */}
       <PurchaseDrawer
         projectId={projectId}
         plantItems={plantItems}
@@ -442,6 +504,18 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
         onCreated={() => {
           setDrawerOpen(false)
           void loadOrders()
+        }}
+      />
+
+      {/* Equipment drawer */}
+      <EquipmentDrawer
+        projectId={projectId}
+        plantItems={equipmentPlantItems}
+        open={equipmentDrawerOpen}
+        onClose={() => setEquipmentDrawerOpen(false)}
+        onCreated={() => {
+          setEquipmentDrawerOpen(false)
+          void loadRentals()
         }}
       />
     </div>

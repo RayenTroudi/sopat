@@ -69,7 +69,9 @@ export type AchievementsNumbers = {
   yearsExperience: number
 }
 
-export type FeaturedClient = typeof clients.$inferSelect
+export type FeaturedClient = typeof clients.$inferSelect & {
+  clientSector?: string | null
+}
 
 export type RseEventSummary = {
   id: string

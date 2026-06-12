@@ -14,23 +14,30 @@ type Props = {
   approvedBudget: string | null
 }
 
+type SpendBreakdown = {
+  purchases: number
+  equipment: number
+  total:     number
+}
+
 type BudgetState = {
-  totalSpent:   number
-  mlPredicted:  number | null
-  loading:      boolean
+  totalSpent:     number
+  spendBreakdown: SpendBreakdown | null
+  mlPredicted:    number | null
+  loading:        boolean
 }
 
 export function BudgetMonitorWidget({ projectId, approvedBudget }: Props) {
   const approved = approvedBudget ? parseFloat(approvedBudget) : null
-  const [state, setState] = useState<BudgetState>({ totalSpent: 0, mlPredicted: null, loading: true })
+  const [state, setState] = useState<BudgetState>({ totalSpent: 0, spendBreakdown: null, mlPredicted: null, loading: true })
 
   const load = useCallback(async () => {
     try {
       const res = await fetch(`/api/projects/${projectId}/budget-reconciliation`)
       if (!res.ok) return
-      const data = await res.json() as { totalSpent: string; reconciliation: { totalSpent: string } | null }
+      const data = await res.json() as { totalSpent: string; spendBreakdown?: SpendBreakdown; reconciliation: { totalSpent: string } | null }
       const spent = parseFloat(data.totalSpent ?? '0')
-      setState((s) => ({ ...s, totalSpent: spent, loading: false }))
+      setState((s) => ({ ...s, totalSpent: spent, spendBreakdown: data.spendBreakdown ?? null, loading: false }))
     } catch {
       setState((s) => ({ ...s, loading: false }))
     }
@@ -146,6 +153,28 @@ export function BudgetMonitorWidget({ projectId, approvedBudget }: Props) {
                   opacity: 0.5,
                 }}
               />
+            </div>
+          )}
+          {!state.loading && state.spendBreakdown && state.spendBreakdown.equipment > 0 && (
+            <div
+              className="mt-3 pt-3 border-t space-y-1.5"
+              style={{ borderColor: 'var(--admin-border)' }}
+            >
+              <p className="text-xs uppercase tracking-wide mb-1" style={{ color: 'var(--admin-text-muted)' }}>
+                Répartition des dépenses
+              </p>
+              <div className="flex items-center justify-between text-xs">
+                <span style={{ color: 'var(--admin-text-muted)' }}>Achats végétaux & matériaux</span>
+                <span className="tabular-nums font-medium" style={{ color: 'var(--admin-text)' }}>
+                  {fmt(state.spendBreakdown.purchases)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span style={{ color: 'var(--admin-text-muted)' }}>Matériel & engins</span>
+                <span className="tabular-nums font-medium" style={{ color: 'var(--admin-text)' }}>
+                  {fmt(state.spendBreakdown.equipment)}
+                </span>
+              </div>
             </div>
           )}
         </div>

@@ -15,6 +15,7 @@ export type SupplierCategory =
   | 'equipements'
   | 'produits_phytosanitaires'
   | 'logistique'
+  | 'location_engins'
   | 'autre'
 
 export type SupplierStatus = 'approuve' | 'en_evaluation' | 'suspendu'

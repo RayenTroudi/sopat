@@ -1,11 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell,
 } from 'recharts'
 import type { BudgetVarianceRow, NcMonthlyRow, TimelineProject, MlAccuracySummary } from '@/lib/db/reports'
+import type { InternationalReportRow } from '@/lib/db/international'
+import type { EquipmentReportData } from '@/lib/db/equipment'
+import { REGION_LABELS, REGION_COLORS } from '@/lib/db/international'
+import {
+  LineChart, Line,
+} from 'recharts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +20,8 @@ type Props = {
   ncMonthly:      NcMonthlyRow[]
   timeline:       TimelineProject[]
   mlAccuracy:     MlAccuracySummary
+  international:  InternationalReportRow[]
+  equipment:      EquipmentReportData
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -94,10 +102,11 @@ function exportCsv(filename: string, headers: string[], rows: (string | number |
 
 // ─── 1. Budget Variance Report ────────────────────────────────────────────────
 
-function BudgetVarianceReport({ rows }: { rows: BudgetVarianceRow[] }) {
+function BudgetVarianceReport({ rows, countryFilter }: { rows: BudgetVarianceRow[]; countryFilter: string }) {
   const [sort, setSort] = useState<'variance' | 'spend' | 'ref'>('variance')
+  const filtered = countryFilter ? rows.filter((r) => r.country === countryFilter) : rows
 
-  const sorted = [...rows].sort((a, b) => {
+  const sorted = [...filtered].sort((a, b) => {
     if (sort === 'variance') return (Math.abs(b.variancePct ?? 0)) - (Math.abs(a.variancePct ?? 0))
     if (sort === 'spend')    return b.actualSpend - a.actualSpend
     return a.reference.localeCompare(b.reference)
@@ -140,14 +149,14 @@ function BudgetVarianceReport({ rows }: { rows: BudgetVarianceRow[] }) {
         </div>
       }
     >
-      {rows.length === 0 ? (
+      {filtered.length === 0 ? (
         <p className="text-sm text-center py-6" style={{ color: 'var(--admin-text-muted)' }}>Aucun projet avec données budgétaires.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
-                {['Référence', 'Projet / Client', 'Statut', 'Budget approuvé', 'Prédiction ML', 'Dépenses réelles', 'Variance %', 'Erreur ML %'].map((h) => (
+                {['Référence', 'Projet / Client', 'Pays', 'Statut', 'Budget approuvé', 'Prédiction ML', 'Dépenses réelles', 'Variance %', 'Erreur ML %'].map((h) => (
                   <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -163,6 +172,9 @@ function BudgetVarianceReport({ rows }: { rows: BudgetVarianceRow[] }) {
                   <td className="px-4 py-3 max-w-[180px]">
                     <p className="truncate font-medium text-sm" style={{ color: 'var(--admin-text)' }}>{r.name}</p>
                     <p className="truncate text-xs" style={{ color: 'var(--admin-text-muted)' }}>{r.clientName}</p>
+                  </td>
+                  <td className="px-4 py-3 text-center text-base">
+                    {r.country ? String.fromCodePoint(...(r.country.toUpperCase().split('').map((c) => 127397 + c.charCodeAt(0)))) : ''}
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{STATUS_LABELS[r.status] ?? r.status}</span>
@@ -572,16 +584,280 @@ function MlAccuracyReport({ data }: { data: MlAccuracySummary }) {
   )
 }
 
+// ─── 5. International Performance Report ─────────────────────────────────────
+
+function InternationalReport({ rows }: { rows: InternationalReportRow[] }) {
+  const FMT_NUM = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 })
+
+  const chartData = rows
+    .filter((r) => r.projectCount > 0)
+    .map((r) => ({
+      name:     `${r.flag} ${r.countryName}`,
+      projets:  r.projectCount,
+      budget:   r.budgetTND ?? 0,
+      color:    REGION_COLORS[r.region] ?? '#9BB5A8',
+    }))
+
+  function varianceColor(pct: number | null) {
+    if (pct === null) return 'var(--admin-text-muted)'
+    if (pct > 10)  return 'var(--admin-red)'
+    if (pct > 0)   return 'var(--admin-amber)'
+    return 'var(--admin-emerald)'
+  }
+
+  return (
+    <Section
+      title="Performance internationale"
+      subtitle="Variance budgétaire et taux de complétion par pays"
+    >
+      {rows.length === 0 ? (
+        <p className="text-sm text-center py-6" style={{ color: 'var(--admin-text-muted)' }}>
+          Aucun projet international.
+        </p>
+      ) : (
+        <div className="space-y-6">
+          {/* Bar chart */}
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} width={24} />
+              <Tooltip
+                contentStyle={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: 8, fontSize: 12 }}
+                formatter={(value, name) => name === 'projets' ? [`${value} projet${Number(value) !== 1 ? 's' : ''}`, 'Projets'] : [`${FMT_NUM.format(Number(value))} DT`, 'Budget']}
+              />
+              <Bar dataKey="projets" maxBarSize={48} radius={[4, 4, 0, 0]}>
+                {chartData.map((entry, i) => (
+                  <Cell key={i} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+
+          {/* Region legend */}
+          <div className="flex flex-wrap gap-4">
+            {Object.entries(REGION_LABELS).map(([key, label]) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: REGION_COLORS[key] }} />
+                <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                  {['Pays', 'Région', 'Projets', 'Terminés', 'Taux complétion', 'Budget (DT)', 'Variance moy.'].map((h) => (
+                    <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.country} className="hover:bg-[var(--admin-bg)] transition-colors" style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                    <td className="px-4 py-3">
+                      <span className="text-base mr-2">{r.flag}</span>
+                      <span className="font-medium" style={{ color: 'var(--admin-text)' }}>{r.countryName}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className="text-xs px-2 py-0.5 rounded font-medium"
+                        style={{
+                          background: `${REGION_COLORS[r.region]}22`,
+                          color:      REGION_COLORS[r.region] ?? 'var(--admin-text-muted)',
+                        }}
+                      >
+                        {REGION_LABELS[r.region] ?? r.region}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-center" style={{ color: 'var(--admin-text)' }}>{r.projectCount}</td>
+                    <td className="px-4 py-3 tabular-nums text-center" style={{ color: 'var(--admin-text-muted)' }}>{r.completedCount}</td>
+                    <td className="px-4 py-3 tabular-nums text-center">
+                      <span
+                        className="text-xs font-semibold"
+                        style={{ color: r.completionRate === null ? 'var(--admin-text-muted)' : r.completionRate >= 80 ? 'var(--admin-emerald)' : r.completionRate >= 50 ? 'var(--admin-amber)' : 'var(--admin-red)' }}
+                      >
+                        {r.completionRate !== null ? `${r.completionRate}%` : '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-right text-xs font-medium" style={{ color: 'var(--admin-text)' }}>
+                      {r.budgetTND !== null ? `${FMT_NUM.format(r.budgetTND)} DT` : '—'}
+                    </td>
+                    <td className="px-4 py-3 tabular-nums text-right text-sm font-semibold" style={{ color: varianceColor(r.avgVariancePct) }}>
+                      {r.avgVariancePct !== null ? `${r.avgVariancePct > 0 ? '+' : ''}${r.avgVariancePct}%` : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </Section>
+  )
+}
+
+// ─── 6. Equipment Report ──────────────────────────────────────────────────────
+
+const PROJECT_TYPE_LABELS: Record<string, string> = {
+  ingenierie_territoriale: 'Ingénierie territoriale',
+  espace_public:           'Espace public',
+  siege_social:            'Siège social',
+  hotelier_touristique:    'Hôtelier & touristique',
+  residentiel:             'Résidentiel',
+  interieur:               'Intérieur',
+}
+
+function EquipmentReport({ data }: { data: EquipmentReportData }) {
+  const hasData = data.totalEquipmentSpend > 0
+
+  if (!hasData) {
+    return (
+      <Section title="Rapport Engins & Matériel" subtitle="Aucune location enregistrée pour le moment.">
+        <p className="text-sm text-center py-6" style={{ color: 'var(--admin-text-muted)' }}>
+          Enregistrez des locations d&apos;engins dans les projets en Réalisation pour voir les statistiques ici.
+        </p>
+      </Section>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* KPI row */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: 'Total dépensé (engins)', value: fmtTnd(data.totalEquipmentSpend) },
+          { label: 'Projets avec location', value: String(data.byProject.filter((p) => p.equipmentCost > 0).length) },
+          { label: 'Ratio moyen engins / budget', value: data.avgEquipmentRatio !== null ? `${data.avgEquipmentRatio}%` : '—' },
+        ].map(({ label, value }) => (
+          <div
+            key={label}
+            className="rounded-xl border p-4"
+            style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
+          >
+            <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{label}</p>
+            <p className="text-xl font-semibold mt-1" style={{ color: 'var(--admin-text)' }}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Bar chart: spend by equipment type */}
+      <Section title="Dépenses par type d'engin" subtitle="Coût total de location par catégorie d'équipement">
+        {data.byType.filter((r) => r.totalCost > 0).length === 0 ? (
+          <p className="text-sm text-center py-4" style={{ color: 'var(--admin-text-muted)' }}>Aucune donnée.</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={data.byType.filter((r) => r.totalCost > 0)} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+              <XAxis dataKey="displayName" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
+              <Tooltip formatter={(value) => [typeof value === 'number' ? fmtTnd(value) : String(value ?? '')]} />
+              <Bar dataKey="totalCost" name="Coût total" radius={[4, 4, 0, 0]}>
+                {data.byType.filter((r) => r.totalCost > 0).map((_, i) => (
+                  <Cell key={i} fill="#D97706" />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </Section>
+
+      {/* Line chart: monthly trend */}
+      {data.monthly.length > 1 && (
+        <Section title="Tendance mensuelle des dépenses engins" subtitle="Évolution du coût de location mois par mois">
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={data.monthly} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
+              <Tooltip formatter={(value) => [typeof value === 'number' ? fmtTnd(value) : String(value ?? '')]} />
+              <Line type="monotone" dataKey="totalCost" name="Dépenses engins" stroke="#D97706" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </Section>
+      )}
+
+      {/* By project type */}
+      <Section title="Dépenses engins par type de projet" subtitle="Coût total de location selon la catégorie de projet">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                {['Type de projet', 'Nb locations', 'Total dépensé'].map((h) => (
+                  <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.byProjectType.map((r) => (
+                <tr key={r.projectType} style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                  <td className="px-4 py-3" style={{ color: 'var(--admin-text)' }}>{PROJECT_TYPE_LABELS[r.projectType] ?? r.projectType}</td>
+                  <td className="px-4 py-3 tabular-nums" style={{ color: 'var(--admin-text-muted)' }}>{r.rentalCount}</td>
+                  <td className="px-4 py-3 tabular-nums font-semibold" style={{ color: 'var(--admin-text)' }}>{fmtTnd(r.totalCost)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+
+      {/* Per-project breakdown */}
+      <Section title="Détail par projet" subtitle="Coût engins et ratio sur les dépenses totales">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                {['Référence', 'Projet', 'Type', 'Dépenses engins', 'Total dépensé', 'Ratio'].map((h) => (
+                  <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.byProject.filter((p) => p.equipmentCost > 0).map((p) => (
+                <tr key={p.projectId} style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                  <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--admin-text-muted)' }}>{p.reference}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text)' }}>{p.projectName}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{PROJECT_TYPE_LABELS[p.projectType] ?? p.projectType}</td>
+                  <td className="px-4 py-3 tabular-nums text-xs font-semibold" style={{ color: 'var(--admin-amber)' }}>{fmtTnd(p.equipmentCost)}</td>
+                  <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmtTnd(p.totalProjectSpend)}</td>
+                  <td className="px-4 py-3 tabular-nums text-xs" style={{ color: 'var(--admin-text)' }}>
+                    {p.equipmentRatio !== null ? `${p.equipmentRatio}%` : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy }: Props) {
-  const [activeTab, setActiveTab] = useState<'budget' | 'nc' | 'timeline' | 'ml'>('budget')
+export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy, international, equipment }: Props) {
+  const [activeTab, setActiveTab] = useState<'budget' | 'nc' | 'timeline' | 'ml' | 'international' | 'equipment'>('budget')
+  const [countryFilter, setCountryFilter] = useState('')
+
+  // Collect unique countries from budget variance data
+  const countries = useMemo(() => {
+    const seen = new Set<string>()
+    return [
+      { value: '', label: 'Tous les pays' },
+      ...international.map((r) => ({ value: r.country, label: `${r.flag} ${r.countryName}` })).filter((o) => {
+        if (seen.has(o.value)) return false
+        seen.add(o.value)
+        return true
+      }),
+    ]
+  }, [international])
 
   const TABS: { key: typeof activeTab; label: string }[] = [
-    { key: 'budget',   label: 'Variance budgétaire' },
-    { key: 'nc',       label: 'Analyse NC' },
-    { key: 'timeline', label: 'Chronologie' },
-    { key: 'ml',       label: 'Précision ML' },
+    { key: 'budget',        label: 'Variance budgétaire' },
+    { key: 'nc',            label: 'Analyse NC' },
+    { key: 'timeline',      label: 'Chronologie' },
+    { key: 'ml',            label: 'Précision ML' },
+    { key: 'international', label: '🌍 Performance internationale' },
+    { key: 'equipment',     label: '🏗 Rapport Engins' },
   ]
 
   return (
@@ -594,9 +870,23 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy 
             Analyse des performances · Qualité ISO 9001:2015
           </p>
         </div>
-        <Link href="/admin" className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-          ← Tableau de bord
-        </Link>
+        <div className="flex items-center gap-3">
+          {countries.length > 1 && activeTab !== 'international' && activeTab !== 'equipment' && (
+            <select
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+              className="text-xs px-2 py-1.5 rounded border"
+              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+            >
+              {countries.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          )}
+          <Link href="/admin" className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+            ← Tableau de bord
+          </Link>
+        </div>
       </div>
 
       {/* Tab bar */}
@@ -617,10 +907,12 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy 
       </div>
 
       {/* Tab content */}
-      {activeTab === 'budget'   && <BudgetVarianceReport rows={budgetVariance} />}
-      {activeTab === 'nc'       && <NcAnalysisChart data={ncMonthly} />}
-      {activeTab === 'timeline' && <ProjectTimeline projects={timeline} />}
-      {activeTab === 'ml'       && <MlAccuracyReport data={mlAccuracy} />}
+      {activeTab === 'budget'        && <BudgetVarianceReport rows={budgetVariance} countryFilter={countryFilter} />}
+      {activeTab === 'nc'            && <NcAnalysisChart data={ncMonthly} />}
+      {activeTab === 'timeline'      && <ProjectTimeline projects={timeline} />}
+      {activeTab === 'ml'            && <MlAccuracyReport data={mlAccuracy} />}
+      {activeTab === 'international' && <InternationalReport rows={international} />}
+      {activeTab === 'equipment'     && <EquipmentReport data={equipment} />}
     </div>
   )
 }

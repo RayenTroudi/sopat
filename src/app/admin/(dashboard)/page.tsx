@@ -8,10 +8,12 @@ import {
 } from '@/lib/db/dashboard'
 import { runEmailReminderSweep } from '@/lib/tasks/email-reminders'
 import { getRseDashboardData } from '@/lib/db/rse'
+import { getInternationalDashboardData } from '@/lib/db/international'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { MiniPie } from '@/components/dashboard/MiniPie'
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
 import { AtRiskTable } from '@/components/dashboard/AtRiskTable'
+import { DashboardTabs } from '@/components/dashboard/DashboardTabs'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Tableau de bord | SOPAT Admin' }
@@ -51,12 +53,13 @@ export default async function AdminDashboard() {
   // Fire-and-forget: runs at most once every 30 min (rate-gated in the task itself)
   runEmailReminderSweep().catch((e) => console.error('[reminder sweep]', e))
 
-  const [kpis, activity, atRisk, upcomingVisits, rseData] = await Promise.all([
+  const [kpis, activity, atRisk, upcomingVisits, rseData, intlData] = await Promise.all([
     getDashboardKpis(),
     getRecentActivity(20),
     getAtRiskProjects(),
     getUpcomingVisits(7),
     getRseDashboardData(),
+    getInternationalDashboardData(),
   ])
 
   const { activeProjects, onTimeDeliveryRate, avgBudgetVariance, openNcs, ncSlaClosureRate, maintenanceThisMonth, satisfactionScore } = kpis
@@ -77,25 +80,11 @@ export default async function AdminDashboard() {
     : avgBudgetVariance > 0  ? 'amber'
     : 'green'
 
-  return (
-    <div className="space-y-6 max-w-[1400px]">
-      {/* Page title */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Tableau de bord</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            Objectifs qualité ISO 9001:2015 · Mis à jour en temps réel
-          </p>
-        </div>
-        <Link href="/admin/reports" className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>
-          Voir les rapports →
-        </Link>
-      </div>
-
+  const mainDashboard = (
+    <div className="space-y-6">
       {/* KPI cards — 4 columns */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-        {/* 1. Active projects */}
         <MetricCard
           title="Projets actifs"
           value={activeProjects.total}
@@ -106,7 +95,6 @@ export default async function AdminDashboard() {
           <MiniPie data={phasePieData} size={56} />
         </MetricCard>
 
-        {/* 2. On-time delivery */}
         <MetricCard
           title="Livraison dans les délais"
           value={`${onTimeDeliveryRate}%`}
@@ -115,7 +103,6 @@ export default async function AdminDashboard() {
           isoClause="8.1"
         />
 
-        {/* 3. Budget variance */}
         <MetricCard
           title="Variance budgétaire moy."
           value={avgBudgetVariance === null ? '—' : `${avgBudgetVariance > 0 ? '+' : ''}${avgBudgetVariance}%`}
@@ -124,7 +111,6 @@ export default async function AdminDashboard() {
           isoClause="8.1"
         />
 
-        {/* 4. Open NCs */}
         <MetricCard
           title="Non-conformités ouvertes"
           value={openNcs.count}
@@ -139,7 +125,6 @@ export default async function AdminDashboard() {
       {/* Second row of KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-        {/* 5. NC SLA closure rate */}
         <MetricCard
           title="Taux clôture NC dans les délais"
           value={`${ncSlaClosureRate}%`}
@@ -148,7 +133,6 @@ export default async function AdminDashboard() {
           isoClause="10.2"
         />
 
-        {/* 6. Maintenance this month */}
         <MetricCard
           title="Visites maintenance ce mois"
           value={`${maintenanceThisMonth.completed} / ${maintenanceThisMonth.scheduled}`}
@@ -156,7 +140,6 @@ export default async function AdminDashboard() {
           accent={maintenanceThisMonth.scheduled === 0 ? 'muted' : maintenanceThisMonth.completed === maintenanceThisMonth.scheduled ? 'green' : 'blue'}
         />
 
-        {/* 7. Client satisfaction */}
         <MetricCard
           title="Satisfaction client (12 mois)"
           value={satisfactionScore !== null ? `${satisfactionScore} / 5` : '—'}
@@ -184,22 +167,16 @@ export default async function AdminDashboard() {
           />
           <MetricCard
             title="Prochain renouvellement RSE"
-            value={
-              rseData.nextExpiring
-                ? `J-${rseData.nextExpiring.daysUntil}`
-                : '—'
-            }
+            value={rseData.nextExpiring ? `J-${rseData.nextExpiring.daysUntil}` : '—'}
             subtitle={
               rseData.nextExpiring
                 ? `${rseData.nextExpiring.partnerName} · ${rseData.nextExpiring.conventionReference}`
                 : 'Aucune convention expirant dans 90 jours'
             }
             accent={
-              !rseData.nextExpiring
-                ? 'muted'
-                : rseData.nextExpiring.daysUntil <= 30
-                ? 'red'
-                : 'amber'
+              !rseData.nextExpiring ? 'muted'
+              : rseData.nextExpiring.daysUntil <= 30 ? 'red'
+              : 'amber'
             }
           />
           <div className="flex items-center justify-center">
@@ -217,12 +194,10 @@ export default async function AdminDashboard() {
       {/* Bottom grid: activity + risk + visits */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-        {/* Activity feed — 1 col */}
         <Section title="Activité récente">
           <ActivityFeed entries={activity} />
         </Section>
 
-        {/* At-risk projects + upcoming visits — 2 cols */}
         <div className="lg:col-span-2 space-y-6">
           <Section
             title={`Projets à risque${atRisk.length > 0 ? ` — ${atRisk.length}` : ''}`}
@@ -276,7 +251,6 @@ export default async function AdminDashboard() {
                       className="flex items-center gap-4 px-4 py-3 rounded-lg border"
                       style={{ borderColor: 'var(--admin-border)' }}
                     >
-                      {/* Date badge */}
                       <div className="shrink-0 w-12 text-center">
                         <p className="text-lg font-bold tabular-nums leading-none" style={{ color: 'var(--admin-emerald)' }}>
                           {new Date(v.visitDate).getDate()}
@@ -302,7 +276,7 @@ export default async function AdminDashboard() {
                           color:      dayDiff <= 1 ? 'var(--admin-amber)'     : 'var(--admin-emerald)',
                         }}
                       >
-                        {dayDiff <= 0 ? 'Aujourd\'hui' : dayDiff === 1 ? 'Demain' : `J+${dayDiff}`}
+                        {dayDiff <= 0 ? "Aujourd'hui" : dayDiff === 1 ? 'Demain' : `J+${dayDiff}`}
                       </span>
                       <Link
                         href={`/admin/projects/${v.projectId}?tab=entretien`}
@@ -320,6 +294,29 @@ export default async function AdminDashboard() {
         </div>
 
       </div>
+    </div>
+  )
+
+  return (
+    <div className="space-y-6 max-w-[1400px]">
+      {/* Page title */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Tableau de bord</h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            Objectifs qualité ISO 9001:2015 · Mis à jour en temps réel
+          </p>
+        </div>
+        <Link href="/admin/reports" className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>
+          Voir les rapports →
+        </Link>
+      </div>
+
+      <DashboardTabs
+        mainContent={mainDashboard}
+        internationalData={intlData.byCountry}
+        hasForeignProjects={intlData.totalForeign > 0}
+      />
     </div>
   )
 }

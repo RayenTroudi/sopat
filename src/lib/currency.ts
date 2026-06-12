@@ -48,3 +48,19 @@ export function formatTND(amount: number): string {
 export function convertToTNDWithRate(amount: number, rate: number): number {
   return amount * rate
 }
+
+/**
+ * Converts amount in any currency to TND using the most recent rate on or before the given date.
+ * Returns null if no rate is found (e.g. TND→TND returns amount directly).
+ */
+export async function convertToTND(
+  amount: number,
+  currency: Currency | string,
+  date: string  // "YYYY-MM-DD"
+): Promise<number | null> {
+  if (currency === 'TND') return amount
+  const { getRateOnDate } = await import('@/lib/db/exchange-rates')
+  const rate = await getRateOnDate(currency as Currency, date)
+  if (rate === null) return null
+  return amount * rate
+}
