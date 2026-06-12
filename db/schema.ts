@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   foreignKey,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -243,6 +244,12 @@ export const interactionTypeEnum = pgEnum('interaction_type', [
   'appel', 'email', 'reunion', 'visite_site', 'autre',
 ])
 
+export const residentialSubtypeEnum = pgEnum('residential_subtype', [
+  'villa_privee',
+  'residence_collective',
+  'appartement',
+])
+
 // ─── Shared column helpers ─────────────────────────────────────────────────────
 
 const timestamps = {
@@ -334,6 +341,8 @@ export const projects = pgTable('projects', {
   territorySurfaceKm2: decimal('territory_surface_km2', { precision: 12, scale: 4 }),
   numberOfMunicipalities: integer('number_of_municipalities'),
   lightingIncluded: boolean('lighting_included').notNull().default(false),
+  residentialSubtype: residentialSubtypeEnum('residential_subtype'),
+  actualRevenue: decimal('actual_revenue', { precision: 14, scale: 3 }),
   clientId: uuid('client_id'),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
@@ -1340,6 +1349,39 @@ export const nurseryStock = pgTable('nursery_stock', {
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
+// ─── Design Concept Templates ────────────────────────────────────────────────
+
+export const designTemplates = pgTable('design_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  templateName: varchar('template_name', { length: 255 }).notNull(),
+  projectTypeContext: projectTypeEnum('project_type_context').array().notNull().default(sql`'{}'::project_type[]` as any),
+  conceptDescriptionTemplate: text('concept_description_template').notNull(),
+  recommendedVocabulary: text('recommended_vocabulary').array().notNull().default(sql`'{}'::text[]` as any),
+  recommendedPalette: text('recommended_palette').array().notNull().default(sql`'{}'::text[]` as any),
+  exampleProjectIds: uuid('example_project_ids').array().notNull().default(sql`'{}'::uuid[]` as any),
+  referenceImageCloudinaryIds: text('reference_image_cloudinary_ids').array().notNull().default(sql`'{}'::text[]` as any),
+  createdBy: uuid('created_by').notNull(),
+  isPublished: boolean('is_published').notNull().default(false),
+  ...timestamps,
+}, (t) => [
+  index('design_templates_is_published_idx').on(t.isPublished),
+  index('design_templates_created_by_idx').on(t.createdBy),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Portfolio Metrics Snapshots ──────────────────────────────────────────────
+
+export const portfolioMetricsSnapshots = pgTable('portfolio_metrics_snapshots', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  snapshotDate: date('snapshot_date').notNull(),
+  metrics:      jsonb('metrics').notNull(),
+  createdAt:    timestamp('created_at').notNull().defaultNow(),
+  createdBy:    uuid('created_by').notNull(),
+}, (t) => [
+  index('portfolio_metrics_snapshots_date_idx').on(t.snapshotDate),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
 export const nurseryStockMovements = pgTable('nursery_stock_movements', {
   id: uuid('id').primaryKey().defaultRandom(),
   stockId: uuid('stock_id').notNull(),
@@ -1361,4 +1403,68 @@ export const nurseryStockMovements = pgTable('nursery_stock_movements', {
   foreignKey({ columns: [t.plantListItemId], foreignColumns: [plantListItems.id] }),
   foreignKey({ columns: [t.purchaseOrderId], foreignColumns: [purchaseOrders.id] }),
   foreignKey({ columns: [t.movedBy], foreignColumns: [users.id] }),
+])
+
+// ─── Portfolio Export ─────────────────────────────────────────────────────────
+
+export const portfolioExportTypeEnum = pgEnum('portfolio_export_type', [
+  'full',
+  'by_type',
+  'by_country',
+  'custom',
+  'single_project',
+])
+
+export const portfolioExports = pgTable('portfolio_exports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  exportType: portfolioExportTypeEnum('export_type').notNull(),
+  projectIdsIncluded: uuid('project_ids_included').array().notNull().default(sql`'{}'::uuid[]`),
+  sectionsConfig: jsonb('sections_config').notNull(),
+  filterConfig: jsonb('filter_config'),
+  language: varchar('language', { length: 5 }).notNull().default('fr'),
+  outputCloudinaryId: uuid('output_cloudinary_id'),
+  fileSizeBytes: integer('file_size_bytes'),
+  pageCount: integer('page_count'),
+  downloadCount: integer('download_count').notNull().default(0),
+  lastDownloadedAt: timestamp('last_downloaded_at'),
+  generatedAt: timestamp('generated_at').notNull().defaultNow(),
+  generatedBy: uuid('generated_by').notNull(),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('portfolio_exports_generated_by_idx').on(t.generatedBy),
+  index('portfolio_exports_generated_at_idx').on(t.generatedAt),
+  foreignKey({ columns: [t.outputCloudinaryId], foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.generatedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const portfolioSettings = pgTable('portfolio_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  isSingleton: boolean('is_singleton').notNull().default(true),
+  companyTagline: text('company_tagline'),
+  ceoName: varchar('ceo_name', { length: 255 }),
+  ceoTitle: varchar('ceo_title', { length: 255 }),
+  ceoPhotoCloudinaryId: uuid('ceo_photo_cloudinary_id'),
+  companyAddress: text('company_address'),
+  phone1: varchar('phone_1', { length: 50 }),
+  phone2: varchar('phone_2', { length: 50 }),
+  email: varchar('email', { length: 255 }),
+  website: varchar('website', { length: 255 }),
+  facebookUrl: varchar('facebook_url', { length: 500 }),
+  instagramHandle: varchar('instagram_handle', { length: 100 }),
+  isoCertNumber: varchar('iso_cert_number', { length: 100 }),
+  isoCertExpiry: date('iso_cert_expiry'),
+  rseLabelLevel: varchar('rse_label_level', { length: 50 }),
+  rseLabelExpiry: date('rse_label_expiry'),
+  coverBackgroundColor: varchar('cover_background_color', { length: 7 }).notNull().default('#2D5A27'),
+  accentColor: varchar('accent_color', { length: 7 }).notNull().default('#FFFFFF'),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  updatedBy: uuid('updated_by'),
+}, (t) => [
+  uniqueIndex('portfolio_settings_singleton_uidx').on(t.isSingleton),
+  foreignKey({ columns: [t.ceoPhotoCloudinaryId], foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
 ])
