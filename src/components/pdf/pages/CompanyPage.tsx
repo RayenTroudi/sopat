@@ -17,7 +17,7 @@ const s = StyleSheet.create({
 export function CompanyPage({ s: st, ceoPhotoUrl }: { s: PortfolioSettings; ceoPhotoUrl?: string }) {
   return (
     <Page size="A4" style={baseStyles.page}>
-      <SectionTitle>L&apos;entreprise</SectionTitle>
+      <SectionTitle>{"L'entreprise"}</SectionTitle>
       <View style={s.row}>
         <View style={s.left}>
           {/* eslint-disable-next-line jsx-a11y/alt-text */}
