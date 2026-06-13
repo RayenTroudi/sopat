@@ -21,3 +21,25 @@ export function generateSignedUploadParams(folder: string) {
     folder,
   }
 }
+
+export async function uploadBufferToCloudinary(
+  buffer: Buffer,
+  opts: { folder: string; publicId?: string; format?: 'pdf' | 'jpg' | 'png' },
+): Promise<{ publicId: string; url: string; secureUrl: string; bytes: number; format: string }> {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: 'raw', folder: opts.folder, public_id: opts.publicId, format: opts.format ?? 'pdf' },
+      (err, res) => {
+        if (err || !res) return reject(err ?? new Error('Cloudinary upload returned no result'))
+        resolve({
+          publicId: res.public_id,
+          url: res.url,
+          secureUrl: res.secure_url,
+          bytes: res.bytes,
+          format: res.format,
+        })
+      },
+    )
+    stream.end(buffer)
+  })
+}
