@@ -290,7 +290,7 @@ export async function getDesignDna(): Promise<{
   paletteFrequency:    { tag: string; count: number }[]
   totalProjects:       number
 }> {
-  const vocabRows = await db.execute(sql`
+  const vocabResult = await db.execute(sql`
     SELECT tag, count(*)::int AS count
     FROM (
       SELECT unnest(design_vocabulary) AS tag
@@ -301,7 +301,7 @@ export async function getDesignDna(): Promise<{
     ORDER BY count DESC
   `)
 
-  const paletteRows = await db.execute(sql`
+  const paletteResult = await db.execute(sql`
     SELECT tag, count(*)::int AS count
     FROM (
       SELECT unnest(plant_palette_philosophy) AS tag
@@ -317,9 +317,10 @@ export async function getDesignDna(): Promise<{
     .from(projects)
     .where(and(isNull(projects.deletedAt), sql`${projects.conceptTitle} IS NOT NULL`))
 
+  type TagRow = { tag: string; count: number }
   return {
-    vocabularyFrequency: (vocabRows as any as { tag: string; count: number }[]).map((r) => ({ tag: r.tag, count: Number(r.count) })),
-    paletteFrequency:    (paletteRows as any as { tag: string; count: number }[]).map((r) => ({ tag: r.tag, count: Number(r.count) })),
+    vocabularyFrequency: (vocabResult.rows as TagRow[]).map((r) => ({ tag: r.tag, count: Number(r.count) })),
+    paletteFrequency:    (paletteResult.rows as TagRow[]).map((r) => ({ tag: r.tag, count: Number(r.count) })),
     totalProjects:       Number(count),
   }
 }

@@ -73,14 +73,14 @@ export type AchievementsPayload = {
 
 async function getLatestRatesMap(): Promise<Record<string, number>> {
   // Most recent rate per currency, all converting to TND.
-  const rows = await db.execute(sql`
+  const result = await db.execute(sql`
     SELECT DISTINCT ON (from_currency) from_currency, rate
     FROM exchange_rates
     WHERE to_currency = 'TND'
     ORDER BY from_currency, effective_date DESC
   `)
   const map: Record<string, number> = { TND: 1 }
-  for (const r of rows as any as { from_currency: string; rate: string }[]) {
+  for (const r of result.rows as { from_currency: string; rate: string }[]) {
     map[r.from_currency] = parseFloat(r.rate)
   }
   return map
