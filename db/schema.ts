@@ -143,6 +143,7 @@ export const assetTypeEnum = pgEnum('asset_type', [
   'rse_convention',
   'rse_communication',
   'other',
+  'portfolio_pdf',
 ])
 
 export const ncStatusEnum = pgEnum('nc_status', [
