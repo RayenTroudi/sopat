@@ -9,7 +9,7 @@ import {
   dmsLifecycleStatusEnum,
   dmsConfidentialityEnum,
 } from '../../../db/schema'
-import { eq, and, isNull, asc, sql, ilike, or } from 'drizzle-orm'
+import { eq, and, isNull, asc, sql, ilike, or, aliasedTable } from 'drizzle-orm'
 import type { TypeCode, ProcessCode } from './codes'
 
 export type DmsDocRow = {
@@ -69,6 +69,9 @@ export async function listDmsDocuments(
   const pageSize = filters?.pageSize ?? 50
   const offset   = (page - 1) * pageSize
 
+  const ownerUsers  = aliasedTable(users, 'owner_u')
+  const authorUsers = aliasedTable(users, 'author_u')
+
   const conditions = [
     isNull(dmsDocuments.deletedAt),
     filters?.status     ? eq(dmsDocuments.status,     filters.status as typeof dmsLifecycleStatusEnum.enumValues[number])  : undefined,
@@ -96,9 +99,9 @@ export async function listDmsDocuments(
       effectiveDate:    dmsDocuments.effectiveDate,
       nextReviewDate:   dmsDocuments.nextReviewDate,
       ownerId:          dmsDocuments.ownerId,
-      ownerName:        sql<string | null>`owner_u.name`,
+      ownerName:        ownerUsers.name,
       authorId:         dmsDocuments.authorId,
-      authorName:       sql<string | null>`author_u.name`,
+      authorName:       authorUsers.name,
       currentVersionId: dmsDocuments.currentVersionId,
       assetUrl:         cloudinaryAssets.secureUrl,
       legacyReference:  dmsDocuments.legacyReference,
@@ -106,8 +109,8 @@ export async function listDmsDocuments(
       updatedAt:        dmsDocuments.updatedAt,
     })
     .from(dmsDocuments)
-    .leftJoin(sql`users owner_u`,  sql`owner_u.id  = ${dmsDocuments.ownerId}`)
-    .leftJoin(sql`users author_u`, sql`author_u.id = ${dmsDocuments.authorId}`)
+    .leftJoin(ownerUsers,  eq(ownerUsers.id,  dmsDocuments.ownerId))
+    .leftJoin(authorUsers, eq(authorUsers.id, dmsDocuments.authorId))
     .leftJoin(
       cloudinaryAssets,
       eq(
@@ -127,7 +130,7 @@ export async function listDmsDocuments(
   const [{ total }] = await db
     .select({ total: sql<number>`count(*)` })
     .from(dmsDocuments)
-    .where(and(isNull(dmsDocuments.deletedAt)))
+    .where(and(...conditions))
 
   return { rows: rows as DmsDocRow[], total: Number(total) }
 }
@@ -161,6 +164,9 @@ export async function createDmsDocument(
 export async function getDmsDocumentByCode(
   documentNumber: string,
 ): Promise<DmsDocRow | null> {
+  const ownerUsers  = aliasedTable(users, 'owner_u')
+  const authorUsers = aliasedTable(users, 'author_u')
+
   const [row] = await db
     .select({
       id:               dmsDocuments.id,
@@ -175,9 +181,9 @@ export async function getDmsDocumentByCode(
       effectiveDate:    dmsDocuments.effectiveDate,
       nextReviewDate:   dmsDocuments.nextReviewDate,
       ownerId:          dmsDocuments.ownerId,
-      ownerName:        sql<string | null>`owner_u.name`,
+      ownerName:        ownerUsers.name,
       authorId:         dmsDocuments.authorId,
-      authorName:       sql<string | null>`author_u.name`,
+      authorName:       authorUsers.name,
       currentVersionId: dmsDocuments.currentVersionId,
       assetUrl:         cloudinaryAssets.secureUrl,
       legacyReference:  dmsDocuments.legacyReference,
@@ -185,8 +191,8 @@ export async function getDmsDocumentByCode(
       updatedAt:        dmsDocuments.updatedAt,
     })
     .from(dmsDocuments)
-    .leftJoin(sql`users owner_u`,  sql`owner_u.id  = ${dmsDocuments.ownerId}`)
-    .leftJoin(sql`users author_u`, sql`author_u.id = ${dmsDocuments.authorId}`)
+    .leftJoin(ownerUsers,  eq(ownerUsers.id,  dmsDocuments.ownerId))
+    .leftJoin(authorUsers, eq(authorUsers.id, dmsDocuments.authorId))
     .leftJoin(
       cloudinaryAssets,
       eq(
