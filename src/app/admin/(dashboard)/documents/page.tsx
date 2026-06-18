@@ -1,9 +1,10 @@
 import { auth } from '@/lib/auth'
-import { listDocuments, getActiveUsers, type DocumentStatus, type DocumentCategory } from '@/lib/db/iso'
-import { DocumentsClient } from './DocumentsClient'
+import { listDmsDocuments } from '@/lib/dms/queries'
+import { getActiveUsers } from '@/lib/db/iso'
+import { DmsDocumentsClient } from './DocumentsClient'
 
 export const dynamic = 'force-dynamic'
-export const metadata = { title: 'Contrôle Documentaire | SOPAT Admin' }
+export const metadata = { title: 'Informations Documentées | SOPAT Admin' }
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
@@ -11,23 +12,24 @@ export default async function DocumentsPage({ searchParams }: { searchParams: Se
   const [session, sp] = await Promise.all([auth(), searchParams])
   if (!session) return null
 
-  const status   = (typeof sp.status   === 'string' ? sp.status   : undefined) as DocumentStatus | undefined
-  const category = (typeof sp.category === 'string' ? sp.category : undefined) as DocumentCategory | undefined
-  const search   = typeof sp.search === 'string' ? sp.search : undefined
-
   const [{ rows, total }, users] = await Promise.all([
-    listDocuments({ status, category, search }),
+    listDmsDocuments({
+      status:      typeof sp.status      === 'string' ? sp.status      : undefined,
+      typeCode:    typeof sp.typeCode    === 'string' ? (sp.typeCode as any)    : undefined,
+      processCode: typeof sp.processCode === 'string' ? (sp.processCode as any) : undefined,
+      search:      typeof sp.search      === 'string' ? sp.search      : undefined,
+    }),
     getActiveUsers(),
   ])
 
-  const isAdmin = session.user.role === 'admin' || session.user.role === 'direction'
+  const canEdit = session.user.role === 'admin' || session.user.role === 'direction'
 
   return (
-    <DocumentsClient
+    <DmsDocumentsClient
       initialRows={rows}
       total={total}
       users={users}
-      isAdmin={isAdmin}
+      canEdit={canEdit}
       currentUserId={session.user.userId}
     />
   )

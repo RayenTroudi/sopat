@@ -1,29 +1,74 @@
 'use client'
+// src/app/admin/(dashboard)/documents/DocumentsClient.tsx
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
-import type { DocumentRow } from '@/lib/db/iso'
+import type { DmsDocRow } from '@/lib/dms/queries'
+import {
+  TYPE_CODES, PROCESS_CODES, TYPE_LABELS, PROCESS_LABELS,
+  type TypeCode, type ProcessCode,
+} from '@/lib/dms/codes'
+
+// ── Label maps ──────────────────────────────────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {
-  draft:    'Brouillon',
-  active:   'Actif',
-  obsolete: 'Obsolète',
+  draft:            'Brouillon',
+  in_review:        'En révision',
+  pending_approval: 'En attente approbation',
+  approved:         'Approuvé',
+  effective:        'En vigueur',
+  under_revision:   'En cours de révision',
+  obsolete:         'Obsolète',
+  archived:         'Archivé',
 }
+
 const STATUS_COLORS: Record<string, string> = {
-  draft:    'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
-  active:   'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]',
-  obsolete: 'bg-[var(--admin-border)] text-[var(--admin-text-muted)]',
+  draft:            'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
+  in_review:        'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
+  pending_approval: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
+  approved:         'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]',
+  effective:        'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]',
+  under_revision:   'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
+  obsolete:         'bg-[var(--admin-border)] text-[var(--admin-text-muted)]',
+  archived:         'bg-[var(--admin-border)] text-[var(--admin-text-muted)]',
 }
+
 const CATEGORY_LABELS: Record<string, string> = {
-  procedure:      'Procédure',
-  instruction:    'Instruction',
-  formulaire:     'Formulaire',
-  enregistrement: 'Enregistrement',
-  autre:          'Autre',
+  manuel_qualite:        'Manuel qualité',
+  politique:             'Politique',
+  procedure:             'Procédure',
+  instruction:           'Instruction',
+  formulaire:            'Formulaire / Fiche',
+  enregistrement:        'Enregistrement',
+  plan_qualite:          'Plan',
+  cartographie_processus:'Cartographie / Processus',
+  etude_technique:       'Étude technique',
+  devis:                 'Devis',
+  contrat:               'Contrat',
+  bon_commande:          'Bon de commande',
+  facture:               'Facture',
+  rapport_inspection:    'Rapport d\'inspection',
+  rapport_audit:         'Rapport d\'audit',
+  ncr:                   'NCR',
+  capa:                  'CAPA',
+  document_fournisseur:  'Document fournisseur',
+  document_client:       'Document client',
+  externe:               'Document externe',
 }
-const PROCESS_LABELS: Record<string, string> = {
-  etudes: 'Études', realisation: 'Réalisation', entretien: 'Entretien',
+
+const DEPARTMENT_LABELS: Record<string, string> = {
+  direction:   'Direction',
+  etudes:      'Études',
+  realisation: 'Réalisation',
+  entretien:   'Entretien',
+  qualite:     'Qualité',
+  finance:     'Finance / Achat',
+  rh:          'Ressources Humaines',
+  rse:         'RSE',
+  transverse:  'Transverse',
 }
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmt(d: Date | string | null) {
   if (!d) return '—'
@@ -32,105 +77,120 @@ function fmt(d: Date | string | null) {
 
 type User = { id: string; name: string }
 
+// ── Props ────────────────────────────────────────────────────────────────────
+
 type Props = {
-  initialRows:  DocumentRow[]
-  total:        number
-  users:        User[]
-  isAdmin:      boolean
+  initialRows:   DmsDocRow[]
+  total:         number
+  users:         User[]
+  canEdit:       boolean
   currentUserId: string
 }
 
-export function DocumentsClient({ initialRows, total, users, isAdmin, currentUserId }: Props) {
+// ── Form state ───────────────────────────────────────────────────────────────
+
+const EMPTY_FORM = {
+  typeCode:    '' as TypeCode | '',
+  processCode: '' as ProcessCode | '',
+  documentNumber: '',
+  title:       '',
+  category:    'procedure',
+  department:  'qualite',
+  ownerId:     '',
+  confidentiality: 'internal',
+  isoClauses:  '',
+}
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+export function DmsDocumentsClient({ initialRows, total, users, canEdit, currentUserId }: Props) {
   const [rows, setRows]         = useState(initialRows)
   const [loading, setLoading]   = useState(false)
   const [showForm, setShowForm] = useState(false)
-  const [filterStatus, setFilterStatus]   = useState('')
-  const [filterCategory, setFilterCategory] = useState('')
-  const [search, setSearch]     = useState('')
-  const [uploadedAssetId, setUploadedAssetId] = useState('')
-  const [uploadedAssetUrl, setUploadedAssetUrl] = useState('')
-  const [uploadState, setUploadState] = useState<'idle'|'uploading'|'done'>('idle')
 
-  const [form, setForm] = useState({
-    code: '', title: '', category: 'procedure', version: '1.0',
-    status: 'active', ownerId: currentUserId,
-    isoClause: '', processAffected: '', notes: '',
-  })
+  const [filterStatus,  setFilterStatus]  = useState('')
+  const [filterType,    setFilterType]    = useState('')
+  const [filterProcess, setFilterProcess] = useState('')
+  const [search,        setSearch]        = useState('')
+
+  const [form, setForm]             = useState({ ...EMPTY_FORM, ownerId: currentUserId })
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
+  const [codePreview, setCodePreview] = useState('')
 
   async function loadDocs() {
     setLoading(true)
     const params = new URLSearchParams()
-    if (filterStatus)   params.set('status',   filterStatus)
-    if (filterCategory) params.set('category', filterCategory)
-    if (search)         params.set('search',   search)
-    const res = await fetch(`/api/documents?${params}`)
+    if (filterStatus)  params.set('status',      filterStatus)
+    if (filterType)    params.set('typeCode',     filterType)
+    if (filterProcess) params.set('processCode',  filterProcess)
+    if (search)        params.set('search',       search)
+    const res = await fetch(`/api/dms?${params}`)
     if (res.ok) {
-      const data = await res.json() as { rows: DocumentRow[] }
+      const data = await res.json() as { rows: DmsDocRow[] }
       setRows(data.rows)
     }
     setLoading(false)
   }
 
-  async function uploadInvoice(file: File) {
-    setUploadState('uploading')
-    try {
-      const sigRes = await fetch(`/api/upload?projectId=00000000-0000-0000-0000-000000000000`)
-      if (!sigRes.ok) throw new Error()
-      const { signature, timestamp, cloudName, apiKey, folder } = await sigRes.json() as Record<string,string>
-      const fd = new FormData()
-      fd.append('file', file); fd.append('signature', signature)
-      fd.append('timestamp', timestamp); fd.append('api_key', apiKey); fd.append('folder', folder)
-      const upRes = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`, { method:'POST', body: fd })
-      const result = await upRes.json() as { public_id:string; url:string; secure_url:string; format:string; bytes:number }
-      const recRes = await fetch('/api/upload', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ publicId:result.public_id, url:result.url, secureUrl:result.secure_url, assetType:'other', format:result.format, bytes:result.bytes, projectId: null }),
-      })
-      const asset = await recRes.json() as { id:string; secureUrl:string }
-      setUploadedAssetId(asset.id)
-      setUploadedAssetUrl(asset.secureUrl)
-      setUploadState('done')
-    } catch { setUploadState('idle') }
+  async function handleTypeProcessChange(type: string, process: string) {
+    if (!type || !process) { setCodePreview(''); return }
+    const res = await fetch(`/api/dms/next-code?type=${type}&process=${process}`)
+    if (res.ok) {
+      const data = await res.json() as { code: string }
+      setCodePreview(data.code)
+      setForm(f => ({ ...f, documentNumber: data.code }))
+    }
   }
 
   async function handleCreate() {
-    if (!form.code.trim()) { setFormError('Le code est obligatoire'); return }
-    if (!form.title.trim()) { setFormError('Le titre est obligatoire'); return }
+    if (!form.documentNumber) { setFormError('Le code est obligatoire'); return }
+    if (!form.title.trim())   { setFormError('Le titre est obligatoire'); return }
+    if (!form.typeCode || !form.processCode) {
+      setFormError('Sélectionnez un type et un processus'); return
+    }
     setSubmitting(true); setFormError('')
-    const res = await fetch('/api/documents', {
+    const res = await fetch('/api/dms', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...form,
-        code: form.code.toUpperCase(),
-        assetId: uploadedAssetId || undefined,
-        processAffected: form.processAffected || undefined,
-        isoClause: form.isoClause || undefined,
-        notes: form.notes || undefined,
+        documentNumber:  form.documentNumber,
+        title:           form.title,
+        category:        form.category,
+        department:      form.department,
+        ownerId:         form.ownerId,
+        confidentiality: form.confidentiality,
+        isoClauses:      form.isoClauses ? form.isoClauses.split(',').map(s => s.trim()).filter(Boolean) : [],
       }),
     })
     const data = await res.json() as { error?: string }
     if (!res.ok) { setFormError(data.error ?? 'Erreur'); setSubmitting(false); return }
     setShowForm(false)
-    setUploadedAssetId(''); setUploadedAssetUrl(''); setUploadState('idle')
-    setForm({ code:'', title:'', category:'procedure', version:'1.0', status:'active', ownerId:currentUserId, isoClause:'', processAffected:'', notes:'' })
+    setForm({ ...EMPTY_FORM, ownerId: currentUserId })
+    setCodePreview('')
     await loadDocs()
     setSubmitting(false)
   }
+
+  const activeCount = rows.filter(r => r.status === 'effective').length
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Contrôle Documentaire</h1>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>
+            Informations Documentées
+          </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            ISO 9001:2015 · clause 7.5 · {rows.filter(r => r.status === 'active').length} document{rows.filter(r => r.status === 'active').length !== 1 ? 's' : ''} actif{rows.filter(r => r.status === 'active').length !== 1 ? 's' : ''}
+            ISO 9001:2015 · §7.5 · {activeCount} document{activeCount !== 1 ? 's' : ''} en vigueur
           </p>
         </div>
-        {isAdmin && (
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white" style={{ background: 'var(--admin-emerald)' }}>
+        {canEdit && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ background: 'var(--admin-emerald)' }}
+          >
             <span>+</span> Nouveau document
           </button>
         )}
@@ -138,142 +198,254 @@ export function DocumentsClient({ initialRows, total, users, isAdmin, currentUse
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
-        <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setTimeout(() => void loadDocs(), 0) }}
-          className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor:'var(--admin-border)', background:'var(--admin-surface)', color:'var(--admin-text)' }}>
+        <select
+          value={filterStatus}
+          onChange={(e) => { setFilterStatus(e.target.value); setTimeout(() => void loadDocs(), 0) }}
+          className="text-sm px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+        >
           <option value="">Tous statuts</option>
-          {Object.entries(STATUS_LABELS).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+          {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        <select value={filterCategory} onChange={(e) => { setFilterCategory(e.target.value); setTimeout(() => void loadDocs(), 0) }}
-          className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor:'var(--admin-border)', background:'var(--admin-surface)', color:'var(--admin-text)' }}>
-          <option value="">Toutes catégories</option>
-          {Object.entries(CATEGORY_LABELS).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+
+        <select
+          value={filterType}
+          onChange={(e) => { setFilterType(e.target.value); setTimeout(() => void loadDocs(), 0) }}
+          className="text-sm px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+        >
+          <option value="">Tous types</option>
+          {TYPE_CODES.map(t => <option key={t} value={t}>{t} – {TYPE_LABELS[t]}</option>)}
         </select>
-        <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key==='Enter' && void loadDocs()}
-          placeholder="Rechercher code / titre…" className="text-sm px-3 py-1.5 rounded-lg border flex-1 min-w-[160px]"
-          style={{ borderColor:'var(--admin-border)', background:'var(--admin-surface)', color:'var(--admin-text)' }} />
-        <button onClick={() => void loadDocs()} className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor:'var(--admin-border)', color:'var(--admin-text-muted)' }}>Filtrer</button>
+
+        <select
+          value={filterProcess}
+          onChange={(e) => { setFilterProcess(e.target.value); setTimeout(() => void loadDocs(), 0) }}
+          className="text-sm px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+        >
+          <option value="">Tous processus</option>
+          {PROCESS_CODES.map(p => <option key={p} value={p}>{p} – {PROCESS_LABELS[p]}</option>)}
+        </select>
+
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && void loadDocs()}
+          placeholder="Code ou titre…"
+          className="text-sm px-3 py-1.5 rounded-lg border flex-1 min-w-[160px]"
+          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+        />
+        <button
+          onClick={() => void loadDocs()}
+          className="text-sm px-3 py-1.5 rounded-lg border"
+          style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+        >
+          Filtrer
+        </button>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl border overflow-hidden" style={{ borderColor:'var(--admin-border)', background:'var(--admin-surface)' }}>
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         {loading ? (
-          <div className="py-12 flex justify-center"><span className="animate-spin w-5 h-5 border-2 rounded-full inline-block" style={{ borderColor:'var(--admin-border)', borderTopColor:'var(--admin-emerald)' }} /></div>
+          <div className="py-12 flex justify-center">
+            <span className="animate-spin w-5 h-5 border-2 rounded-full inline-block" style={{ borderColor: 'var(--admin-border)', borderTopColor: 'var(--admin-emerald)' }} />
+          </div>
         ) : rows.length === 0 ? (
-          <p className="py-12 text-center text-sm" style={{ color:'var(--admin-text-muted)' }}>Aucun document trouvé.</p>
+          <p className="py-12 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>Aucun document trouvé.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr style={{ borderBottom:'1px solid var(--admin-border)' }}>
-                  {['Code', 'Titre', 'Catégorie', 'Version', 'Statut', 'Processus', 'Propriétaire', 'Mis à jour', ''].map(h => (
-                    <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color:'var(--admin-text-muted)' }}>{h}</th>
+                <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                  {['Code', 'Désignation', 'Type', 'Processus', 'Département', 'Statut', 'Responsable', 'En vigueur', ''].map(h => (
+                    <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((doc) => (
-                  <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)]" style={{ borderBottom:'1px solid var(--admin-border)' }}>
-                    <td className="px-4 py-3 font-mono text-xs font-semibold" style={{ color:'var(--admin-text)' }}>{doc.code}</td>
-                    <td className="px-4 py-3 max-w-[200px]">
-                      <p className="truncate text-sm font-medium" style={{ color:'var(--admin-text)' }}>{doc.title}</p>
-                      {doc.isoClause && <p className="text-xs" style={{ color:'var(--admin-text-muted)' }}>ISO {doc.isoClause}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color:'var(--admin-text-muted)' }}>{CATEGORY_LABELS[doc.category] ?? doc.category}</td>
-                    <td className="px-4 py-3 text-xs font-mono" style={{ color:'var(--admin-text)' }}>{doc.version}</td>
-                    <td className="px-4 py-3">
-                      <span className={cn('text-xs px-2 py-0.5 rounded font-medium', STATUS_COLORS[doc.status] ?? STATUS_COLORS.draft)}>
-                        {STATUS_LABELS[doc.status] ?? doc.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color:'var(--admin-text-muted)' }}>
-                      {doc.processAffected ? (PROCESS_LABELS[doc.processAffected] ?? doc.processAffected) : '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color:'var(--admin-text-muted)' }}>{doc.ownerName ?? '—'}</td>
-                    <td className="px-4 py-3 text-xs" style={{ color:'var(--admin-text-muted)' }}>{fmt(doc.updatedAt)}</td>
-                    <td className="px-4 py-3">
-                      {doc.assetUrl && (
-                        <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color:'var(--admin-blue)' }}>PDF</a>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((doc) => {
+                  const codeParts = doc.documentNumber.split('-')
+                  const typeCode    = codeParts[0] ?? ''
+                  const processCode = codeParts[1] ?? ''
+                  return (
+                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)]" style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>
+                        {doc.documentNumber}
+                      </td>
+                      <td className="px-4 py-3 max-w-[220px]">
+                        <p className="truncate text-sm font-medium" style={{ color: 'var(--admin-text)' }}>{doc.title}</p>
+                        {doc.isoClauses.length > 0 && (
+                          <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>ISO {doc.isoClauses.join(', ')}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--admin-text-muted)' }}>
+                        {typeCode}
+                      </td>
+                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--admin-text-muted)' }}>
+                        {processCode}
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                        {DEPARTMENT_LABELS[doc.department] ?? doc.department}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn('text-xs px-2 py-0.5 rounded font-medium', STATUS_COLORS[doc.status] ?? STATUS_COLORS.draft)}>
+                          {STATUS_LABELS[doc.status] ?? doc.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                        {doc.ownerName ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                        {fmt(doc.effectiveDate)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {doc.assetUrl && (
+                          <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>PDF</a>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Create document drawer */}
-      {showForm && isAdmin && (
+      {/* Create drawer */}
+      {showForm && canEdit && (
         <>
-          <div className="fixed inset-0 z-40" style={{ background:'rgba(0,0,0,0.4)' }} onClick={() => setShowForm(false)} />
-          <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl overflow-y-auto" style={{ background:'var(--admin-surface)', borderLeft:'1px solid var(--admin-border)' }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor:'var(--admin-border)' }}>
-              <h2 className="text-base font-semibold" style={{ color:'var(--admin-text)' }}>Nouveau document ISO</h2>
-              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color:'var(--admin-text-muted)' }}>✕</button>
+          <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowForm(false)} />
+          <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl overflow-y-auto" style={{ background: 'var(--admin-surface)', borderLeft: '1px solid var(--admin-border)' }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--admin-text)' }}>Nouveau document</h2>
+              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color: 'var(--admin-text-muted)' }}>✕</button>
             </div>
             <div className="flex-1 px-6 py-5 space-y-4">
+
+              {/* Type + Process selectors — drive code generation */}
               <div className="grid grid-cols-2 gap-3">
-                <FF label="Code *"><input value={form.code} onChange={(e) => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))} placeholder="PRO-001" className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} /></FF>
-                <FF label="Version *"><input value={form.version} onChange={(e) => setForm(f => ({ ...f, version: e.target.value }))} placeholder="1.0" className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} /></FF>
-              </div>
-              <FF label="Titre *"><input value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))} placeholder="ex: Procédure de maîtrise des non-conformités" className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} /></FF>
-              <div className="grid grid-cols-2 gap-3">
-                <FF label="Catégorie">
-                  <select value={form.category} onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
-                    {Object.entries(CATEGORY_LABELS).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+                <FF label="Type *">
+                  <select
+                    value={form.typeCode}
+                    onChange={(e) => {
+                      const t = e.target.value as TypeCode
+                      setForm(f => ({ ...f, typeCode: t }))
+                      void handleTypeProcessChange(t, form.processCode)
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                  >
+                    <option value="">— Choisir —</option>
+                    {TYPE_CODES.map(t => <option key={t} value={t}>{t} – {TYPE_LABELS[t]}</option>)}
                   </select>
                 </FF>
-                <FF label="Statut">
-                  <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
-                    <option value="draft">Brouillon</option>
-                    <option value="active">Actif</option>
+                <FF label="Processus *">
+                  <select
+                    value={form.processCode}
+                    onChange={(e) => {
+                      const p = e.target.value as ProcessCode
+                      setForm(f => ({ ...f, processCode: p }))
+                      void handleTypeProcessChange(form.typeCode, p)
+                    }}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                  >
+                    <option value="">— Choisir —</option>
+                    {PROCESS_CODES.map(p => <option key={p} value={p}>{p} – {PROCESS_LABELS[p]}</option>)}
                   </select>
                 </FF>
               </div>
+
+              {/* Auto-generated code — readonly display */}
+              <FF label="Code généré">
+                <div
+                  className="px-3 py-2 rounded-lg border font-mono text-sm"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: codePreview ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }}
+                >
+                  {codePreview || 'Sélectionner type + processus'}
+                </div>
+              </FF>
+
+              <FF label="Désignation *">
+                <input
+                  value={form.title}
+                  onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="ex: Procédure de gestion des congés"
+                  className="w-full px-3 py-2 rounded-lg border text-sm"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                />
+              </FF>
+
               <div className="grid grid-cols-2 gap-3">
-                <FF label="Clause ISO">
-                  <input value={form.isoClause} onChange={(e) => setForm(f => ({ ...f, isoClause: e.target.value }))} placeholder="ex: 10.2" className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
+                <FF label="Catégorie DMS">
+                  <select
+                    value={form.category}
+                    onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                  >
+                    {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
                 </FF>
-                <FF label="Processus">
-                  <select value={form.processAffected} onChange={(e) => setForm(f => ({ ...f, processAffected: e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
-                    <option value="">— Aucun —</option>
-                    <option value="etudes">Études</option>
-                    <option value="realisation">Réalisation</option>
-                    <option value="entretien">Entretien</option>
+                <FF label="Département">
+                  <select
+                    value={form.department}
+                    onChange={(e) => setForm(f => ({ ...f, department: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                  >
+                    {Object.entries(DEPARTMENT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                   </select>
                 </FF>
               </div>
-              <FF label="Propriétaire">
-                <select value={form.ownerId} onChange={(e) => setForm(f => ({ ...f, ownerId: e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
-                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+
+              <div className="grid grid-cols-2 gap-3">
+                <FF label="Confidentialité">
+                  <select
+                    value={form.confidentiality}
+                    onChange={(e) => setForm(f => ({ ...f, confidentiality: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                  >
+                    <option value="public">Public</option>
+                    <option value="internal">Interne</option>
+                    <option value="confidential">Confidentiel</option>
+                    <option value="restricted">Restreint</option>
+                  </select>
+                </FF>
+                <FF label="Clauses ISO">
+                  <input
+                    value={form.isoClauses}
+                    onChange={(e) => setForm(f => ({ ...f, isoClauses: e.target.value }))}
+                    placeholder="ex: 7.5, 9.2"
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                  />
+                </FF>
+              </div>
+
+              <FF label="Responsable">
+                <select
+                  value={form.ownerId}
+                  onChange={(e) => setForm(f => ({ ...f, ownerId: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border text-sm"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                >
+                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </FF>
 
-              {/* PDF Upload */}
-              <FF label="Fichier PDF">
-                {uploadState === 'done' ? (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ borderColor:'var(--admin-emerald)', background:'var(--admin-emerald-dim)' }}>
-                    <span className="text-sm" style={{ color:'var(--admin-emerald)' }}>✓ PDF téléchargé</span>
-                    <button onClick={() => { setUploadedAssetId(''); setUploadedAssetUrl(''); setUploadState('idle') }} className="text-xs underline ml-auto" style={{ color:'var(--admin-text-muted)' }}>Supprimer</button>
-                  </div>
-                ) : (
-                  <label className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-dashed text-sm cursor-pointer hover:border-[var(--admin-emerald)] transition-colors" style={{ borderColor:'var(--admin-border)', color:'var(--admin-text-muted)' }}>
-                    {uploadState === 'uploading' ? 'Téléchargement…' : '↑ Joindre le PDF'}
-                    <input type="file" accept=".pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadInvoice(f) }} />
-                  </label>
-                )}
-              </FF>
-
-              <FF label="Notes">
-                <textarea value={form.notes} onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
-              </FF>
-
-              {formError && <p className="text-sm px-3 py-2 rounded-lg" style={{ background:'var(--admin-red-dim)', color:'var(--admin-red)' }}>{formError}</p>}
+              {formError && (
+                <p className="text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+                  {formError}
+                </p>
+              )}
 
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', color:'var(--admin-text-muted)' }}>Annuler</button>
-                <button onClick={() => void handleCreate()} disabled={submitting} className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background:'var(--admin-emerald)' }}>
+                <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>Annuler</button>
+                <button onClick={() => void handleCreate()} disabled={submitting} className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--admin-emerald)' }}>
                   {submitting ? 'Enregistrement…' : 'Enregistrer'}
                 </button>
               </div>

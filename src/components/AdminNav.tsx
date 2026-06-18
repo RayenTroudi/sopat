@@ -34,7 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/nc',        label: 'Non-conformités',  icon: '⚠', roles: ['admin','direction','etudes_chef','realisation_chef','entretien_chef'] },
       { href: '/admin/audits',    label: 'Audits',           icon: '✓', roles: ['admin','direction'] },
-      { href: '/admin/documents', label: 'Documents ISO',    icon: '📄', roles: ['admin','direction','etudes_chef'] },
+      { href: '/admin/documents', label: 'Inf. Documentées', icon: '📄', roles: ['admin','direction','etudes_chef'] },
     ],
   },
   {
