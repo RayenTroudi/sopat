@@ -330,7 +330,8 @@ export async function saveVisitReport(input: {
   visitType:               VisitType
   durationHours?:          string
   teamMemberId:            string
-  workDone:                string
+  assignedTeamName?:       string
+  workDone?:               string
   workChecklist:           Record<string, boolean>
   productsUsed:            ProductUsed[]
   issuesFound?:            string
@@ -347,6 +348,7 @@ export async function saveVisitReport(input: {
     await db
       .update(maintenanceVisits)
       .set({
+        assignedTeamName:        input.assignedTeamName,
         workDone:                input.workDone,
         workChecklist:           input.workChecklist,
         productsUsed:            input.productsUsed as unknown as typeof maintenanceVisits.$inferInsert['productsUsed'],
@@ -369,6 +371,7 @@ export async function saveVisitReport(input: {
         visitType:               input.visitType,
         durationHours:           input.durationHours,
         teamMemberId:            input.teamMemberId,
+        assignedTeamName:        input.assignedTeamName,
         workDone:                input.workDone,
         workChecklist:           input.workChecklist,
         productsUsed:            input.productsUsed as unknown as typeof maintenanceVisits.$inferInsert['productsUsed'],

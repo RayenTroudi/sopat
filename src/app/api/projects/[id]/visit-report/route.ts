@@ -7,7 +7,7 @@ import { z } from 'zod'
 type RouteParams = { params: Promise<{ id: string }> }
 
 const healthZoneSchema = z.object({
-  zoneName:      z.string().min(1),
+  zoneName:      z.string().optional(),
   healthStatus:  z.enum(['healthy', 'attention', 'critical'] as const),
   healthScore:   z.number().int().min(1).max(5),
   observations:  z.string().optional(),
@@ -23,11 +23,12 @@ const productSchema = z.object({
 const reportSchema = z.object({
   visitId:                  z.string().uuid().optional(),
   visitDate:                z.string().datetime(),
-  visitType:                z.enum(['taille','arrosage','traitement_phytosanitaire','fertilisation','controle_general','other'] as const),
+  visitType:                z.enum(['taille','arrosage','traitement_phytosanitaire','fertilisation','controle_general','other'] as const).optional(),
   durationHours:            z.string().optional(),
   teamMemberId:             z.string().uuid(),
-  workDone:                 z.string().min(1),
-  workChecklist:            z.record(z.string(), z.boolean()),
+  assignedTeamName:         z.string().optional(),
+  workDone:                 z.string().optional(),
+  workChecklist:            z.record(z.string(), z.boolean()).optional().default({}),
   productsUsed:             z.array(productSchema).default([]),
   issuesFound:              z.string().optional(),
   nextVisitRecommendation:  z.string().optional(),
@@ -60,11 +61,12 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     projectId:                id,
     scheduleId:               schedule.id,
     visitDate:                new Date(d.visitDate),
-    visitType:                d.visitType as VisitType,
+    visitType:                (d.visitType ?? 'controle_general') as VisitType,
     durationHours:            d.durationHours,
     teamMemberId:             d.teamMemberId,
-    workDone:                 d.workDone,
-    workChecklist:            d.workChecklist,
+    assignedTeamName:         d.assignedTeamName,
+    workDone:                 d.workDone ?? d.assignedTeamName,
+    workChecklist:            d.workChecklist ?? {},
     productsUsed:             d.productsUsed,
     issuesFound:              d.issuesFound,
     nextVisitRecommendation:  d.nextVisitRecommendation,
@@ -72,6 +74,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     afterPhotoAssetId:        d.afterPhotoAssetId,
     healthZones:              d.healthZones.map((z) => ({
       ...z,
+      zoneName:     z.zoneName ?? '',
       healthStatus: z.healthStatus as HealthStatus,
     })),
     createdBy: session.user.userId,
