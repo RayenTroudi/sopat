@@ -59,6 +59,8 @@ export type RsePartnershipDetail = {
   conventionPdfUrl: string | null
   conventionPdfPublicId: string | null
   notes: string | null
+  teamName: string | null
+  teamLeadName: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -212,6 +214,8 @@ export async function getRsePartnership(id: string): Promise<RsePartnershipDetai
       conventionPdfUrl: cloudinaryAssets.secureUrl,
       conventionPdfPublicId: cloudinaryAssets.publicId,
       notes: rsePartnerships.notes,
+      teamName: rsePartnerships.teamName,
+      teamLeadName: rsePartnerships.teamLeadName,
       createdAt: rsePartnerships.createdAt,
       updatedAt: rsePartnerships.updatedAt,
     })
@@ -245,6 +249,8 @@ export type CreateRsePartnershipInput = {
   noticePeriodDays?: number
   status?: RsePartnershipStatus
   notes?: string
+  teamName?: string
+  teamLeadName?: string
   createdBy: string
 }
 
@@ -256,7 +262,7 @@ export async function createRsePartnership(
     .values({
       ...input,
       autoRenewal: input.autoRenewal ?? false,
-      noticePeriodDays: input.noticePeriodDays ?? 30,
+      noticePeriodDays: input.noticePeriodDays ?? 60,
       status: input.status ?? 'en_cours_de_negociation',
     })
     .returning()

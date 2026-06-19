@@ -8,9 +8,6 @@ import type { TeamMemberRow } from '@/lib/db/team'
 
 const schema = z.object({
   partnerName: z.string().min(1, 'Nom du partenaire requis'),
-  partnerType: z.enum(['hotel', 'municipalite', 'entreprise', 'institution', 'autre'] as const, {
-    error: 'Type requis',
-  }),
   partnerAddress: z.string().optional(),
   partnerContactName: z.string().optional(),
   partnerContactEmail: z.string().email('Email invalide').or(z.literal('')).optional(),
@@ -19,21 +16,19 @@ const schema = z.object({
   partnerReferentName: z.string().optional(),
   signedDate: z.string().optional(),
   startDate: z.string().optional(),
-  endDate: z.string().optional(),
   autoRenewal: z.boolean().optional(),
   noticePeriodDays: z.string().optional(),
   status: z.enum(['actif', 'expire', 'resilie', 'en_cours_de_negociation'] as const).optional(),
   notes: z.string().optional(),
+  teamName: z.enum(['equipe_sd_pat', 'equipe_convention'] as const).optional(),
+  teamLeadName: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
 
-const PARTNER_TYPES = [
-  { value: 'hotel', label: 'Hôtel' },
-  { value: 'municipalite', label: 'Municipalité' },
-  { value: 'entreprise', label: 'Entreprise' },
-  { value: 'institution', label: 'Institution' },
-  { value: 'autre', label: 'Autre' },
+const TEAM_OPTIONS = [
+  { value: 'equipe_sd_pat', label: 'Équipe SD Pat' },
+  { value: 'equipe_convention', label: 'Équipe Convention' },
 ]
 
 const STATUS_OPTIONS = [
@@ -101,16 +96,17 @@ export function NewRsePartnershipForm({
     defaultValues: {
       sopatReferentId: currentUserId,
       status: 'en_cours_de_negociation',
-      noticePeriodDays: '30',
+      noticePeriodDays: '60',
       autoRenewal: false,
+      teamLeadName: 'Mohamed Mrabet',
     },
   })
 
   async function onSubmit(values: FormValues) {
     const body: Record<string, unknown> = { ...values }
+    body.partnerType = 'autre'
     if (values.signedDate) body.signedDate = new Date(values.signedDate).toISOString()
     if (values.startDate) body.startDate = new Date(values.startDate).toISOString()
-    if (values.endDate) body.endDate = new Date(values.endDate).toISOString()
     if (values.noticePeriodDays) body.noticePeriodDays = Number(values.noticePeriodDays)
 
     const res = await fetch('/api/rse/partnerships', {
@@ -140,15 +136,6 @@ export function NewRsePartnershipForm({
             style={inputStyle}
             placeholder="Ex: Hôtel Medina Bellevue"
           />
-        </Field>
-
-        <Field label="Type de partenaire" required error={errors.partnerType?.message}>
-          <select {...register('partnerType')} className={inputClass} style={inputStyle}>
-            <option value="">Sélectionner...</option>
-            {PARTNER_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
         </Field>
 
         <div className="sm:col-span-2">
@@ -227,10 +214,6 @@ export function NewRsePartnershipForm({
           <input {...register('startDate')} type="date" className={inputClass} style={inputStyle} />
         </Field>
 
-        <Field label="Date de fin" error={errors.endDate?.message}>
-          <input {...register('endDate')} type="date" className={inputClass} style={inputStyle} />
-        </Field>
-
         <Field label="Préavis (jours)" error={errors.noticePeriodDays?.message}>
           <input
             {...register('noticePeriodDays')}
@@ -252,6 +235,24 @@ export function NewRsePartnershipForm({
             Renouvellement automatique
           </label>
         </div>
+
+        <Field label="Nom de l'équipe" error={errors.teamName?.message}>
+          <select {...register('teamName')} className={inputClass} style={inputStyle}>
+            <option value="">Sélectionner une équipe...</option>
+            {TEAM_OPTIONS.map((t) => (
+              <option key={t.value} value={t.value}>{t.label}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Chef d'équipe" error={errors.teamLeadName?.message}>
+          <input
+            {...register('teamLeadName')}
+            className={inputClass}
+            style={inputStyle}
+            placeholder="Nom du chef d'équipe"
+          />
+        </Field>
 
         <div className="sm:col-span-2">
           <Field label="Notes" error={errors.notes?.message}>

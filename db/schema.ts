@@ -1002,6 +1002,8 @@ export const rsePartnerships = pgTable('rse_partnerships', {
   status: rsePartnershipStatusEnum('status').notNull().default('en_cours_de_negociation'),
   conventionPdfCloudinaryId: uuid('convention_pdf_cloudinary_id'),
   notes: text('notes'),
+  teamName: text('team_name'),
+  teamLeadName: text('team_lead_name'),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
@@ -1440,6 +1442,361 @@ export const portfolioExports = pgTable('portfolio_exports', {
   foreignKey({ columns: [t.outputCloudinaryId], foreignColumns: [cloudinaryAssets.id] }),
   foreignKey({ columns: [t.generatedBy], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── DMS (ISO 9001:2015 Document Management System) ──────────────────────────
+// Soft-deprecates the legacy `documents` table above (kept read-only). The DMS
+// extends it with versioning, workflow, signatures, polymorphic linkage to
+// business entities, fine-grained ACL, controlled forms/records, and an
+// immutable audit log. Roles unchanged — Quality/Finance responsibilities are
+// modeled via dms_permissions grants on top of existing user_role values.
+
+export const dmsDepartmentEnum = pgEnum('dms_department', [
+  'direction',
+  'etudes',
+  'realisation',
+  'entretien',
+  'qualite',
+  'finance',
+  'rh',
+  'rse',
+  'transverse',
+])
+
+export const dmsCategoryEnum = pgEnum('dms_category', [
+  'manuel_qualite',
+  'politique',
+  'procedure',
+  'instruction',
+  'formulaire',
+  'enregistrement',
+  'plan_qualite',
+  'cartographie_processus',
+  'etude_technique',
+  'devis',
+  'contrat',
+  'bon_commande',
+  'facture',
+  'rapport_inspection',
+  'rapport_audit',
+  'ncr',
+  'capa',
+  'document_fournisseur',
+  'document_client',
+  'externe',
+])
+
+export const dmsLifecycleStatusEnum = pgEnum('dms_lifecycle_status', [
+  'draft',
+  'in_review',
+  'pending_approval',
+  'approved',
+  'effective',
+  'under_revision',
+  'obsolete',
+  'archived',
+])
+
+export const dmsConfidentialityEnum = pgEnum('dms_confidentiality', [
+  'public',
+  'internal',
+  'confidential',
+  'restricted',
+])
+
+export const dmsApprovalActionEnum = pgEnum('dms_approval_action', [
+  'submit_for_review',
+  'review_approved',
+  'review_rejected',
+  'approve',
+  'reject',
+  'publish',
+  'request_revision',
+  'mark_obsolete',
+  'archive',
+])
+
+export const dmsAuditEventEnum = pgEnum('dms_audit_event', [
+  'created',
+  'updated',
+  'version_created',
+  'status_changed',
+  'reviewed',
+  'approved',
+  'rejected',
+  'published',
+  'obsoleted',
+  'archived',
+  'viewed',
+  'downloaded',
+  'signed',
+  'linked',
+  'unlinked',
+  'permission_changed',
+  'soft_deleted',
+  'restored',
+])
+
+export const dmsLinkEntityEnum = pgEnum('dms_link_entity', [
+  'project',
+  'client',
+  'supplier',
+  'non_conformance',
+  'corrective_action',
+  'audit_log',
+  'maintenance_visit',
+  'purchase_order',
+  'rse_partnership',
+  'project_phase',
+  'user',
+])
+
+export const dmsSignatureTypeEnum = pgEnum('dms_signature_type', [
+  'electronic_simple',
+  'electronic_advanced',
+  'wet_scanned',
+])
+
+export const dmsPermissionLevelEnum = pgEnum('dms_permission_level', [
+  'view',
+  'comment',
+  'edit',
+  'approve',
+  'manage',
+])
+
+export const dmsPermissionSubjectEnum = pgEnum('dms_permission_subject', [
+  'user',
+  'role',
+])
+
+export const dmsDocuments = pgTable('dms_documents', {
+  id:                   uuid('id').primaryKey().defaultRandom(),
+  documentNumber:       varchar('document_number', { length: 50 }).notNull().unique(),
+  title:                varchar('title', { length: 255 }).notNull(),
+  description:          text('description'),
+  category:             dmsCategoryEnum('category').notNull(),
+  department:           dmsDepartmentEnum('department').notNull(),
+  isoClauses:           text('iso_clauses').array().notNull().default(sql`'{}'::text[]`),
+  confidentiality:      dmsConfidentialityEnum('confidentiality').notNull().default('internal'),
+  tags:                 text('tags').array().notNull().default(sql`'{}'::text[]`),
+  currentVersionId:     uuid('current_version_id'),
+  status:               dmsLifecycleStatusEnum('status').notNull().default('draft'),
+  ownerId:              uuid('owner_id').notNull(),
+  authorId:             uuid('author_id').notNull(),
+  departmentManagerId:  uuid('department_manager_id'),
+  effectiveDate:        timestamp('effective_date'),
+  nextReviewDate:       timestamp('next_review_date'),
+  expirationDate:       timestamp('expiration_date'),
+  obsoletedAt:          timestamp('obsoleted_at'),
+  retentionYears:       integer('retention_years').notNull().default(10),
+  retentionExpiresAt:   timestamp('retention_expires_at'),
+  legacyReference:      varchar('legacy_reference', { length: 500 }),
+  supersedesId:         uuid('supersedes_id'),
+  supersededById:       uuid('superseded_by_id'),
+  ...timestamps,
+  deletedAt:            timestamp('deleted_at'),
+  createdBy:            uuid('created_by').notNull(),
+}, (t) => [
+  index('dms_documents_department_idx').on(t.department),
+  index('dms_documents_category_idx').on(t.category),
+  index('dms_documents_status_idx').on(t.status),
+  index('dms_documents_owner_idx').on(t.ownerId),
+  index('dms_documents_next_review_idx').on(t.nextReviewDate),
+  index('dms_documents_deleted_at_idx').on(t.deletedAt),
+  foreignKey({ columns: [t.ownerId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.authorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.departmentManagerId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const dmsDocumentVersions = pgTable('dms_document_versions', {
+  id:                   uuid('id').primaryKey().defaultRandom(),
+  documentId:           uuid('document_id').notNull(),
+  versionMajor:         integer('version_major').notNull().default(1),
+  versionMinor:         integer('version_minor').notNull().default(0),
+  versionLabel:         varchar('version_label', { length: 20 }).notNull(),
+  cloudinaryAssetId:    uuid('cloudinary_asset_id'),
+  inlineContent:        jsonb('inline_content'),
+  contentHash:          varchar('content_hash', { length: 128 }).notNull(),
+  fileSizeBytes:        integer('file_size_bytes'),
+  mimeType:             varchar('mime_type', { length: 100 }),
+  extractedText:        text('extracted_text'),
+  status:               dmsLifecycleStatusEnum('status').notNull().default('draft'),
+  changeSummary:        text('change_summary').notNull(),
+  changeReason:         text('change_reason'),
+  authorId:             uuid('author_id').notNull(),
+  reviewedById:         uuid('reviewed_by_id'),
+  reviewedAt:           timestamp('reviewed_at'),
+  approvedById:         uuid('approved_by_id'),
+  approvedAt:           timestamp('approved_at'),
+  publishedAt:          timestamp('published_at'),
+  effectiveDate:        timestamp('effective_date'),
+  revisionNumber:       integer('revision_number').notNull().default(1),
+  ...timestamps,
+  createdBy:            uuid('created_by').notNull(),
+}, (t) => [
+  uniqueIndex('dms_versions_doc_label_uidx').on(t.documentId, t.versionLabel),
+  index('dms_versions_document_idx').on(t.documentId),
+  index('dms_versions_status_idx').on(t.status),
+  foreignKey({ columns: [t.documentId], foreignColumns: [dmsDocuments.id] }),
+  foreignKey({ columns: [t.cloudinaryAssetId], foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.authorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.reviewedById], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.approvedById], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const dmsWorkflowSteps = pgTable('dms_workflow_steps', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  documentId:       uuid('document_id').notNull(),
+  versionId:        uuid('version_id').notNull(),
+  stepOrder:        integer('step_order').notNull(),
+  stepName:         varchar('step_name', { length: 50 }).notNull(),
+  assigneeId:       uuid('assignee_id').notNull(),
+  assigneeRole:     userRoleEnum('assignee_role'),
+  action:           dmsApprovalActionEnum('action'),
+  actionAt:         timestamp('action_at'),
+  comments:         text('comments'),
+  isMandatory:      boolean('is_mandatory').notNull().default(true),
+  dueDate:          timestamp('due_date'),
+  reminderSentAt:   timestamp('reminder_sent_at'),
+  ...timestamps,
+}, (t) => [
+  index('dms_workflow_document_idx').on(t.documentId),
+  index('dms_workflow_version_idx').on(t.versionId),
+  index('dms_workflow_assignee_idx').on(t.assigneeId),
+  foreignKey({ columns: [t.documentId], foreignColumns: [dmsDocuments.id] }),
+  foreignKey({ columns: [t.versionId], foreignColumns: [dmsDocumentVersions.id] }),
+  foreignKey({ columns: [t.assigneeId], foreignColumns: [users.id] }),
+])
+
+export const dmsSignatures = pgTable('dms_signatures', {
+  id:                     uuid('id').primaryKey().defaultRandom(),
+  versionId:              uuid('version_id').notNull(),
+  signerId:               uuid('signer_id').notNull(),
+  signerNameSnapshot:     varchar('signer_name_snapshot', { length: 255 }).notNull(),
+  signerRoleSnapshot:     userRoleEnum('signer_role_snapshot').notNull(),
+  signatureType:          dmsSignatureTypeEnum('signature_type').notNull().default('electronic_simple'),
+  purpose:                varchar('purpose', { length: 50 }).notNull(),
+  signedAt:               timestamp('signed_at').notNull().defaultNow(),
+  ipAddress:              varchar('ip_address', { length: 64 }),
+  userAgent:              text('user_agent'),
+  contentHashAtSigning:   varchar('content_hash_at_signing', { length: 128 }).notNull(),
+  otpChallenge:           varchar('otp_challenge', { length: 100 }),
+  cloudinaryAssetId:      uuid('cloudinary_asset_id'),
+  createdAt:              timestamp('created_at').notNull().defaultNow(),
+}, (t) => [
+  index('dms_signatures_version_idx').on(t.versionId),
+  index('dms_signatures_signer_idx').on(t.signerId),
+  foreignKey({ columns: [t.versionId], foreignColumns: [dmsDocumentVersions.id] }),
+  foreignKey({ columns: [t.signerId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.cloudinaryAssetId], foreignColumns: [cloudinaryAssets.id] }),
+])
+
+export const dmsDocumentLinks = pgTable('dms_document_links', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  documentId:   uuid('document_id').notNull(),
+  entityType:   dmsLinkEntityEnum('entity_type').notNull(),
+  entityId:     uuid('entity_id').notNull(),
+  linkRole:     varchar('link_role', { length: 50 }),
+  notes:        text('notes'),
+  ...timestamps,
+  createdBy:    uuid('created_by').notNull(),
+}, (t) => [
+  uniqueIndex('dms_links_unique_uidx').on(t.documentId, t.entityType, t.entityId, t.linkRole),
+  index('dms_links_entity_idx').on(t.entityType, t.entityId),
+  index('dms_links_document_idx').on(t.documentId),
+  foreignKey({ columns: [t.documentId], foreignColumns: [dmsDocuments.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const dmsAuditLog = pgTable('dms_audit_log', {
+  id:                  uuid('id').primaryKey().defaultRandom(),
+  documentId:          uuid('document_id').notNull(),
+  versionId:           uuid('version_id'),
+  event:               dmsAuditEventEnum('event').notNull(),
+  actorId:             uuid('actor_id').notNull(),
+  actorRoleSnapshot:   userRoleEnum('actor_role_snapshot').notNull(),
+  previousState:       jsonb('previous_state'),
+  newState:            jsonb('new_state'),
+  metadata:            jsonb('metadata'),
+  ipAddress:           varchar('ip_address', { length: 64 }),
+  userAgent:           text('user_agent'),
+  occurredAt:          timestamp('occurred_at').notNull().defaultNow(),
+}, (t) => [
+  index('dms_audit_document_idx').on(t.documentId),
+  index('dms_audit_actor_idx').on(t.actorId),
+  index('dms_audit_event_idx').on(t.event),
+  index('dms_audit_occurred_idx').on(t.occurredAt),
+  foreignKey({ columns: [t.documentId], foreignColumns: [dmsDocuments.id] }),
+  foreignKey({ columns: [t.versionId], foreignColumns: [dmsDocumentVersions.id] }),
+  foreignKey({ columns: [t.actorId], foreignColumns: [users.id] }),
+])
+
+export const dmsPermissions = pgTable('dms_permissions', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  documentId:   uuid('document_id'),
+  category:     dmsCategoryEnum('category'),
+  department:   dmsDepartmentEnum('department'),
+  subjectType:  dmsPermissionSubjectEnum('subject_type').notNull(),
+  subjectId:    uuid('subject_id'),
+  subjectRole:  userRoleEnum('subject_role'),
+  level:        dmsPermissionLevelEnum('level').notNull(),
+  ...timestamps,
+  createdBy:    uuid('created_by').notNull(),
+}, (t) => [
+  index('dms_perms_document_idx').on(t.documentId),
+  index('dms_perms_subject_user_idx').on(t.subjectId),
+  index('dms_perms_subject_role_idx').on(t.subjectRole),
+  index('dms_perms_scope_idx').on(t.category, t.department),
+  foreignKey({ columns: [t.documentId], foreignColumns: [dmsDocuments.id] }),
+  foreignKey({ columns: [t.subjectId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const dmsNumberingSequences = pgTable('dms_numbering_sequences', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  department:  dmsDepartmentEnum('department').notNull(),
+  category:    dmsCategoryEnum('category').notNull(),
+  year:        integer('year').notNull(),
+  lastSeq:     integer('last_seq').notNull().default(0),
+  updatedAt:   timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('dms_numbering_unique_uidx').on(t.department, t.category, t.year),
+])
+
+export const dmsFormTemplates = pgTable('dms_form_templates', {
+  id:                 uuid('id').primaryKey().defaultRandom(),
+  documentId:         uuid('document_id').notNull().unique(),
+  schemaJson:         jsonb('schema_json').notNull(),
+  uiSchemaJson:       jsonb('ui_schema_json'),
+  defaultLinkEntity:  dmsLinkEntityEnum('default_link_entity'),
+  ...timestamps,
+  createdBy:          uuid('created_by').notNull(),
+}, (t) => [
+  foreignKey({ columns: [t.documentId], foreignColumns: [dmsDocuments.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const dmsFormSubmissions = pgTable('dms_form_submissions', {
+  id:                 uuid('id').primaryKey().defaultRandom(),
+  formTemplateId:     uuid('form_template_id').notNull(),
+  formVersionLabel:   varchar('form_version_label', { length: 20 }).notNull(),
+  recordDocumentId:   uuid('record_document_id').notNull(),
+  data:               jsonb('data').notNull(),
+  linkedEntityType:   dmsLinkEntityEnum('linked_entity_type'),
+  linkedEntityId:     uuid('linked_entity_id'),
+  submittedAt:        timestamp('submitted_at').notNull().defaultNow(),
+  submittedBy:        uuid('submitted_by').notNull(),
+  ...timestamps,
+}, (t) => [
+  index('dms_submissions_template_idx').on(t.formTemplateId),
+  index('dms_submissions_record_idx').on(t.recordDocumentId),
+  index('dms_submissions_entity_idx').on(t.linkedEntityType, t.linkedEntityId),
+  foreignKey({ columns: [t.formTemplateId], foreignColumns: [dmsFormTemplates.id] }),
+  foreignKey({ columns: [t.recordDocumentId], foreignColumns: [dmsDocuments.id] }),
+  foreignKey({ columns: [t.submittedBy], foreignColumns: [users.id] }),
 ])
 
 export const portfolioSettings = pgTable('portfolio_settings', {

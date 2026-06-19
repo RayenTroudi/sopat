@@ -6,12 +6,9 @@ import type { RsePartnershipDetail } from '@/lib/db/rse'
 import { RsePartnershipsBadge } from '../RsePartnershipsBadge'
 import type { TeamMemberRow } from '@/lib/db/team'
 
-const PARTNER_TYPE_LABELS: Record<string, string> = {
-  hotel: 'Hôtel',
-  municipalite: 'Municipalité',
-  entreprise: 'Entreprise',
-  institution: 'Institution',
-  autre: 'Autre',
+const TEAM_NAME_LABELS: Record<string, string> = {
+  equipe_sd_pat: 'Équipe SD Pat',
+  equipe_convention: 'Équipe Convention',
 }
 
 const STATUS_OPTIONS = [
@@ -186,7 +183,6 @@ export function ConventionTab({
       {/* Partner info */}
       <Card title="Informations partenaire">
         <InfoRow label="Nom" value={partnership.partnerName} />
-        <InfoRow label="Type" value={PARTNER_TYPE_LABELS[partnership.partnerType] ?? partnership.partnerType} />
         <InfoRow label="Adresse" value={partnership.partnerAddress} />
         <InfoRow label="Contact partenaire" value={partnership.partnerContactName} />
         <InfoRow label="Email contact" value={partnership.partnerContactEmail} />
@@ -201,9 +197,14 @@ export function ConventionTab({
         <InfoRow label="Statut" value={<RsePartnershipsBadge status={partnership.status} />} />
         <InfoRow label="Date de signature" value={fmt(partnership.signedDate)} />
         <InfoRow label="Date de début" value={fmt(partnership.startDate)} />
-        <InfoRow label="Date de fin" value={fmt(partnership.endDate)} />
         <InfoRow label="Préavis" value={`${partnership.noticePeriodDays} jours`} />
         <InfoRow label="Renouvellement auto." value={partnership.autoRenewal ? 'Oui' : 'Non'} />
+        {partnership.teamName && (
+          <InfoRow label="Équipe" value={TEAM_NAME_LABELS[partnership.teamName] ?? partnership.teamName} />
+        )}
+        {partnership.teamLeadName && (
+          <InfoRow label="Chef d'équipe" value={partnership.teamLeadName} />
+        )}
       </Card>
 
       {/* Notes */}

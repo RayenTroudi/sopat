@@ -11,7 +11,7 @@ import { z } from 'zod'
 
 const createSchema = z.object({
   partnerName: z.string().min(1, 'Nom du partenaire requis'),
-  partnerType: z.enum(['hotel', 'municipalite', 'entreprise', 'institution', 'autre'] as const),
+  partnerType: z.enum(['hotel', 'municipalite', 'entreprise', 'institution', 'autre'] as const).optional().default('autre'),
   partnerAddress: z.string().optional(),
   partnerContactName: z.string().optional(),
   partnerContactEmail: z.string().email('Email invalide').or(z.literal('')).optional(),
@@ -25,6 +25,8 @@ const createSchema = z.object({
   noticePeriodDays: z.number().int().min(0).optional(),
   status: z.enum(['actif', 'expire', 'resilie', 'en_cours_de_negociation'] as const).optional(),
   notes: z.string().optional(),
+  teamName: z.string().optional(),
+  teamLeadName: z.string().optional(),
 })
 
 export async function GET(req: NextRequest) {
