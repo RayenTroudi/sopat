@@ -33,6 +33,16 @@ const STATUS_COLORS: Record<string, string> = {
   archived:         'bg-[var(--admin-border)] text-[var(--admin-text-muted)]',
 }
 
+function simplifiedStatus(status: string): { label: string; className: string } {
+  if (status === 'effective' || status === 'approved') {
+    return { label: 'Ajout', className: 'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]' }
+  }
+  if (status === 'archived' || status === 'obsolete') {
+    return { label: 'Éliminer', className: 'bg-[var(--admin-border)] text-[var(--admin-text-muted)]' }
+  }
+  return { label: 'En cours', className: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]' }
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   manuel_qualite:        'Manuel qualité',
   politique:             'Politique',
@@ -289,9 +299,7 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
                         {DEPARTMENT_LABELS[doc.department] ?? doc.department}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={cn('text-xs px-2 py-0.5 rounded font-medium', STATUS_COLORS[doc.status] ?? STATUS_COLORS.draft)}>
-                          {STATUS_LABELS[doc.status] ?? doc.status}
-                        </span>
+                        {(() => { const s = simplifiedStatus(doc.status); return <span className={cn('text-xs px-2 py-0.5 rounded font-medium', s.className)}>{s.label}</span> })()}
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
                         {doc.ownerName ?? '—'}
@@ -426,16 +434,6 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
                 </FF>
               </div>
 
-              <FF label="Responsable">
-                <select
-                  value={form.ownerId}
-                  onChange={(e) => setForm(f => ({ ...f, ownerId: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                >
-                  {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
-              </FF>
 
               {formError && (
                 <p className="text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>

@@ -7,7 +7,7 @@ const upsertSchema = z.object({
   tasks: z.array(z.object({
     taskDescription: z.string().min(1),
     deadline: z.string().nullable().optional(),
-    assignedTeam: z.enum(['rse', 'rh_communication', 'logistique', 'communication_marketing', 'direction']).nullable().optional(),
+    assignedTeam: z.enum(['rse', 'rh_communication', 'logistique', 'communication_marketing', 'direction']).nullable().optional().or(z.literal('')),
     status: z.enum(['a_faire', 'en_cours', 'termine']).optional(),
     notes: z.string().nullable().optional(),
   })),
@@ -55,7 +55,7 @@ export async function POST(
     parsed.data.tasks.map((t) => ({
       ...t,
       deadline: t.deadline ? new Date(t.deadline) : null,
-      assignedTeam: t.assignedTeam ?? null,
+      assignedTeam: (t.assignedTeam === '' ? null : t.assignedTeam) ?? null,
     })),
     session.user.userId
   )

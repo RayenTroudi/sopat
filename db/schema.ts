@@ -153,6 +153,19 @@ export const ncStatusEnum = pgEnum('nc_status', [
   'verified',
 ])
 
+export const ncTypeEnum = pgEnum('nc_type', [
+  'technique',
+  'documentaire',
+  'reclamation_client',
+  'audit',
+  'systeme',
+])
+
+export const ncOwnerTypeEnum = pgEnum('nc_owner_type', [
+  'interne',
+  'externe',
+])
+
 export const capaStatusEnum = pgEnum('capa_status', [
   'open',
   'in_progress',
@@ -302,6 +315,8 @@ export const clients = pgTable('clients', {
   logoCloudinaryId:     uuid('logo_cloudinary_id'),
   isFeatured:           boolean('is_featured').notNull().default(false),
   notes:                text('notes'),
+  sectorFreeText:       text('sector_free_text'),
+  clientPotential:      text('client_potential'),
   ...timestamps,
   deletedAt:            timestamp('deleted_at'),
   createdBy:            uuid('created_by').notNull(),
@@ -702,7 +717,10 @@ export const nonConformances = pgTable('non_conformances', {
   projectId: uuid('project_id'),
   detectedAt: timestamp('detected_at').notNull().defaultNow(),
   detectedBy: uuid('detected_by').notNull(),
-  processAffected: phaseEnum('process_affected').notNull(),
+  processAffected: phaseEnum('process_affected'),
+  ncType: ncTypeEnum('nc_type'),
+  ownerType: ncOwnerTypeEnum('nc_owner_type'),
+  auditorName: text('auditor_name'),
   description: text('description').notNull(),
   rootCause: text('root_cause'),
   assignedTo: uuid('assigned_to'),
@@ -710,6 +728,8 @@ export const nonConformances = pgTable('non_conformances', {
   status: ncStatusEnum('status').notNull().default('open'),
   closedAt: timestamp('closed_at'),
   closedBy: uuid('closed_by'),
+  beforePhotoAssetId: uuid('before_photo_asset_id'),
+  afterPhotoAssetId: uuid('after_photo_asset_id'),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by').notNull(),

@@ -22,6 +22,13 @@ const PROCESS_LABELS: Record<string, string> = {
   realisation: 'Réalisation',
   entretien:   'Entretien',
 }
+const NC_TYPE_LABELS: Record<string, string> = {
+  technique:          'Technique',
+  documentaire:       'Doc.',
+  reclamation_client: 'Réclamation client',
+  audit:              'Audit',
+  systeme:            'Système',
+}
 
 function fmt(d: Date | string) {
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -47,11 +54,13 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
 
   // Create form state
   const [form, setForm] = useState({
-    processAffected: 'realisation',
-    description:     '',
-    rootCause:       '',
-    assignedTo:      '',
-    deadline:        '',
+    ncType:      '',
+    ownerType:   '',
+    auditorName: '',
+    description: '',
+    rootCause:   '',
+    assignedTo:  '',
+    deadline:    '',
   })
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
@@ -81,17 +90,19 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        processAffected: form.processAffected,
-        description:     form.description,
-        rootCause:       form.rootCause || undefined,
-        assignedTo:      form.assignedTo || undefined,
-        deadline:        form.deadline ? new Date(form.deadline).toISOString() : undefined,
+        ncType:      form.ncType || undefined,
+        ownerType:   form.ownerType || undefined,
+        auditorName: form.auditorName || undefined,
+        description: form.description,
+        rootCause:   form.rootCause || undefined,
+        assignedTo:  form.assignedTo || undefined,
+        deadline:    form.deadline ? new Date(form.deadline).toISOString() : undefined,
       }),
     })
     const data = await res.json() as { id?: string; error?: string }
     if (!res.ok) { setFormError(data.error ?? 'Erreur'); setSubmitting(false); return }
     setShowForm(false)
-    setForm({ processAffected: 'realisation', description: '', rootCause: '', assignedTo: '', deadline: '' })
+    setForm({ ncType: '', ownerType: '', auditorName: '', description: '', rootCause: '', assignedTo: '', deadline: '' })
     await loadNcs()
     setSubmitting(false)
   }
@@ -169,7 +180,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
-                  {['Référence', 'Statut', 'Processus', 'Description', 'Projet', 'Assigné à', 'Délai', ''].map((h) => (
+                  {['Référence', 'Statut', 'Type', 'Description', 'Projet', 'Assigné à', 'Délai', ''].map((h) => (
                     <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
@@ -184,7 +195,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                      {PROCESS_LABELS[nc.processAffected] ?? nc.processAffected}
+                      {NC_TYPE_LABELS[(nc as any).ncType] ?? PROCESS_LABELS[(nc as any).processAffected] ?? '—'}
                     </td>
                     <td className="px-4 py-3 max-w-[280px]">
                       <p className="truncate text-sm" style={{ color: 'var(--admin-text)' }}>{nc.description}</p>
@@ -225,18 +236,42 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
             </div>
 
             <div className="flex-1 px-6 py-5 space-y-4">
-              <FormField label="Processus concerné *">
+              <FormField label="Type de NC">
                 <select
-                  value={form.processAffected}
-                  onChange={(e) => setForm((f) => ({ ...f, processAffected: e.target.value }))}
+                  value={form.ncType}
+                  onChange={(e) => setForm((f) => ({ ...f, ncType: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg border text-sm"
                   style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
                 >
-                  <option value="etudes">Études & Conception</option>
-                  <option value="realisation">Réalisation</option>
-                  <option value="entretien">Entretien & Suivi</option>
+                  <option value="">-- Sélectionner --</option>
+                  {Object.entries(NC_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </FormField>
+
+              <FormField label="Propriétaire">
+                <select
+                  value={form.ownerType}
+                  onChange={(e) => setForm((f) => ({ ...f, ownerType: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border text-sm"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                >
+                  <option value="">-- Sélectionner --</option>
+                  <option value="interne">Interne</option>
+                  <option value="externe">Externe</option>
+                </select>
+              </FormField>
+
+              {form.ncType === 'audit' && (
+                <FormField label="Nom de l'auditeur">
+                  <input
+                    value={form.auditorName}
+                    onChange={(e) => setForm((f) => ({ ...f, auditorName: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                    placeholder="Nom de l'auditeur"
+                  />
+                </FormField>
+              )}
 
               <FormField label="Description de la non-conformité *">
                 <textarea

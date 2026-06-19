@@ -21,6 +21,9 @@ const PROCESS_LABELS: Record<string, string> = {
 const CAPA_STATUS_LABELS: Record<string, string> = {
   open: 'Ouverte', in_progress: 'En cours', closed: 'Clôturée',
 }
+const NC_TYPE_LABELS: Record<string, string> = {
+  technique: 'Technique', documentaire: 'Doc.', reclamation_client: 'Réclamation client', audit: 'Audit', systeme: 'Système',
+}
 
 function fmt(d: Date | string | null) {
   if (!d) return '—'
@@ -132,7 +135,9 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
               )}
             </div>
             <p className="text-sm mt-1" style={{ color: 'var(--admin-text-muted)' }}>
-              {PROCESS_LABELS[nc.processAffected] ?? nc.processAffected}
+              {(nc as any).ncType ? NC_TYPE_LABELS[(nc as any).ncType] : (PROCESS_LABELS[nc.processAffected] ?? nc.processAffected)}
+              {(nc as any).ownerType ? ` · ${(nc as any).ownerType === 'interne' ? 'Interne' : 'Externe'}` : ''}
+              {(nc as any).auditorName ? ` · Auditeur : ${(nc as any).auditorName}` : ''}
               {nc.projectName ? ` · ${nc.projectName}` : ''}
               {' · '}Détectée le {fmt(nc.detectedAt)} par {nc.detectedByName ?? '—'}
             </p>
@@ -163,6 +168,54 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
           className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
           style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
         />
+      </Card>
+
+      {/* Photos avant/après */}
+      <Card title="Photos (avant / après)">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs font-medium mb-2" style={{ color: 'var(--admin-text-muted)' }}>Photo avant</p>
+            {(nc as any).beforePhotoUrl ? (
+              <img src={(nc as any).beforePhotoUrl} alt="Avant" className="w-full rounded-lg object-cover max-h-48" />
+            ) : (
+              <CloudinaryUploader
+                projectId={nc.id}
+                assetType="other"
+                accept="image/*"
+                label="Téléverser photo avant"
+                maxFiles={1}
+                onUploaded={(asset) => {
+                  void fetch(`/api/nc/${nc.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ beforePhotoAssetId: asset.id }),
+                  }).then(() => window.location.reload())
+                }}
+              />
+            )}
+          </div>
+          <div>
+            <p className="text-xs font-medium mb-2" style={{ color: 'var(--admin-text-muted)' }}>Photo après</p>
+            {(nc as any).afterPhotoUrl ? (
+              <img src={(nc as any).afterPhotoUrl} alt="Après" className="w-full rounded-lg object-cover max-h-48" />
+            ) : (
+              <CloudinaryUploader
+                projectId={nc.id}
+                assetType="other"
+                accept="image/*"
+                label="Téléverser photo après"
+                maxFiles={1}
+                onUploaded={(asset) => {
+                  void fetch(`/api/nc/${nc.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ afterPhotoAssetId: asset.id }),
+                  }).then(() => window.location.reload())
+                }}
+              />
+            )}
+          </div>
+        </div>
       </Card>
 
       {/* Status change */}

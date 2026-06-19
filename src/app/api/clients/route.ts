@@ -9,7 +9,7 @@ const CREATE_ROLES = ['admin', 'direction', 'etudes_chef']
 const createSchema = z.object({
   companyName: z.string().min(1, 'Requis'),
   displayName: z.string().min(1, 'Requis'),
-  clientType: z.enum(['banque','hotellerie','automobile','institutionnel_public','institutionnel_prive','residentiel_prive','diplomatique','autre']),
+  clientType: z.enum(['banque','hotellerie','automobile','institutionnel_public','institutionnel_prive','residentiel_prive','diplomatique','autre']).optional().default('autre'),
   country: z.string().length(2).default('TN'),
   city: z.string().optional(),
   address: z.string().optional(),
@@ -22,6 +22,8 @@ const createSchema = z.object({
   logoCloudinaryId: z.string().uuid().optional(),
   isFeatured: z.boolean().default(false),
   notes: z.string().optional(),
+  sectorFreeText: z.string().optional(),
+  clientPotential: z.enum(['fort_potentiel', 'faible_potentiel', 'neutre']).optional(),
 })
 
 export async function GET(req: NextRequest) {

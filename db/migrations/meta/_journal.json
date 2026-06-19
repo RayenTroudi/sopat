@@ -36,6 +36,41 @@
       "when": 1781186999820,
       "tag": "0004_nursery_stock",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781855789439,
+      "tag": "0005_steady_wolf_cub",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781856165518,
+      "tag": "0006_sloppy_rattler",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781856537080,
+      "tag": "0007_smooth_thunderball",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781856749113,
+      "tag": "0008_wise_piledriver",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781857101467,
+      "tag": "0009_clever_impossible_man",
+      "breakpoints": true
     }
   ]
 }

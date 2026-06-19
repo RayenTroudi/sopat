@@ -3,18 +3,9 @@
 import { useState } from 'react'
 import type { WizardDraft } from '../EventWizard'
 
-const TEAMS = [
-  { value: 'rse', label: 'RSE' },
-  { value: 'rh_communication', label: 'RH & Communication' },
-  { value: 'logistique', label: 'Logistique' },
-  { value: 'communication_marketing', label: 'Communication' },
-  { value: 'direction', label: 'Direction' },
-]
-
 type Task = {
   taskDescription: string
   deadline: string
-  assignedTeam: string
   status: string
   notes: string
 }
@@ -22,10 +13,38 @@ type Task = {
 const emptyTask = (): Task => ({
   taskDescription: '',
   deadline: '',
-  assignedTeam: '',
   status: 'a_faire',
   notes: '',
 })
+
+function exportCsv(tasks: Task[]) {
+  const header = 'Tâche,Échéance,Statut,Notes'
+  const rows = tasks.map(t =>
+    [t.taskDescription, t.deadline, t.status, t.notes].map(v => `"${(v ?? '').replace(/"/g, '""')}"`).join(',')
+  )
+  const content = [header, ...rows].join('\n')
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'retroplanning.csv'
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function exportText(tasks: Task[]) {
+  const lines = tasks.map((t, i) =>
+    `Tâche ${i + 1}: ${t.taskDescription}\nÉchéance : ${t.deadline || '—'}\nStatut : ${t.status}\nNotes : ${t.notes || '—'}\n`
+  )
+  const content = ['RÉTRO-PLANNING', '='.repeat(30), '', ...lines].join('\n')
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'retroplanning.txt'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export function Step4Retroplanning({
   draft,
@@ -106,19 +125,30 @@ export function Step4Retroplanning({
               />
             </div>
             <div>
-              <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>Équipe responsable</label>
+              <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>Statut</label>
               <select
-                value={task.assignedTeam}
-                onChange={(e) => updateTask(idx, { assignedTeam: e.target.value })}
+                value={task.status}
+                onChange={(e) => updateTask(idx, { status: e.target.value })}
                 className="w-full px-2 py-1.5 rounded border text-sm"
                 style={fieldStyle}
               >
-                <option value="">Aucune</option>
-                {TEAMS.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
+                <option value="a_faire">À faire</option>
+                <option value="en_cours">En cours</option>
+                <option value="termine">Terminé</option>
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>Notes</label>
+            <textarea
+              value={task.notes}
+              onChange={(e) => updateTask(idx, { notes: e.target.value })}
+              rows={2}
+              className="w-full px-2 py-1.5 rounded border text-sm resize-none"
+              style={fieldStyle}
+              placeholder="Notes optionnelles…"
+            />
           </div>
         </div>
       ))}
@@ -130,6 +160,26 @@ export function Step4Retroplanning({
       >
         + Ajouter une tâche
       </button>
+
+      {tasks.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Exporter :</span>
+          <button
+            onClick={() => exportCsv(tasks)}
+            className="text-xs px-3 py-1 rounded border"
+            style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+          >
+            CSV
+          </button>
+          <button
+            onClick={() => exportText(tasks)}
+            className="text-xs px-3 py-1 rounded border"
+            style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+          >
+            TXT
+          </button>
+        </div>
+      )}
 
       <div className="flex justify-between">
         <button

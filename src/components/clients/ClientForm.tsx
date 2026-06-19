@@ -13,7 +13,9 @@ const schema = z.object({
     'banque', 'hotellerie', 'automobile',
     'institutionnel_public', 'institutionnel_prive',
     'residentiel_prive', 'diplomatique', 'autre',
-  ]),
+  ]).optional().default('autre'),
+  sectorFreeText: z.string().optional(),
+  clientPotential: z.enum(['fort_potentiel', 'faible_potentiel', 'neutre']).optional(),
   country: z.string().length(2).default('TN'),
   city: z.string().optional(),
   address: z.string().optional(),
@@ -148,13 +150,21 @@ export function ClientForm({ initialValues, clientId, canToggleFeatured }: Clien
             />
           </Field>
         </div>
-        <Field label="Secteur" error={errors.clientType?.message} required>
-          <select {...register('clientType')} className={inputClass} style={inputStyle}>
-            {TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
+        <Field label="Secteur">
+          <input
+            {...register('sectorFreeText')}
+            className={inputClass}
+            style={inputStyle}
+            placeholder="Ex : Hôtellerie, Banque, Santé…"
+          />
+        </Field>
+
+        <Field label="Potentiel client">
+          <select {...register('clientPotential')} className={inputClass} style={inputStyle}>
+            <option value="">-- Sélectionner --</option>
+            <option value="fort_potentiel">À fort potentiel</option>
+            <option value="faible_potentiel">À faible potentiel</option>
+            <option value="neutre">Neutre</option>
           </select>
         </Field>
         <Field label="Pays" error={errors.country?.message} required>

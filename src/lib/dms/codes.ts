@@ -9,8 +9,8 @@ export type ProcessCode = (typeof PROCESS_CODES)[number]
 
 export const TYPE_LABELS: Record<TypeCode, string> = {
   LIS: 'Liste',
-  PRS: 'Processus',
-  PRC: 'Procédure',
+  PRS: 'PRS',
+  PRC: 'PNC',
   INS: 'Instruction',
   FOR: 'Formulaire / Fiche',
   ORG: 'Document organisationnel',

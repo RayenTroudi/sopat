@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import {
   getNcById,
   updateNcStatus,
+  updateNcPhotos,
   checkNcClosePrerequisites,
   assertNcWriteAccess,
   type NcStatus,
@@ -12,8 +13,10 @@ import { z } from 'zod'
 type RouteParams = { params: Promise<{ id: string }> }
 
 const updateSchema = z.object({
-  status:    z.enum(['open', 'in_progress', 'closed', 'verified'] as const).optional(),
-  rootCause: z.string().optional(),
+  status:             z.enum(['open', 'in_progress', 'closed', 'verified'] as const).optional(),
+  rootCause:          z.string().optional(),
+  beforePhotoAssetId: z.string().uuid().optional(),
+  afterPhotoAssetId:  z.string().uuid().optional(),
 })
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
@@ -64,6 +67,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (!check.ok) {
       return NextResponse.json({ error: check.reason }, { status: 422 })
     }
+  }
+
+  if (parsed.data.beforePhotoAssetId !== undefined || parsed.data.afterPhotoAssetId !== undefined) {
+    await updateNcPhotos(id, {
+      beforePhotoAssetId: parsed.data.beforePhotoAssetId,
+      afterPhotoAssetId:  parsed.data.afterPhotoAssetId,
+    })
   }
 
   await updateNcStatus(

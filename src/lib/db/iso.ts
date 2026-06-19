@@ -214,29 +214,39 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
 }
 
 export async function createNc(input: {
-  reference:       string
-  projectId?:      string
-  processAffected: string
-  description:     string
-  rootCause?:      string
-  assignedTo?:     string
-  deadline?:       Date
-  detectedBy:      string
-  createdBy:       string
+  reference:          string
+  projectId?:         string
+  processAffected?:   string
+  ncType?:            string
+  ownerType?:         string
+  auditorName?:       string
+  description:        string
+  rootCause?:         string
+  assignedTo?:        string
+  deadline?:          Date
+  beforePhotoAssetId?: string
+  afterPhotoAssetId?:  string
+  detectedBy:         string
+  createdBy:          string
 }) {
   const [nc] = await db
     .insert(nonConformances)
     .values({
-      reference:       input.reference,
-      projectId:       input.projectId || null,
-      processAffected: input.processAffected as NcProcess,
-      description:     input.description,
-      rootCause:       input.rootCause,
-      assignedTo:      input.assignedTo || null,
-      deadline:        input.deadline,
-      detectedBy:      input.detectedBy,
-      status:          'open',
-      createdBy:       input.createdBy,
+      reference:          input.reference,
+      projectId:          input.projectId || null,
+      processAffected:    (input.processAffected as NcProcess) || null,
+      ncType:             (input.ncType as typeof nonConformances.$inferInsert['ncType']) || null,
+      ownerType:          (input.ownerType as typeof nonConformances.$inferInsert['ownerType']) || null,
+      auditorName:        input.auditorName,
+      description:        input.description,
+      rootCause:          input.rootCause,
+      assignedTo:         input.assignedTo || null,
+      deadline:           input.deadline,
+      beforePhotoAssetId: input.beforePhotoAssetId || null,
+      afterPhotoAssetId:  input.afterPhotoAssetId || null,
+      detectedBy:         input.detectedBy,
+      status:             'open',
+      createdBy:          input.createdBy,
     })
     .returning()
   return nc
@@ -257,6 +267,20 @@ export async function updateNcStatus(
       closedAt:   status === 'closed' || status === 'verified' ? (opts?.closedAt ?? now) : null,
       closedBy:   status === 'closed' || status === 'verified' ? actorId : null,
       updatedAt:  now,
+    })
+    .where(eq(nonConformances.id, id))
+}
+
+export async function updateNcPhotos(
+  id: string,
+  photos: { beforePhotoAssetId?: string; afterPhotoAssetId?: string }
+) {
+  await db
+    .update(nonConformances)
+    .set({
+      ...(photos.beforePhotoAssetId !== undefined && { beforePhotoAssetId: photos.beforePhotoAssetId }),
+      ...(photos.afterPhotoAssetId !== undefined && { afterPhotoAssetId: photos.afterPhotoAssetId }),
+      updatedAt: new Date(),
     })
     .where(eq(nonConformances.id, id))
 }
@@ -654,7 +678,7 @@ export async function assertNcWriteAccess(
 export async function validateNcInputRefs(opts: {
   assignedTo?:     string
   projectId?:      string
-  processAffected: string
+  processAffected?: string
 }): Promise<string | null> {
   if (opts.assignedTo) {
     const [user] = await db

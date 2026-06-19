@@ -57,6 +57,8 @@ export type CreateClientInput = {
   logoCloudinaryId?: string
   isFeatured?: boolean
   notes?: string
+  sectorFreeText?: string
+  clientPotential?: string
   createdBy: string
 }
 
@@ -249,6 +251,8 @@ export async function createClient(input: CreateClientInput): Promise<string> {
       logoCloudinaryId: input.logoCloudinaryId ?? null,
       isFeatured: input.isFeatured ?? false,
       notes: input.notes ?? null,
+      sectorFreeText: input.sectorFreeText ?? null,
+      clientPotential: input.clientPotential ?? null,
       createdBy: input.createdBy,
     })
     .returning({ id: clients.id })
@@ -272,6 +276,8 @@ export async function updateClient(id: string, input: UpdateClientInput): Promis
   if (input.logoCloudinaryId !== undefined) updates.logoCloudinaryId = input.logoCloudinaryId
   if (input.isFeatured !== undefined) updates.isFeatured = input.isFeatured
   if (input.notes !== undefined) updates.notes = input.notes
+  if (input.sectorFreeText !== undefined) updates.sectorFreeText = input.sectorFreeText
+  if (input.clientPotential !== undefined) updates.clientPotential = input.clientPotential
 
   const result = await db
     .update(clients)

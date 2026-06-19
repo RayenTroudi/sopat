@@ -13,11 +13,16 @@ import { z } from 'zod'
 
 const createSchema = z.object({
   projectId:       z.string().uuid().optional(),
-  processAffected: z.enum(['etudes', 'realisation', 'entretien'] as const),
+  processAffected: z.enum(['etudes', 'realisation', 'entretien'] as const).optional(),
+  ncType:          z.enum(['technique', 'documentaire', 'reclamation_client', 'audit', 'systeme'] as const).optional(),
+  ownerType:       z.enum(['interne', 'externe'] as const).optional(),
+  auditorName:     z.string().optional(),
   description:     z.string().min(10, 'Description trop courte'),
   rootCause:       z.string().optional(),
   assignedTo:      z.string().uuid().optional(),
   deadline:        z.string().datetime().optional(),
+  beforePhotoAssetId: z.string().uuid().optional(),
+  afterPhotoAssetId:  z.string().uuid().optional(),
 })
 
 export async function GET(req: NextRequest) {
@@ -62,14 +67,19 @@ export async function POST(req: NextRequest) {
 
   const nc = await createNc({
     reference,
-    projectId:       d.projectId,
-    processAffected: d.processAffected,
-    description:     d.description,
-    rootCause:       d.rootCause,
-    assignedTo:      d.assignedTo,
-    deadline:        d.deadline ? new Date(d.deadline) : undefined,
-    detectedBy:      session.user.userId,
-    createdBy:       session.user.userId,
+    projectId:          d.projectId,
+    processAffected:    d.processAffected,
+    ncType:             d.ncType,
+    ownerType:          d.ownerType,
+    auditorName:        d.auditorName,
+    description:        d.description,
+    rootCause:          d.rootCause,
+    assignedTo:         d.assignedTo,
+    deadline:           d.deadline ? new Date(d.deadline) : undefined,
+    beforePhotoAssetId: d.beforePhotoAssetId,
+    afterPhotoAssetId:  d.afterPhotoAssetId,
+    detectedBy:         session.user.userId,
+    createdBy:          session.user.userId,
   })
 
   if (d.assignedTo) {
@@ -77,7 +87,7 @@ export async function POST(req: NextRequest) {
       ncId:            nc.id,
       ncReference:     reference,
       projectId:       d.projectId ?? null,
-      processAffected: d.processAffected,
+      processAffected: d.processAffected ?? 'etudes',
       description:     d.description,
       deadline:        d.deadline ? new Date(d.deadline) : null,
       detectedBy:      session.user.userId,
