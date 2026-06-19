@@ -81,12 +81,15 @@ export type PlantHealthSummary = {
   criticalConsecutive: number
 }
 
+export type VisitFrequencyType = 'journaliere' | 'hebdomadaire' | 'quinzaine'
+
 export type ContractRow = {
   id: string
   projectId: string
   contractStartDate: Date | null
   contractEndDate: Date | null
   visitFrequency: string | null
+  visitFrequencyType: VisitFrequencyType | null
   visitFrequencyDays: number | null
   monthlyCost: string | null
   contractAssetId: string | null
@@ -133,6 +136,7 @@ export async function getContract(projectId: string): Promise<ContractRow | null
       contractStartDate:   maintenanceSchedules.contractStartDate,
       contractEndDate:     maintenanceSchedules.contractEndDate,
       visitFrequency:      maintenanceSchedules.visitFrequency,
+      visitFrequencyType:  maintenanceSchedules.visitFrequencyType,
       visitFrequencyDays:  maintenanceSchedules.visitFrequencyDays,
       monthlyCost:         maintenanceSchedules.monthlyCost,
       contractAssetId:     maintenanceSchedules.contractAssetId,
@@ -151,10 +155,11 @@ export async function getContract(projectId: string): Promise<ContractRow | null
 }
 
 export async function upsertContract(input: {
-  projectId:         string
+  projectId:          string
   contractStartDate?: Date
   contractEndDate?:   Date
   visitFrequency?:    string
+  visitFrequencyType?: VisitFrequencyType
   visitFrequencyDays?: number
   monthlyCost?:       string
   contractAssetId?:   string
@@ -170,6 +175,7 @@ export async function upsertContract(input: {
         contractStartDate:  input.contractStartDate,
         contractEndDate:    input.contractEndDate,
         visitFrequency:     input.visitFrequency,
+        visitFrequencyType: input.visitFrequencyType,
         visitFrequencyDays: input.visitFrequencyDays,
         monthlyCost:        input.monthlyCost,
         contractAssetId:    input.contractAssetId,
@@ -188,6 +194,7 @@ export async function upsertContract(input: {
       contractStartDate:  input.contractStartDate,
       contractEndDate:    input.contractEndDate,
       visitFrequency:     input.visitFrequency,
+      visitFrequencyType: input.visitFrequencyType,
       visitFrequencyDays: input.visitFrequencyDays,
       monthlyCost:        input.monthlyCost,
       contractAssetId:    input.contractAssetId,
@@ -515,4 +522,20 @@ export async function getVisitsIn24h() {
         sql`${maintenanceVisits.workDone} IS NULL`  // not yet reported
       )
     )
+}
+
+// ─── All visits across projects (for unified calendar) ────────────────────────
+
+export async function getAllMaintenanceVisits() {
+  return db
+    .select({
+      id:          maintenanceVisits.id,
+      visitDate:   maintenanceVisits.visitDate,
+      visitType:   maintenanceVisits.visitType,
+      projectId:   maintenanceVisits.projectId,
+      projectName: projects.name,
+    })
+    .from(maintenanceVisits)
+    .leftJoin(projects, eq(maintenanceVisits.projectId, projects.id))
+    .orderBy(asc(maintenanceVisits.visitDate))
 }

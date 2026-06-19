@@ -7,13 +7,14 @@ import { z } from 'zod'
 type RouteParams = { params: Promise<{ id: string }> }
 
 const schema = z.object({
-  contractStartDate:  z.string().datetime().optional(),
-  contractEndDate:    z.string().datetime().optional(),
-  visitFrequency:     z.string().optional(),
-  visitFrequencyDays: z.number().int().positive().optional(),
-  monthlyCost:        z.string().optional(),
-  contractAssetId:    z.string().uuid().optional(),
-  notes:              z.string().optional(),
+  contractStartDate:   z.string().datetime().optional(),
+  contractEndDate:     z.string().datetime().optional(),
+  visitFrequency:      z.string().optional(),
+  visitFrequencyType:  z.enum(['journaliere', 'hebdomadaire', 'quinzaine'] as const).optional(),
+  visitFrequencyDays:  z.number().int().positive().optional(),
+  monthlyCost:         z.string().optional(),
+  contractAssetId:     z.string().uuid().optional(),
+  notes:               z.string().optional(),
 })
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
@@ -48,15 +49,16 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
   const d = parsed.data
   const result = await upsertContract({
-    projectId:          id,
-    contractStartDate:  d.contractStartDate ? new Date(d.contractStartDate) : undefined,
-    contractEndDate:    d.contractEndDate   ? new Date(d.contractEndDate)   : undefined,
-    visitFrequency:     d.visitFrequency,
-    visitFrequencyDays: d.visitFrequencyDays,
-    monthlyCost:        d.monthlyCost,
-    contractAssetId:    d.contractAssetId,
-    notes:              d.notes,
-    createdBy:          session.user.userId,
+    projectId:           id,
+    contractStartDate:   d.contractStartDate ? new Date(d.contractStartDate) : undefined,
+    contractEndDate:     d.contractEndDate   ? new Date(d.contractEndDate)   : undefined,
+    visitFrequency:      d.visitFrequency,
+    visitFrequencyType:  d.visitFrequencyType,
+    visitFrequencyDays:  d.visitFrequencyDays,
+    monthlyCost:         d.monthlyCost,
+    contractAssetId:     d.contractAssetId,
+    notes:               d.notes,
+    createdBy:           session.user.userId,
   })
 
   await logActivity({

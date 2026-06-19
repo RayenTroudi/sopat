@@ -1,0 +1,2 @@
+CREATE TYPE "public"."visit_frequency_type" AS ENUM('journaliere', 'hebdomadaire', 'quinzaine');--> statement-breakpoint
+ALTER TABLE "maintenance_schedules" ADD COLUMN "visit_frequency_type" "visit_frequency_type";

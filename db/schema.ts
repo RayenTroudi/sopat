@@ -188,6 +188,12 @@ export const emailStatusEnum = pgEnum('email_status', [
   'failed',
 ])
 
+export const visitFrequencyTypeEnum = pgEnum('visit_frequency_type', [
+  'journaliere',
+  'hebdomadaire',
+  'quinzaine',
+])
+
 export const visitTypeEnum = pgEnum('visit_type', [
   'taille',
   'arrosage',
@@ -753,6 +759,7 @@ export const maintenanceSchedules = pgTable('maintenance_schedules', {
   contractStartDate: timestamp('contract_start_date'),
   contractEndDate: timestamp('contract_end_date'),
   visitFrequency: varchar('visit_frequency', { length: 50 }),
+  visitFrequencyType: visitFrequencyTypeEnum('visit_frequency_type'),
   visitFrequencyDays: integer('visit_frequency_days'),
   monthlyCost: decimal('monthly_cost', { precision: 10, scale: 3 }),
   assignedTeamId: uuid('assigned_team_id'),

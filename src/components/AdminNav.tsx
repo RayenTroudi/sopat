@@ -65,6 +65,12 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Entretien',
+    items: [
+      { href: '/admin/calendrier-entretien', label: 'Calendrier visites', icon: '📅', roles: ['admin','direction','entretien_chef','entretien_team'] },
+    ],
+  },
+  {
     label: 'Reporting',
     items: [
       { href: '/admin/reports',   label: 'Rapports',         icon: '📊', roles: ['admin','direction','realisation_chef','entretien_chef'] },
