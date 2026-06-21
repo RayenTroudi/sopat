@@ -5,6 +5,9 @@ import Link from 'next/link'
 import type { AllSettings } from '@/lib/db/settings'
 import { ROLE_LABELS } from '@/lib/auth-utils'
 import type { UserRole } from '@/lib/auth-utils'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Loader2 } from 'lucide-react'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -29,10 +32,9 @@ function Input({ value, onChange, placeholder, type = 'text', disabled }: { valu
 
 function SaveButton({ saving, label = 'Enregistrer' }: { saving: boolean; label?: string }) {
   return (
-    <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60"
-      style={{ background: 'var(--admin-emerald)' }}>
-      {saving ? 'Enregistrement…' : label}
-    </button>
+    <Button type="submit" disabled={saving} style={{ background: 'var(--admin-emerald)' }} className="text-white hover:opacity-90">
+      {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enregistrement…</> : label}
+    </Button>
   )
 }
 
@@ -40,8 +42,10 @@ function Section({ title, subtitle, children }: { title: string; subtitle?: stri
   return (
     <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
       <div className="px-5 py-4 border-b" style={{ borderColor: 'var(--admin-border)' }}>
-        <h2 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</h2>
-        {subtitle && <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>{subtitle}</p>}
+        <div className="border-l-4 pl-4" style={{ borderColor: 'var(--admin-emerald)' }}>
+          <h2 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</h2>
+          {subtitle && <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>{subtitle}</p>}
+        </div>
       </div>
       <div className="p-5">{children}</div>
     </div>
@@ -249,12 +253,6 @@ function NotificationsSection({ initial }: { initial: AllSettings['notifications
 export function SettingsClient({ initialSettings }: { initialSettings: AllSettings }) {
   const [tab, setTab] = useState<'company' | 'smtp' | 'notifications'>('company')
 
-  const TABS = [
-    { key: 'company' as const,       label: 'Société' },
-    { key: 'smtp' as const,          label: 'SMTP' },
-    { key: 'notifications' as const, label: 'Notifications' },
-  ]
-
   return (
     <div className="space-y-6 max-w-[900px]">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -268,23 +266,16 @@ export function SettingsClient({ initialSettings }: { initialSettings: AllSettin
         </Link>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b" style={{ borderColor: 'var(--admin-border)' }}>
-        {TABS.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
-            style={{
-              borderColor: tab === t.key ? 'var(--admin-emerald)' : 'transparent',
-              color:       tab === t.key ? 'var(--admin-emerald)' : 'var(--admin-text-muted)',
-            }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'company'       && <CompanySection       initial={initialSettings.company} />}
-      {tab === 'smtp'          && <SmtpSection          initial={initialSettings.smtp} />}
-      {tab === 'notifications' && <NotificationsSection initial={initialSettings.notifications} />}
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="company">Société</TabsTrigger>
+          <TabsTrigger value="smtp">SMTP</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+        </TabsList>
+        <TabsContent value="company"><CompanySection initial={initialSettings.company} /></TabsContent>
+        <TabsContent value="smtp"><SmtpSection initial={initialSettings.smtp} /></TabsContent>
+        <TabsContent value="notifications"><NotificationsSection initial={initialSettings.notifications} /></TabsContent>
+      </Tabs>
     </div>
   )
 }
