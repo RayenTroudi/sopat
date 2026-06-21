@@ -124,13 +124,13 @@ export function NewProjectForm({ clientOptions = [] }: { clientOptions?: ClientO
   const stepTitles = ['Informations de base', 'Détails du projet', 'Concept & design', 'Dates & équipe']
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-5 sm:space-y-6 w-full max-w-2xl">
       {/* Step indicator */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto -mx-1 px-1 pb-1">
         {STEPS.map((s, i) => (
-          <div key={s.number} className="flex items-center gap-2">
+          <div key={s.number} className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors"
+              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold transition-colors shrink-0"
               style={{
                 background: step >= s.number ? 'var(--green)' : 'var(--admin-surface)',
                 color: step >= s.number ? '#fff' : 'var(--admin-text-muted)',
@@ -139,19 +139,24 @@ export function NewProjectForm({ clientOptions = [] }: { clientOptions?: ClientO
             >
               {s.number}
             </div>
-            <span className="text-xs hidden sm:inline" style={{ color: step === s.number ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>
+            <span className="text-xs hidden md:inline" style={{ color: step === s.number ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>
               {s.label}
             </span>
             {i < STEPS.length - 1 && (
-              <div className="w-8 h-px mx-1" style={{ background: 'var(--admin-border)' }} />
+              <div className="w-4 sm:w-8 h-px mx-0.5 sm:mx-1 shrink-0" style={{ background: 'var(--admin-border)' }} />
             )}
           </div>
         ))}
       </div>
 
+      {/* Active step label (mobile) */}
+      <p className="md:hidden -mt-2 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>
+        Étape {step} / {STEPS.length} — {stepTitles[step - 1]}
+      </p>
+
       {/* Step card */}
       <div
-        className="rounded-xl border p-5 space-y-4"
+        className="rounded-xl border p-4 sm:p-5 space-y-4"
         style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
       >
         <h2 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>

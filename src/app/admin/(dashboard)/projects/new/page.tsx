@@ -14,12 +14,12 @@ export default async function NewProjectPage() {
   const clientOptions = canSeeClients ? await searchClients('') : []
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="w-full max-w-2xl mx-auto space-y-5 sm:space-y-6">
       <div>
-        <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>
+        <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>
           Nouveau projet
         </h1>
-        <p className="text-sm mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+        <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
           Créer un projet — il sera ouvert directement en phase Études.
         </p>
       </div>

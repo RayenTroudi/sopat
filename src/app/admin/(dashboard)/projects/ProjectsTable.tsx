@@ -94,7 +94,7 @@ function fmt(date: Date | null): string {
   return new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-const selectClass = 'text-sm border rounded-lg pl-3 pr-8 py-2 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const selectClass = 'text-sm border rounded-lg pl-3 pr-8 py-2 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)] w-full sm:w-auto'
 const selectStyle = { background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }
 
 export function ProjectsTable({ rows, total, page, pageSize }: Props) {
@@ -117,7 +117,7 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
     <div className="space-y-4">
       {/* Filters bar */}
       <div
-        className="flex flex-wrap gap-2 items-center p-3 rounded-xl border"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 lg:items-center p-3 rounded-xl border"
         style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
       >
         {/* Status select */}
@@ -144,7 +144,7 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
           <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
         </div>
 
-        <div className="ml-auto">
+        <div className="sm:col-span-2 lg:col-span-1 lg:ml-auto flex justify-end">
           <Badge variant="secondary">{total} projet{total !== 1 ? 's' : ''}</Badge>
         </div>
       </div>
@@ -158,9 +158,15 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
             <Table>
               <TableHeader className="sticky top-0 z-10" style={{ background: 'var(--admin-surface)' }}>
                 <TableRow style={{ borderColor: 'var(--admin-border)' }}>
-                  {['Réf.', 'Projet', 'Client', 'Type', 'Pays', 'Phase', 'Budget', 'Livraison est.', 'Créé le'].map((h) => (
-                    <TableHead key={h} className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{h}</TableHead>
-                  ))}
+                  <TableHead className="hidden md:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Réf.</TableHead>
+                  <TableHead className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Projet</TableHead>
+                  <TableHead className="hidden lg:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Client</TableHead>
+                  <TableHead className="hidden xl:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type</TableHead>
+                  <TableHead className="hidden sm:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Pays</TableHead>
+                  <TableHead className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Phase</TableHead>
+                  <TableHead className="hidden md:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Budget</TableHead>
+                  <TableHead className="hidden xl:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Livraison est.</TableHead>
+                  <TableHead className="hidden xl:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Créé le</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -170,19 +176,26 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
                     className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors duration-100"
                     style={{ borderColor: 'var(--admin-border)' }}
                   >
-                    <TableCell className="font-mono text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.reference}</TableCell>
+                    <TableCell className="hidden md:table-cell font-mono text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.reference}</TableCell>
                     <TableCell>
                       <Link href={`/admin/projects/${row.id}`} className="font-medium hover:underline" style={{ color: 'var(--admin-text)' }}>
                         {row.name}
                       </Link>
+                      {/* Mobile-only secondary line */}
+                      <div className="md:hidden mt-0.5 text-[11px] font-mono" style={{ color: 'var(--admin-text-muted)' }}>
+                        {row.reference}
+                      </div>
+                      <div className="lg:hidden mt-0.5 text-[11px] truncate max-w-[12rem]" style={{ color: 'var(--admin-text-muted)' }}>
+                        {row.clientName}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.clientName}</TableCell>
-                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                    <TableCell className="hidden lg:table-cell text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.clientName}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-xs" style={{ color: 'var(--admin-text-muted)' }}>
                       {TYPE_ICONS[row.projectType] ?? ''} {TYPE_LABELS[row.projectType] ?? row.projectType}
                     </TableCell>
-                    <TableCell className="text-base text-center">{row.country ? countryFlag(row.country) : ''}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-base text-center">{row.country ? countryFlag(row.country) : ''}</TableCell>
                     <TableCell><PhaseBadge status={row.status} /></TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <div className="flex flex-col gap-0.5">
                         <BudgetBadge approved={row.approvedBudget} />
                         {row.approvedBudget && row.currency && (
@@ -190,8 +203,8 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmt(row.estimatedDeliveryDate)}</TableCell>
-                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmt(row.createdAt)}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmt(row.estimatedDeliveryDate)}</TableCell>
+                    <TableCell className="hidden xl:table-cell text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmt(row.createdAt)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
