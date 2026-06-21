@@ -2,7 +2,14 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { ChevronDown, ClipboardCheck, Loader2, AlertCircle } from 'lucide-react'
 import type { AuditRow } from '@/lib/db/iso'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled:   'Planifié',
@@ -10,9 +17,9 @@ const STATUS_LABELS: Record<string, string> = {
   completed:   'Clôturé',
 }
 const STATUS_COLORS: Record<string, string> = {
-  scheduled:   'bg-[var(--admin-blue-dim)] text-[var(--admin-blue)]',
-  in_progress: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
-  completed:   'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]',
+  scheduled:   'bg-[var(--admin-blue-dim)] text-[var(--admin-blue)] border-transparent',
+  in_progress: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)] border-transparent',
+  completed:   'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)] border-transparent',
 }
 
 const PROCESS_OPTIONS = [
@@ -30,7 +37,6 @@ function fmt(d: Date | string | null) {
 }
 
 type User = { id: string; name: string }
-
 type Props = {
   initialRows:   AuditRow[]
   total:         number
@@ -38,6 +44,11 @@ type Props = {
   isAdmin:       boolean
   currentUserId: string
 }
+
+const inputClass = 'w-full px-3 py-2 rounded-lg border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const inputStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }
+const selectClass = 'text-sm border rounded-lg pl-3 pr-8 py-1.5 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const filterSelectStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }
 
 export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId }: Props) {
   const [rows, setRows]         = useState(initialRows)
@@ -68,7 +79,7 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
 
   async function handleCreate() {
     if (!form.auditDate) { setFormError('La date est obligatoire'); return }
-    if (!form.auditorId) { setFormError('L\'auditeur est obligatoire'); return }
+    if (!form.auditorId) { setFormError("L'auditeur est obligatoire"); return }
     setSubmitting(true); setFormError('')
     const res = await fetch('/api/audits', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -109,7 +120,7 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Page header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Audits Internes</h1>
@@ -118,95 +129,102 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
           </p>
         </div>
         {isAdmin && (
-          <button onClick={() => setShowForm(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white" style={{ background: 'var(--admin-emerald)' }}>
-            <span>+</span> Planifier un audit
-          </button>
+          <Button onClick={() => setShowForm(true)} style={{ background: 'var(--admin-emerald)' }} className="text-white hover:opacity-90">
+            + Planifier un audit
+          </Button>
         )}
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-3 flex-wrap">
-        <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setTimeout(() => void loadAudits(), 0) }}
-          className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor:'var(--admin-border)', background:'var(--admin-surface)', color:'var(--admin-text)' }}>
-          <option value="">Tous statuts</option>
-          {Object.entries(STATUS_LABELS).map(([v,l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-        <button onClick={() => void loadAudits()} className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor:'var(--admin-border)', color:'var(--admin-text-muted)' }}>Actualiser</button>
+      {/* Filters bar */}
+      <div className="flex flex-wrap gap-2 items-center p-3 rounded-xl border" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        <div className="relative">
+          <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setTimeout(() => void loadAudits(), 0) }} className={selectClass} style={filterSelectStyle}>
+            <option value="">Tous statuts</option>
+            {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void loadAudits()}>Actualiser</Button>
       </div>
 
-      {/* List */}
+      {/* Audit cards list */}
       <div className="space-y-3">
         {loading ? (
-          <div className="py-12 flex justify-center"><span className="animate-spin w-5 h-5 border-2 rounded-full inline-block" style={{ borderColor:'var(--admin-border)', borderTopColor:'var(--admin-emerald)' }} /></div>
+          <div className="py-12 flex justify-center">
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--admin-emerald)' }} />
+          </div>
         ) : rows.length === 0 ? (
-          <p className="py-12 text-center text-sm" style={{ color:'var(--admin-text-muted)' }}>Aucun audit planifié.</p>
+          <EmptyState icon={ClipboardCheck} title="Aucun audit planifié" description="Créez votre premier audit interne ISO 9001:2015." />
         ) : rows.map((audit) => (
-          <div key={audit.id} className="rounded-xl border overflow-hidden" style={{ borderColor:'var(--admin-border)', background:'var(--admin-surface)' }}>
+          <div key={audit.id} className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
             {/* Audit header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b flex-wrap gap-3" style={{ borderColor:'var(--admin-border)' }}>
+            <div className="flex items-center justify-between px-5 py-3 border-b flex-wrap gap-3" style={{ borderColor: 'var(--admin-border)' }}>
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="font-mono text-sm font-semibold" style={{ color:'var(--admin-text)' }}>{audit.reference}</span>
-                <span className={cn('text-xs px-2 py-0.5 rounded font-medium', STATUS_COLORS[audit.status] ?? STATUS_COLORS.scheduled)}>
+                <span className="font-mono text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{audit.reference}</span>
+                <Badge className={cn('text-xs font-medium rounded-full', STATUS_COLORS[audit.status] ?? STATUS_COLORS.scheduled)}>
                   {STATUS_LABELS[audit.status] ?? audit.status}
-                </span>
-                <span className="text-xs" style={{ color:'var(--admin-text-muted)' }}>
+                </Badge>
+                <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
                   {PROCESS_MAP[audit.processAudited] ?? audit.processAudited}
                 </span>
               </div>
-              <div className="flex items-center gap-3 text-xs" style={{ color:'var(--admin-text-muted)' }}>
+              <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
                 <span>Auditeur : <strong>{audit.auditorName ?? '—'}</strong></span>
                 <span>Date : {fmt(audit.auditDate)}</span>
                 {audit.status !== 'completed' && isAdmin && (
-                  <button onClick={() => startEdit(audit)} className="text-xs underline" style={{ color:'var(--admin-blue)' }}>
+                  <Button variant="ghost" size="sm" onClick={() => startEdit(audit)} className="text-xs h-7 px-2" style={{ color: 'var(--admin-blue)' }}>
                     {editingId === audit.id ? 'Annuler' : 'Modifier'}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
 
-            {/* Scope + findings (read) */}
+            {/* Content */}
             {editingId !== audit.id ? (
               <div className="px-5 py-4 space-y-3">
                 {audit.scope && (
                   <div>
-                    <p className="text-xs font-medium mb-1" style={{ color:'var(--admin-text-muted)' }}>PÉRIMÈTRE</p>
-                    <p className="text-sm" style={{ color:'var(--admin-text)' }}>{audit.scope}</p>
+                    <p className="text-xs font-medium mb-1" style={{ color: 'var(--admin-text-muted)' }}>PÉRIMÈTRE</p>
+                    <p className="text-sm" style={{ color: 'var(--admin-text)' }}>{audit.scope}</p>
                   </div>
                 )}
                 {audit.findings ? (
                   <div>
-                    <p className="text-xs font-medium mb-1" style={{ color:'var(--admin-text-muted)' }}>CONSTATS</p>
-                    <p className="text-sm whitespace-pre-wrap" style={{ color:'var(--admin-text)' }}>{audit.findings}</p>
+                    <p className="text-xs font-medium mb-1" style={{ color: 'var(--admin-text-muted)' }}>CONSTATS</p>
+                    <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{audit.findings}</p>
                   </div>
                 ) : (
-                  <p className="text-sm" style={{ color:'var(--admin-text-muted)' }}>Aucun constat enregistré.</p>
+                  <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>Aucun constat enregistré.</p>
                 )}
                 {audit.completedAt && (
-                  <p className="text-xs" style={{ color:'var(--admin-text-muted)' }}>Clôturé le {fmt(audit.completedAt)}</p>
+                  <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Clôturé le {fmt(audit.completedAt)}</p>
                 )}
               </div>
             ) : (
-              /* Edit form */
               <div className="px-5 py-4 space-y-3">
                 <FF label="Périmètre">
-                  <textarea value={editScope} onChange={(e) => setEditScope(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
+                  <textarea value={editScope} onChange={(e) => setEditScope(e.target.value)} rows={2} className={cn(inputClass, 'resize-none')} style={inputStyle} />
                 </FF>
                 <FF label="Constats *">
-                  <textarea value={editFindings} onChange={(e) => setEditFindings(e.target.value)} rows={4} placeholder="Constats d'audit, observations, points positifs et axes d'amélioration…" className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
+                  <textarea value={editFindings} onChange={(e) => setEditFindings(e.target.value)} rows={4} placeholder="Constats d'audit, observations, points positifs et axes d'amélioration…" className={cn(inputClass, 'resize-none')} style={inputStyle} />
                 </FF>
                 <FF label="Statut">
-                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="text-sm px-3 py-2 rounded-lg border" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
+                  <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className={cn(inputClass, 'pr-3')} style={inputStyle}>
                     <option value="scheduled">Planifié</option>
                     <option value="in_progress">En cours</option>
                     <option value="completed">Clôturé</option>
                   </select>
                 </FF>
-                {editError && <p className="text-sm" style={{ color:'var(--admin-red)' }}>{editError}</p>}
+                {editError && (
+                  <div className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+                    <AlertCircle className="w-4 h-4 shrink-0" />{editError}
+                  </div>
+                )}
                 <div className="flex gap-2">
-                  <button onClick={() => setEditingId(null)} className="px-3 py-1.5 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', color:'var(--admin-text-muted)' }}>Annuler</button>
-                  <button onClick={() => void saveEdit(audit.id)} disabled={editLoading} className="px-3 py-1.5 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background:'var(--admin-emerald)' }}>
-                    {editLoading ? 'Sauvegarde…' : 'Sauvegarder'}
-                  </button>
+                  <Button variant="outline" size="sm" onClick={() => setEditingId(null)}>Annuler</Button>
+                  <Button size="sm" onClick={() => void saveEdit(audit.id)} disabled={editLoading} style={{ background: 'var(--admin-emerald)' }} className="text-white hover:opacity-90">
+                    {editLoading ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Sauvegarde…</> : 'Sauvegarder'}
+                  </Button>
                 </div>
               </div>
             )}
@@ -214,30 +232,26 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
         ))}
       </div>
 
-      {/* Create audit drawer */}
-      {showForm && isAdmin && (
-        <>
-          <div className="fixed inset-0 z-40" style={{ background:'rgba(0,0,0,0.4)' }} onClick={() => setShowForm(false)} />
-          <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl overflow-y-auto" style={{ background:'var(--admin-surface)', borderLeft:'1px solid var(--admin-border)' }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor:'var(--admin-border)' }}>
-              <div>
-                <h2 className="text-base font-semibold" style={{ color:'var(--admin-text)' }}>Planifier un audit interne</h2>
-                <p className="text-xs mt-0.5" style={{ color:'var(--admin-text-muted)' }}>ISO 9001:2015 · clause 9.2</p>
-              </div>
-              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color:'var(--admin-text-muted)' }}>✕</button>
-            </div>
-            <div className="flex-1 px-6 py-5 space-y-4">
+      {/* Create audit Sheet */}
+      {isAdmin && (
+        <Sheet open={showForm} onOpenChange={setShowForm}>
+          <SheetContent side="right" className="w-full max-w-lg flex flex-col p-0" style={{ background: 'var(--admin-surface)' }}>
+            <SheetHeader className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+              <SheetTitle style={{ color: 'var(--admin-text)' }}>Planifier un audit interne</SheetTitle>
+              <SheetDescription style={{ color: 'var(--admin-text-muted)' }}>ISO 9001:2015 · clause 9.2</SheetDescription>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               <FF label="Auditeur *">
-                <select value={form.auditorId} onChange={(e) => setForm(f => ({ ...f, auditorId: e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
+                <select value={form.auditorId} onChange={(e) => setForm(f => ({ ...f, auditorId: e.target.value }))} className={inputClass} style={inputStyle}>
                   {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                 </select>
               </FF>
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Date *">
-                  <input type="date" value={form.auditDate} onChange={(e) => setForm(f => ({ ...f, auditDate: e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
+                  <input type="date" value={form.auditDate} onChange={(e) => setForm(f => ({ ...f, auditDate: e.target.value }))} className={inputClass} style={inputStyle} />
                 </FF>
                 <FF label="Statut">
-                  <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
+                  <select value={form.status} onChange={(e) => setForm(f => ({ ...f, status: e.target.value }))} className={cn(inputClass, 'pr-3')} style={inputStyle}>
                     <option value="scheduled">Planifié</option>
                     <option value="in_progress">En cours</option>
                     <option value="completed">Clôturé</option>
@@ -245,26 +259,30 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
                 </FF>
               </div>
               <FF label="Processus audité *">
-                <select value={form.processAudited} onChange={(e) => setForm(f => ({ ...f, processAudited: e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
+                <select value={form.processAudited} onChange={(e) => setForm(f => ({ ...f, processAudited: e.target.value }))} className={cn(inputClass, 'pr-3')} style={inputStyle}>
                   {PROCESS_OPTIONS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                 </select>
               </FF>
               <FF label="Périmètre / Scope">
-                <textarea value={form.scope} onChange={(e) => setForm(f => ({ ...f, scope: e.target.value }))} rows={2} placeholder="Départements, activités ou processus couverts…" className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
+                <textarea value={form.scope} onChange={(e) => setForm(f => ({ ...f, scope: e.target.value }))} rows={2} placeholder="Départements, activités ou processus couverts…" className={cn(inputClass, 'resize-none')} style={inputStyle} />
               </FF>
               <FF label="Constats initiaux">
-                <textarea value={form.findings} onChange={(e) => setForm(f => ({ ...f, findings: e.target.value }))} rows={3} placeholder="À compléter lors de l'audit ou après clôture…" className="w-full px-3 py-2 rounded-lg border text-sm resize-none" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
+                <textarea value={form.findings} onChange={(e) => setForm(f => ({ ...f, findings: e.target.value }))} rows={3} placeholder="À compléter lors de l'audit ou après clôture…" className={cn(inputClass, 'resize-none')} style={inputStyle} />
               </FF>
-              {formError && <p className="text-sm px-3 py-2 rounded-lg" style={{ background:'var(--admin-red-dim)', color:'var(--admin-red)' }}>{formError}</p>}
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', color:'var(--admin-text-muted)' }}>Annuler</button>
-                <button onClick={() => void handleCreate()} disabled={submitting} className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background:'var(--admin-emerald)' }}>
-                  {submitting ? 'Enregistrement…' : 'Planifier l\'audit'}
-                </button>
-              </div>
+              {formError && (
+                <div className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+                  <AlertCircle className="w-4 h-4 shrink-0" />{formError}
+                </div>
+              )}
             </div>
-          </div>
-        </>
+            <div className="flex gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Annuler</Button>
+              <Button className="flex-1 text-white" onClick={() => void handleCreate()} disabled={submitting} style={{ background: 'var(--admin-emerald)' }}>
+                {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enregistrement…</> : "Planifier l'audit"}
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
       )}
     </div>
   )
@@ -273,7 +291,7 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
 function FF({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{label}</label>
+      <label className="text-xs font-medium" style={{ color: 'var(--admin-text)' }}>{label}</label>
       {children}
     </div>
   )
