@@ -1,6 +1,8 @@
 import Link from 'next/link'
+import { ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AtRiskProject } from '@/lib/db/dashboard'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 const STATUS_LABELS: Record<string, string> = {
   etudes:      'Études',
@@ -12,11 +14,7 @@ const FMT = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFr
 
 export function AtRiskTable({ projects }: { projects: AtRiskProject[] }) {
   if (projects.length === 0) {
-    return (
-      <p className="py-6 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
-        Aucun projet à risque identifié.
-      </p>
-    )
+    return <EmptyState icon={ShieldCheck} title="Aucun projet à risque" description="Tous les projets sont dans les délais et dans le budget." />
   }
 
   return (

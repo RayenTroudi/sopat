@@ -1,5 +1,7 @@
 import Link from 'next/link'
+import { Activity } from 'lucide-react'
 import type { ActivityEntry } from '@/lib/db/dashboard'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 const ACTION_LABELS: Record<string, string> = {
   'project.created':                     'Projet créé',
@@ -42,11 +44,7 @@ function fmtTime(d: Date) {
 
 export function ActivityFeed({ entries }: { entries: ActivityEntry[] }) {
   if (entries.length === 0) {
-    return (
-      <p className="py-6 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
-        Aucune activité récente.
-      </p>
-    )
+    return <EmptyState icon={Activity} title="Aucune activité récente" />
   }
 
   return (

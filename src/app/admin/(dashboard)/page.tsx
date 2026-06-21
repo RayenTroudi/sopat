@@ -14,6 +14,14 @@ import { MiniPie } from '@/components/dashboard/MiniPie'
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
 import { AtRiskTable } from '@/components/dashboard/AtRiskTable'
 import { DashboardTabs } from '@/components/dashboard/DashboardTabs'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/EmptyState'
+import {
+  FolderOpen, Clock, TrendingUp, AlertTriangle, CheckCircle2,
+  CalendarDays, Star, Handshake, CalendarClock, ArrowRight, CalendarX,
+} from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Tableau de bord | SOPAT Admin' }
@@ -29,13 +37,14 @@ const VISIT_TYPE_LABELS: Record<string, string> = {
 
 function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-      <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: 'var(--admin-border)' }}>
-        <h2 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</h2>
+    <Card className="overflow-hidden">
+      <CardHeader className="flex flex-row items-center justify-between py-3 px-5 space-y-0">
+        <CardTitle className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</CardTitle>
         {action}
-      </div>
-      <div className="p-5">{children}</div>
-    </div>
+      </CardHeader>
+      <Separator style={{ background: 'var(--admin-border)' }} />
+      <CardContent className="p-5">{children}</CardContent>
+    </Card>
   )
 }
 
@@ -86,6 +95,7 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
         <MetricCard
+          icon={FolderOpen}
           title="Projets actifs"
           value={activeProjects.total}
           subtitle={`Études: ${activeProjects.byPhase.etudes} · Réalisation: ${activeProjects.byPhase.realisation} · Entretien: ${activeProjects.byPhase.entretien}`}
@@ -96,6 +106,7 @@ export default async function AdminDashboard() {
         </MetricCard>
 
         <MetricCard
+          icon={Clock}
           title="Livraison dans les délais"
           value={`${onTimeDeliveryRate}%`}
           subtitle="Projets terminés dans les délais prévus"
@@ -104,6 +115,7 @@ export default async function AdminDashboard() {
         />
 
         <MetricCard
+          icon={TrendingUp}
           title="Variance budgétaire moy."
           value={avgBudgetVariance === null ? '—' : `${avgBudgetVariance > 0 ? '+' : ''}${avgBudgetVariance}%`}
           subtitle="Écart moyen budget approuvé vs dépenses réelles"
@@ -112,6 +124,7 @@ export default async function AdminDashboard() {
         />
 
         <MetricCard
+          icon={AlertTriangle}
           title="Non-conformités ouvertes"
           value={openNcs.count}
           subtitle={openNcs.overdue > 0 ? `⚠ ${openNcs.overdue} en retard sur délai` : 'Toutes dans les délais'}
@@ -126,6 +139,7 @@ export default async function AdminDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
         <MetricCard
+          icon={CheckCircle2}
           title="Taux clôture NC dans les délais"
           value={`${ncSlaClosureRate}%`}
           subtitle="NCs clôturées avant leur délai SLA"
@@ -134,6 +148,7 @@ export default async function AdminDashboard() {
         />
 
         <MetricCard
+          icon={CalendarDays}
           title="Visites maintenance ce mois"
           value={`${maintenanceThisMonth.completed} / ${maintenanceThisMonth.scheduled}`}
           subtitle={`${maintenanceThisMonth.scheduled - maintenanceThisMonth.completed} visite${maintenanceThisMonth.scheduled - maintenanceThisMonth.completed !== 1 ? 's' : ''} restante${maintenanceThisMonth.scheduled - maintenanceThisMonth.completed !== 1 ? 's' : ''}`}
@@ -141,6 +156,7 @@ export default async function AdminDashboard() {
         />
 
         <MetricCard
+          icon={Star}
           title="Satisfaction client (12 mois)"
           value={satisfactionScore !== null ? `${satisfactionScore} / 5` : '—'}
           subtitle="Score moyen glissant sur 12 mois"
@@ -156,6 +172,7 @@ export default async function AdminDashboard() {
       {(rseData.activeCount > 0 || rseData.overdueCommitmentsCount > 0) && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <MetricCard
+            icon={Handshake}
             title="Partenariats RSE actifs"
             value={rseData.activeCount}
             subtitle={
@@ -166,6 +183,7 @@ export default async function AdminDashboard() {
             accent={rseData.overdueCommitmentsCount > 0 ? 'red' : 'green'}
           />
           <MetricCard
+            icon={CalendarClock}
             title="Prochain renouvellement RSE"
             value={rseData.nextExpiring ? `J-${rseData.nextExpiring.daysUntil}` : '—'}
             subtitle={
@@ -202,9 +220,9 @@ export default async function AdminDashboard() {
           <Section
             title={`Projets à risque${atRisk.length > 0 ? ` — ${atRisk.length}` : ''}`}
             action={
-              <Link href="/admin/projects" className="text-xs" style={{ color: 'var(--admin-blue)' }}>
-                Voir tous →
-              </Link>
+              <Button variant="ghost" size="sm" asChild style={{ color: 'var(--admin-text-muted)' }}>
+                <Link href="/admin/projects">Voir tous <ArrowRight className="w-3.5 h-3.5 ml-1" /></Link>
+              </Button>
             }
           >
             <AtRiskTable projects={atRisk} />
@@ -232,15 +250,13 @@ export default async function AdminDashboard() {
           <Section
             title="Visites de maintenance — 7 prochains jours"
             action={
-              <Link href="/admin/projects" className="text-xs" style={{ color: 'var(--admin-blue)' }}>
-                Voir tous les projets →
-              </Link>
+              <Button variant="ghost" size="sm" asChild style={{ color: 'var(--admin-text-muted)' }}>
+                <Link href="/admin/projects">Voir tous <ArrowRight className="w-3.5 h-3.5 ml-1" /></Link>
+              </Button>
             }
           >
             {upcomingVisits.length === 0 ? (
-              <p className="text-sm py-4 text-center" style={{ color: 'var(--admin-text-muted)' }}>
-                Aucune visite planifiée dans les 7 prochains jours.
-              </p>
+              <EmptyState icon={CalendarX} title="Aucune visite planifiée" description="Pas de visite dans les 7 prochains jours." />
             ) : (
               <div className="space-y-2">
                 {upcomingVisits.map((v) => {
