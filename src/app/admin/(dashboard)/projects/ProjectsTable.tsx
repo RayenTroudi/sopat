@@ -2,8 +2,15 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { Search, ChevronDown, ChevronLeft, ChevronRight, FolderOpen } from 'lucide-react'
 import { PhaseBadge } from '@/components/projects/PhaseBadge'
 import { BudgetBadge } from '@/components/projects/BudgetBadge'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table'
+import { EmptyState } from '@/components/ui/EmptyState'
 import type { ProjectStatus } from '@/lib/db/projects'
 
 type ProjectRow = {
@@ -87,6 +94,9 @@ function fmt(date: Date | null): string {
   return new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+const selectClass = 'text-sm border rounded-lg pl-3 pr-8 py-2 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const selectStyle = { background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }
+
 export function ProjectsTable({ rows, total, page, pageSize }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -105,150 +115,101 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <select
-          value={currentStatus}
-          onChange={(e) => updateParam('status', e.target.value)}
-          className="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green/20"
-          style={{
-            background: 'var(--admin-surface)',
-            borderColor: 'var(--admin-border)',
-            color: 'var(--admin-text)',
-          }}
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <select
-          value={searchParams.get('projectType') ?? ''}
-          onChange={(e) => updateParam('projectType', e.target.value)}
-          className="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green/20"
-          style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
-        >
-          {TYPE_FILTER_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <select
-          value={searchParams.get('country') ?? ''}
-          onChange={(e) => updateParam('country', e.target.value)}
-          className="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green/20"
-          style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
-        >
-          {COUNTRY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
-        <span className="text-xs ml-auto" style={{ color: 'var(--admin-text-muted)' }}>
-          {total} projet{total !== 1 ? 's' : ''}
-        </span>
+      {/* Filters bar */}
+      <div
+        className="flex flex-wrap gap-2 items-center p-3 rounded-xl border"
+        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
+      >
+        {/* Status select */}
+        <div className="relative">
+          <select value={currentStatus} onChange={(e) => updateParam('status', e.target.value)} className={selectClass} style={selectStyle}>
+            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
+        </div>
+
+        {/* Type select */}
+        <div className="relative">
+          <select value={searchParams.get('projectType') ?? ''} onChange={(e) => updateParam('projectType', e.target.value)} className={selectClass} style={selectStyle}>
+            {TYPE_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
+        </div>
+
+        {/* Country select */}
+        <div className="relative">
+          <select value={searchParams.get('country') ?? ''} onChange={(e) => updateParam('country', e.target.value)} className={selectClass} style={selectStyle}>
+            {COUNTRY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
+        </div>
+
+        <div className="ml-auto">
+          <Badge variant="secondary">{total} projet{total !== 1 ? 's' : ''}</Badge>
+        </div>
       </div>
 
       {/* Table */}
-      <div
-        className="rounded-xl overflow-hidden border"
-        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
-      >
-        <table className="w-full text-sm">
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
-              {['Réf.', 'Projet', 'Client', 'Type', 'Pays', 'Phase', 'Budget', 'Livraison est.', 'Créé le'].map((h) => (
-                <th
-                  key={h}
-                  className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wide"
-                  style={{ color: 'var(--admin-text-muted)' }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
-                  Aucun projet trouvé.
-                </td>
-              </tr>
-            )}
-            {rows.map((row, i) => (
-              <tr
-                key={row.id}
-                style={{
-                  borderBottom: i < rows.length - 1 ? '1px solid var(--admin-border)' : undefined,
-                }}
-                className="hover:bg-[var(--admin-bg)] transition-colors"
-              >
-                <td className="px-4 py-3 font-mono text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                  {row.reference}
-                </td>
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/admin/projects/${row.id}`}
-                    className="font-medium hover:underline"
-                    style={{ color: 'var(--admin-text)' }}
+      <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        {rows.length === 0 ? (
+          <EmptyState icon={FolderOpen} title="Aucun projet trouvé" description="Essayez de modifier vos filtres." />
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader className="sticky top-0 z-10" style={{ background: 'var(--admin-surface)' }}>
+                <TableRow style={{ borderColor: 'var(--admin-border)' }}>
+                  {['Réf.', 'Projet', 'Client', 'Type', 'Pays', 'Phase', 'Budget', 'Livraison est.', 'Créé le'].map((h) => (
+                    <TableHead key={h} className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{h}</TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors duration-100"
+                    style={{ borderColor: 'var(--admin-border)' }}
                   >
-                    {row.name}
-                  </Link>
-                </td>
-                <td className="px-4 py-3" style={{ color: 'var(--admin-text-muted)' }}>
-                  {row.clientName}
-                </td>
-                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                  {TYPE_ICONS[row.projectType] ?? ''} {TYPE_LABELS[row.projectType] ?? row.projectType}
-                </td>
-                <td className="px-4 py-3 text-base text-center">
-                  {row.country ? countryFlag(row.country) : ''}
-                </td>
-                <td className="px-4 py-3">
-                  <PhaseBadge status={row.status} />
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-0.5">
-                    <BudgetBadge approved={row.approvedBudget} />
-                    {row.approvedBudget && row.currency && (
-                      <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.currency}</span>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                  {fmt(row.estimatedDeliveryDate)}
-                </td>
-                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                  {fmt(row.createdAt)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                    <TableCell className="font-mono text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.reference}</TableCell>
+                    <TableCell>
+                      <Link href={`/admin/projects/${row.id}`} className="font-medium hover:underline" style={{ color: 'var(--admin-text)' }}>
+                        {row.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.clientName}</TableCell>
+                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                      {TYPE_ICONS[row.projectType] ?? ''} {TYPE_LABELS[row.projectType] ?? row.projectType}
+                    </TableCell>
+                    <TableCell className="text-base text-center">{row.country ? countryFlag(row.country) : ''}</TableCell>
+                    <TableCell><PhaseBadge status={row.status} /></TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <BudgetBadge approved={row.approvedBudget} />
+                        {row.approvedBudget && row.currency && (
+                          <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.currency}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmt(row.estimatedDeliveryDate)}</TableCell>
+                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmt(row.createdAt)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </div>
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-            Page {page} / {totalPages}
-          </span>
-          <div className="flex gap-2">
-            <button
-              disabled={page <= 1}
-              onClick={() => updateParam('page', String(page - 1))}
-              className="text-xs px-3 py-1.5 rounded border disabled:opacity-40"
-              style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
-            >
-              Précédent
-            </button>
-            <button
-              disabled={page >= totalPages}
-              onClick={() => updateParam('page', String(page + 1))}
-              className="text-xs px-3 py-1.5 rounded border disabled:opacity-40"
-              style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
-            >
-              Suivant
-            </button>
-          </div>
+        <div className="flex items-center justify-center gap-3">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => updateParam('page', String(page - 1))}>
+            <ChevronLeft className="w-4 h-4 mr-1" /> Précédent
+          </Button>
+          <Badge variant="outline">Page {page} sur {totalPages}</Badge>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => updateParam('page', String(page + 1))}>
+            Suivant <ChevronRight className="w-4 h-4 ml-1" />
+          </Button>
         </div>
       )}
     </div>
