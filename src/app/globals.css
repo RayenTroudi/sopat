@@ -286,6 +286,26 @@ body {
   background: var(--admin-accent);
 }
 
+/* ─── Scrollbar for the dark admin sidebar (ivory/gold palette) ─── */
+.admin-sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(201,168,76,0.28) transparent;
+}
+.admin-sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.admin-sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.admin-sidebar-scroll::-webkit-scrollbar-thumb {
+  background: rgba(201,168,76,0.28);
+  border-radius: 2px;
+}
+.admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(201,168,76,0.55);
+}
+
 /* ─── Scroll indicator ─── */
 @keyframes scrollPulse {
   0%, 100% { opacity: 0.3; transform: scaleY(0.7); }

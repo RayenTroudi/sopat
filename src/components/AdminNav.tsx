@@ -147,7 +147,7 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
       </div>
 
       {/* Nav links */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2.5 space-y-0.5">
+      <nav className="admin-sidebar-scroll flex-1 overflow-y-auto py-4 px-2.5 space-y-0.5">
         {visibleGroups.map((g, gi) => {
           const isFirst = gi === 0
           return (
@@ -161,7 +161,7 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
               {g.label && (
                 <p
                   className="px-3 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-widest"
-                  style={{ color: ivoryDim, letterSpacing: '0.13em' }}
+                  style={{ color: gold, letterSpacing: '0.13em' }}
                 >
                   {g.label}
                 </p>
