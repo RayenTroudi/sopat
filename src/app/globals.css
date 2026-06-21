@@ -57,6 +57,28 @@
   --admin-emerald-dim: rgba(28, 122, 72, 0.08);
   --admin-blue: #2563EB;
   --admin-blue-dim: rgba(37, 99, 235, 0.08);
+
+  /* shadcn ↔ SOPAT token bridge */
+  --background:           var(--admin-bg);
+  --foreground:           var(--admin-text);
+  --primary:              var(--green);
+  --primary-foreground:   var(--ivory);
+  --secondary:            var(--admin-bg);
+  --secondary-foreground: var(--admin-text-muted);
+  --muted:                var(--admin-bg);
+  --muted-foreground:     var(--admin-text-muted);
+  --accent:               var(--admin-accent-dim);
+  --accent-foreground:    var(--admin-accent);
+  --destructive:          var(--admin-red);
+  --destructive-foreground: #fff;
+  --border:               var(--admin-border);
+  --input:                var(--admin-border);
+  --ring:                 var(--admin-border-light);
+  --card:                 var(--admin-surface);
+  --card-foreground:      var(--admin-text);
+  --popover:              var(--admin-surface);
+  --popover-foreground:   var(--admin-text);
+  --radius:               0.75rem;
 }
 
 html {
@@ -142,6 +164,15 @@ body {
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--gold) var(--ivory);
+}
+
+/* ─── Admin page transition ─── */
+.admin-fade-in {
+  animation: adminFadeIn 0.15s ease-out;
+}
+@keyframes adminFadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ─── Admin utility ─── */
