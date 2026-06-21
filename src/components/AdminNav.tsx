@@ -218,7 +218,7 @@ export function AdminNav({ role, name }: { role?: UserRole; name?: string }) {
   return (
     <aside
       className="hidden lg:flex flex-col w-56 shrink-0 h-screen sticky top-0"
-      style={{ background: 'var(--green)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+      style={{ background: 'var(--admin-emerald)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
     >
       <AdminNavContent role={role} name={name} />
     </aside>
