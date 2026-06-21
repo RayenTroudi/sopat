@@ -45,9 +45,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Études & terrain',
     items: [
-      { href: '/admin/suppliers',          label: 'Fournisseurs',          icon: Leaf,    roles: ['admin','direction','etudes_chef','realisation_chef'] },
+      { href: '/admin/suppliers',          label: 'Fournisseurs',             icon: Leaf,    roles: ['admin','direction','etudes_chef','realisation_chef'] },
       { href: '/admin/design/concepts',    label: 'Bibliothèque de concepts', icon: Palette, roles: ['admin','direction','etudes_chef','etudes_team'] },
-      { href: '/admin/design/templates',   label: 'Modèles de concepts',   icon: Layout,  roles: ['admin','direction','etudes_chef'] },
+      { href: '/admin/design/templates',   label: 'Modèles de concepts',      icon: Layout,  roles: ['admin','direction','etudes_chef'] },
     ],
   },
   {
@@ -120,9 +120,14 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
   return (
     <>
       {/* Logo */}
-      <div className="h-14 flex items-center px-5 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
-        <span className="font-bold text-sm tracking-tight" style={{ color: 'var(--admin-text)' }}>SOPAT</span>
-        <span className="ml-1.5 text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>Admin</span>
+      <div className="h-14 flex items-center px-5 border-b shrink-0" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+        <span className="font-bold text-sm tracking-tight text-white">SOPAT</span>
+        <span
+          className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-wide"
+          style={{ background: 'var(--gold)', color: '#0F2419' }}
+        >
+          Admin
+        </span>
       </div>
 
       {/* Nav links */}
@@ -131,9 +136,14 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
           const showSeparator = gi > 0 && g.label
           return (
             <div key={(g.label ?? 'top') + '-' + gi} className={gi > 0 ? 'mt-2' : ''}>
-              {showSeparator && <Separator className="mb-2 mx-1" style={{ background: 'var(--admin-border)' }} />}
+              {showSeparator && (
+                <Separator className="mb-2 mx-1" style={{ background: 'rgba(255,255,255,0.08)' }} />
+              )}
               {g.label && (
-                <div className="px-3 pt-1 pb-1 text-[10px] uppercase tracking-wider font-semibold" style={{ color: 'var(--admin-text-dim)' }}>
+                <div
+                  className="px-3 pt-1 pb-1 text-[10px] uppercase tracking-widest font-semibold"
+                  style={{ color: 'rgba(255,255,255,0.35)' }}
+                >
                   {g.label}
                 </div>
               )}
@@ -147,15 +157,28 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
                       href={item.href}
                       onClick={onNavigate}
                       className={cn(
-                        'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors border-l-[3px]',
+                        'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 border-l-[3px]',
                         active
                           ? 'font-semibold'
-                          : 'font-medium hover:bg-[var(--admin-bg)]'
+                          : 'font-medium'
                       )}
                       style={{
-                        color:       active ? 'var(--admin-emerald)' : 'var(--admin-text-muted)',
-                        background:  active ? 'var(--admin-emerald-dim)' : 'transparent',
-                        borderColor: active ? 'var(--admin-emerald)' : 'transparent',
+                        color: active ? 'var(--gold)' : 'rgba(255,255,255,0.6)',
+                        background: active ? 'rgba(201,168,76,0.12)' : 'transparent',
+                        borderColor: active ? 'var(--gold)' : 'transparent',
+                        ...(active ? {} : { '--tw-hover-bg': 'rgba(255,255,255,0.06)' } as React.CSSProperties),
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!active) {
+                          e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.85)'
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active) {
+                          e.currentTarget.style.background = 'transparent'
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
+                        }
                       }}
                     >
                       <Icon className="w-4 h-4 shrink-0" />
@@ -170,22 +193,22 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t" style={{ borderColor: 'var(--admin-border)' }}>
+      <div className="px-4 py-3 border-t" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
         {name && (
           <div className="flex items-center gap-2 mb-2">
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
-              style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}
+              style={{ background: 'rgba(201,168,76,0.2)', color: 'var(--gold)' }}
             >
               {initials(name)}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-medium truncate" style={{ color: 'var(--admin-text)' }}>{name}</p>
+              <p className="text-xs font-medium truncate text-white">{name}</p>
             </div>
           </div>
         )}
-        <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>ISO 9001:2015</p>
-        <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-dim)' }}>v1.0 · SOPAT Admin</p>
+        <p className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>ISO 9001:2015</p>
+        <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.25)' }}>v1.0 · SOPAT Admin</p>
       </div>
     </>
   )
@@ -195,7 +218,7 @@ export function AdminNav({ role, name }: { role?: UserRole; name?: string }) {
   return (
     <aside
       className="hidden lg:flex flex-col w-56 shrink-0 h-screen sticky top-0"
-      style={{ background: 'var(--admin-surface)', borderRight: '1px solid var(--admin-border)' }}
+      style={{ background: 'var(--green)', borderRight: '1px solid rgba(255,255,255,0.06)' }}
     >
       <AdminNavContent role={role} name={name} />
     </aside>

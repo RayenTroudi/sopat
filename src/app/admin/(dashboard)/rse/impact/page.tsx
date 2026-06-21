@@ -6,6 +6,9 @@ import { rsePartnerships, rsePartnershipCommitments } from '../../../../../../db
 import { eq, count, sql } from 'drizzle-orm'
 import { RseImpactCharts } from '@/components/rse/RseImpactCharts'
 import { PrintButton } from '@/components/rse/PrintButton'
+import { Recycle, Trees, Users, CalendarCheck, Handshake, ClipboardList, type LucideIcon } from 'lucide-react'
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 
 export default async function RseImpactPage() {
   const session = await auth()
@@ -54,12 +57,12 @@ export default async function RseImpactPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        <KpiCard label="Kg déchets collectés" value={impactData.totals.wasteKg.toFixed(1)} unit="kg" color="#22c55e" icon="♻" />
-        <KpiCard label="Arbres plantés" value={String(impactData.totals.trees)} unit="arbres" color="#16a34a" icon="🌳" />
-        <KpiCard label="Participants totaux" value={String(impactData.totals.participants)} unit="personnes" color="#0ea5e9" icon="👥" />
-        <KpiCard label="Événements réalisés" value={String(impactData.totals.completedEvents)} unit={`/ ${impactData.totals.totalEvents}`} color="#8b5cf6" icon="✓" />
-        <KpiCard label="Partenariats actifs" value={String(activePartnerships)} unit="partenaires" color="#f59e0b" icon="🤝" />
-        <KpiCard label="Engagements respectés" value={`${fulfillmentRate}%`} unit={`${onTimeCommitments} / ${totalCommitments}`} color="#06b6d4" icon="📋" />
+        <KpiCard label="Kg déchets collectés" value={impactData.totals.wasteKg.toFixed(1)} unit="kg" color="var(--admin-emerald)" dimColor="var(--admin-emerald-dim)" icon={Recycle} />
+        <KpiCard label="Arbres plantés" value={String(impactData.totals.trees)} unit="arbres" color="var(--green)" dimColor="var(--admin-green-dim)" icon={Trees} />
+        <KpiCard label="Participants totaux" value={String(impactData.totals.participants)} unit="personnes" color="var(--admin-blue)" dimColor="var(--admin-blue-dim)" icon={Users} />
+        <KpiCard label="Événements réalisés" value={String(impactData.totals.completedEvents)} unit={`/ ${impactData.totals.totalEvents}`} color="var(--admin-accent)" dimColor="var(--admin-accent-dim)" icon={CalendarCheck} />
+        <KpiCard label="Partenariats actifs" value={String(activePartnerships)} unit="partenaires" color="var(--admin-amber)" dimColor="var(--admin-amber-dim)" icon={Handshake} />
+        <KpiCard label="Engagements respectés" value={`${fulfillmentRate}%`} unit={`${onTimeCommitments} / ${totalCommitments}`} color="var(--admin-emerald)" dimColor="var(--admin-emerald-dim)" icon={ClipboardList} />
       </div>
 
       {/* Charts */}
@@ -71,34 +74,31 @@ export default async function RseImpactPage() {
 
       {/* Location table */}
       {impactData.byLocation.length > 0 && (
-        <div
-          className="rounded-xl border"
-          style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)' }}
-        >
-          <div className="px-5 py-3 border-b" style={{ borderColor: 'var(--admin-border)' }}>
-            <h3 className="font-semibold text-sm" style={{ color: 'var(--admin-text)' }}>
+        <Card className="overflow-hidden">
+          <CardHeader className="py-3 px-5">
+            <CardTitle className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>
               Répartition par lieu
-            </h3>
-          </div>
-          <table className="w-full">
-            <thead>
-              <tr style={{ borderBottom: `1px solid var(--admin-border)` }}>
-                <th className="text-left px-5 py-2 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Lieu</th>
-                <th className="text-right px-5 py-2 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Événements</th>
-                <th className="text-right px-5 py-2 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Participants totaux</th>
-              </tr>
-            </thead>
-            <tbody>
+            </CardTitle>
+          </CardHeader>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Lieu</TableHead>
+                <TableHead className="text-right">Événements</TableHead>
+                <TableHead className="text-right">Participants totaux</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {impactData.byLocation.map((row, i) => (
-                <tr key={i} style={{ borderBottom: i < impactData.byLocation.length - 1 ? `1px solid var(--admin-border)` : 'none' }}>
-                  <td className="px-5 py-3 text-sm" style={{ color: 'var(--admin-text)' }}>{row.location}</td>
-                  <td className="px-5 py-3 text-sm text-right" style={{ color: 'var(--admin-text-muted)' }}>{row.eventCount}</td>
-                  <td className="px-5 py-3 text-sm text-right" style={{ color: 'var(--admin-text-muted)' }}>{row.totalParticipants}</td>
-                </tr>
+                <TableRow key={i} className="even:bg-[var(--admin-bg)]/40">
+                  <TableCell className="font-medium">{row.location}</TableCell>
+                  <TableCell className="text-right" style={{ color: 'var(--admin-text-muted)' }}>{row.eventCount}</TableCell>
+                  <TableCell className="text-right" style={{ color: 'var(--admin-text-muted)' }}>{row.totalParticipants}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       </div>{/* end #rse-impact-printable */}
@@ -111,25 +111,32 @@ function KpiCard({
   value,
   unit,
   color,
-  icon,
+  dimColor,
+  icon: Icon,
 }: {
   label: string
   value: string
   unit: string
   color: string
-  icon: string
+  dimColor: string
+  icon: LucideIcon
 }) {
   return (
     <div
-      className="rounded-xl border p-4"
+      className="rounded-xl border p-4 flex flex-col gap-2"
       style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)' }}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-lg">{icon}</span>
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center"
+        style={{ background: dimColor }}
+      >
+        <Icon className="w-4 h-4" style={{ color }} />
       </div>
-      <p className="text-2xl font-bold" style={{ color }}>{value}</p>
-      <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>{unit}</p>
-      <p className="text-xs mt-1 font-medium" style={{ color: 'var(--admin-text)' }}>{label}</p>
+      <p className="text-2xl font-bold tracking-tight" style={{ color }}>{value}</p>
+      <div>
+        <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{unit}</p>
+        <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--admin-text)' }}>{label}</p>
+      </div>
     </div>
   )
 }
