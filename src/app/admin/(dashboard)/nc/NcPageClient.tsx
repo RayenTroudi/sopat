@@ -2,8 +2,19 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Search, ChevronDown, AlertTriangle, Loader2, ArrowRight, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NcListItem } from '@/lib/db/iso'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from '@/components/ui/table'
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { TableSkeleton } from '@/components/ui/TableSkeleton'
 
 const STATUS_LABELS: Record<string, string> = {
   open:        'Ouvert',
@@ -12,10 +23,10 @@ const STATUS_LABELS: Record<string, string> = {
   verified:    'Vérifié',
 }
 const STATUS_COLORS: Record<string, string> = {
-  open:        'bg-[var(--admin-red-dim)] text-[var(--admin-red)]',
-  in_progress: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
-  closed:      'bg-[var(--admin-blue-dim)] text-[var(--admin-blue)]',
-  verified:    'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]',
+  open:        'bg-[var(--admin-red-dim)] text-[var(--admin-red)] border-transparent',
+  in_progress: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)] border-transparent',
+  closed:      'bg-[var(--admin-blue-dim)] text-[var(--admin-blue)] border-transparent',
+  verified:    'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)] border-transparent',
 }
 const PROCESS_LABELS: Record<string, string> = {
   etudes:      'Études',
@@ -44,6 +55,11 @@ type Props = {
   currentUserName: string
 }
 
+const selectClass = 'text-sm border rounded-lg pl-3 pr-8 py-1.5 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const selectStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }
+const inputClass = 'w-full px-3 py-2 rounded-lg border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const inputStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }
+
 export function NcPageClient({ initialRows, total, users, currentUserId, currentUserName }: Props) {
   const [rows, setRows]           = useState(initialRows)
   const [showForm, setShowForm]   = useState(false)
@@ -52,7 +68,6 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
   const [search, setSearch]       = useState('')
   const [loading, setLoading]     = useState(false)
 
-  // Create form state
   const [form, setForm] = useState({
     ncType:      '',
     ownerType:   '',
@@ -107,11 +122,11 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
     setSubmitting(false)
   }
 
-  const openCount  = rows.filter((r) => r.status === 'open' || r.status === 'in_progress').length
+  const openCount = rows.filter((r) => r.status === 'open' || r.status === 'in_progress').length
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Page header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Non-Conformités</h1>
@@ -119,225 +134,149 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
             ISO 9001:2015 · clause 10.2 · {openCount} ouverte{openCount !== 1 ? 's' : ''}
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white"
-          style={{ background: 'var(--admin-red)' }}
-        >
-          <span className="text-base leading-none">+</span> Créer une NC
-        </button>
+        <Button onClick={() => setShowForm(true)} style={{ background: 'var(--admin-red)' }} className="text-white hover:opacity-90">
+          + Créer une NC
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select
-          value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value); setTimeout(() => void loadNcs(), 0) }}
-          className="text-sm px-3 py-1.5 rounded-lg border"
-          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
-        >
-          <option value="">Tous statuts</option>
-          {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-        <select
-          value={filterProcess}
-          onChange={(e) => { setFilterProcess(e.target.value); setTimeout(() => void loadNcs(), 0) }}
-          className="text-sm px-3 py-1.5 rounded-lg border"
-          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
-        >
-          <option value="">Tous processus</option>
-          {Object.entries(PROCESS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void loadNcs()}
-          placeholder="Rechercher…"
-          className="text-sm px-3 py-1.5 rounded-lg border flex-1 min-w-[160px]"
-          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
-        />
-        <button
-          onClick={() => void loadNcs()}
-          className="text-sm px-3 py-1.5 rounded-lg border"
-          style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
-        >
-          Filtrer
-        </button>
+      {/* Filters bar */}
+      <div className="flex flex-wrap gap-2 items-center p-3 rounded-xl border" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        <div className="relative">
+          <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setTimeout(() => void loadNcs(), 0) }} className={selectClass} style={selectStyle}>
+            <option value="">Tous statuts</option>
+            {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
+        </div>
+        <div className="relative">
+          <select value={filterProcess} onChange={(e) => { setFilterProcess(e.target.value); setTimeout(() => void loadNcs(), 0) }} className={selectClass} style={selectStyle}>
+            <option value="">Tous processus</option>
+            {Object.entries(PROCESS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
+        </div>
+        <div className="relative flex-1 min-w-[160px]">
+          <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--admin-text-muted)' }} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && void loadNcs()}
+            placeholder="Rechercher…"
+            className="w-full text-sm pl-8 pr-3 py-1.5 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]"
+            style={selectStyle}
+          />
+        </div>
+        <Button variant="outline" size="sm" onClick={() => void loadNcs()}>Filtrer</Button>
       </div>
 
       {/* Table */}
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         {loading ? (
-          <div className="py-12 flex justify-center">
-            <span className="animate-spin w-5 h-5 border-2 rounded-full inline-block" style={{ borderColor: 'var(--admin-border)', borderTopColor: 'var(--admin-emerald)' }} />
-          </div>
+          <TableSkeleton columns={8} />
         ) : rows.length === 0 ? (
-          <p className="py-12 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
-            Aucune non-conformité trouvée.
-          </p>
+          <EmptyState icon={AlertTriangle} title="Aucune non-conformité trouvée" description="Modifiez vos filtres ou créez une nouvelle NC." />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
+            <Table>
+              <TableHeader className="sticky top-0 z-10" style={{ background: 'var(--admin-surface)' }}>
+                <TableRow style={{ borderColor: 'var(--admin-border)' }}>
                   {['Référence', 'Statut', 'Type', 'Description', 'Projet', 'Assigné à', 'Délai', ''].map((h) => (
-                    <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+                    <TableHead key={h} className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</TableHead>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {rows.map((nc) => (
-                  <tr key={nc.id} className="transition-colors hover:bg-[var(--admin-bg)]" style={{ borderBottom: '1px solid var(--admin-border)' }}>
-                    <td className="px-4 py-3 font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{nc.reference}</td>
-                    <td className="px-4 py-3">
-                      <span className={cn('text-xs px-2 py-0.5 rounded font-medium', STATUS_COLORS[nc.status] ?? STATUS_COLORS.open)}>
+                  <TableRow
+                    key={nc.id}
+                    className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors duration-100"
+                    style={{ borderColor: 'var(--admin-border)' }}
+                  >
+                    <TableCell className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{nc.reference}</TableCell>
+                    <TableCell>
+                      <Badge className={cn('text-xs font-medium rounded-full', STATUS_COLORS[nc.status] ?? STATUS_COLORS.open)}>
                         {STATUS_LABELS[nc.status] ?? nc.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
                       {NC_TYPE_LABELS[(nc as any).ncType] ?? PROCESS_LABELS[(nc as any).processAffected] ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 max-w-[280px]">
+                    </TableCell>
+                    <TableCell className="max-w-[280px]">
                       <p className="truncate text-sm" style={{ color: 'var(--admin-text)' }}>{nc.description}</p>
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                      {nc.projectName ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                      {nc.assignedToName ?? '—'}
-                    </td>
-                    <td className="px-4 py-3 text-xs" style={{ color: nc.deadline && new Date(nc.deadline) < new Date() ? 'var(--admin-red)' : 'var(--admin-text-muted)' }}>
+                    </TableCell>
+                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{nc.projectName ?? '—'}</TableCell>
+                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{nc.assignedToName ?? '—'}</TableCell>
+                    <TableCell className="text-xs" style={{ color: nc.deadline && new Date(nc.deadline) < new Date() ? 'var(--admin-red)' : 'var(--admin-text-muted)' }}>
                       {nc.deadline ? fmt(nc.deadline) : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/admin/nc/${nc.id}`} className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>
-                        Voir
-                      </Link>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/admin/nc/${nc.id}`}><ArrowRight className="w-3.5 h-3.5" /></Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
 
-      {/* Create NC drawer */}
-      {showForm && (
-        <>
-          <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowForm(false)} />
-          <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl overflow-y-auto" style={{ background: 'var(--admin-surface)', borderLeft: '1px solid var(--admin-border)' }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
-              <div>
-                <h2 className="text-base font-semibold" style={{ color: 'var(--admin-text)' }}>Créer une Non-Conformité</h2>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>ISO 9001:2015 · clause 10.2</p>
+      {/* Create NC Sheet */}
+      <Sheet open={showForm} onOpenChange={setShowForm}>
+        <SheetContent side="right" className="w-full max-w-lg flex flex-col p-0" style={{ background: 'var(--admin-surface)' }}>
+          <SheetHeader className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+            <SheetTitle style={{ color: 'var(--admin-text)' }}>Créer une Non-Conformité</SheetTitle>
+            <SheetDescription style={{ color: 'var(--admin-text-muted)' }}>ISO 9001:2015 · clause 10.2</SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+            <FormField label="Type de NC">
+              <select value={form.ncType} onChange={(e) => setForm((f) => ({ ...f, ncType: e.target.value }))} className={inputClass} style={inputStyle}>
+                <option value="">-- Sélectionner --</option>
+                {Object.entries(NC_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Propriétaire">
+              <select value={form.ownerType} onChange={(e) => setForm((f) => ({ ...f, ownerType: e.target.value }))} className={inputClass} style={inputStyle}>
+                <option value="">-- Sélectionner --</option>
+                <option value="interne">Interne</option>
+                <option value="externe">Externe</option>
+              </select>
+            </FormField>
+            {form.ncType === 'audit' && (
+              <FormField label="Nom de l'auditeur">
+                <input value={form.auditorName} onChange={(e) => setForm((f) => ({ ...f, auditorName: e.target.value }))} className={inputClass} style={inputStyle} placeholder="Nom de l'auditeur" />
+              </FormField>
+            )}
+            <FormField label="Description de la non-conformité *">
+              <textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={4} placeholder="Décrivez précisément la non-conformité observée…" className={cn(inputClass, 'resize-none')} style={inputStyle} />
+            </FormField>
+            <FormField label="Analyse des causes (optionnel)">
+              <textarea value={form.rootCause} onChange={(e) => setForm((f) => ({ ...f, rootCause: e.target.value }))} rows={2} placeholder="Cause(s) racine identifiée(s)…" className={cn(inputClass, 'resize-none')} style={inputStyle} />
+            </FormField>
+            <FormField label="Assigné à">
+              <select value={form.assignedTo} onChange={(e) => setForm((f) => ({ ...f, assignedTo: e.target.value }))} className={inputClass} style={inputStyle}>
+                <option value="">— Non assigné —</option>
+                {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Délai de traitement">
+              <input type="date" value={form.deadline} onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))} className={inputClass} style={inputStyle} />
+            </FormField>
+            {formError && (
+              <div className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+                <AlertCircle className="w-4 h-4 shrink-0" />{formError}
               </div>
-              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color: 'var(--admin-text-muted)' }}>✕</button>
-            </div>
-
-            <div className="flex-1 px-6 py-5 space-y-4">
-              <FormField label="Type de NC">
-                <select
-                  value={form.ncType}
-                  onChange={(e) => setForm((f) => ({ ...f, ncType: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                >
-                  <option value="">-- Sélectionner --</option>
-                  {Object.entries(NC_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </FormField>
-
-              <FormField label="Propriétaire">
-                <select
-                  value={form.ownerType}
-                  onChange={(e) => setForm((f) => ({ ...f, ownerType: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                >
-                  <option value="">-- Sélectionner --</option>
-                  <option value="interne">Interne</option>
-                  <option value="externe">Externe</option>
-                </select>
-              </FormField>
-
-              {form.ncType === 'audit' && (
-                <FormField label="Nom de l'auditeur">
-                  <input
-                    value={form.auditorName}
-                    onChange={(e) => setForm((f) => ({ ...f, auditorName: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                    placeholder="Nom de l'auditeur"
-                  />
-                </FormField>
-              )}
-
-              <FormField label="Description de la non-conformité *">
-                <textarea
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  rows={4}
-                  placeholder="Décrivez précisément la non-conformité observée…"
-                  className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                />
-              </FormField>
-
-              <FormField label="Analyse des causes (optionnel)">
-                <textarea
-                  value={form.rootCause}
-                  onChange={(e) => setForm((f) => ({ ...f, rootCause: e.target.value }))}
-                  rows={2}
-                  placeholder="Cause(s) racine identifiée(s)…"
-                  className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                />
-              </FormField>
-
-              <FormField label="Assigné à">
-                <select
-                  value={form.assignedTo}
-                  onChange={(e) => setForm((f) => ({ ...f, assignedTo: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                >
-                  <option value="">— Non assigné —</option>
-                  {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
-              </FormField>
-
-              <FormField label="Délai de traitement">
-                <input
-                  type="date"
-                  value={form.deadline}
-                  onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                />
-              </FormField>
-
-              {formError && (
-                <p className="text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>{formError}</p>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
-                  Annuler
-                </button>
-                <button
-                  onClick={() => void handleCreate()}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60"
-                  style={{ background: 'var(--admin-red)' }}
-                >
-                  {submitting ? 'Création…' : 'Créer la NC'}
-                </button>
-              </div>
-            </div>
+            )}
           </div>
-        </>
-      )}
+          <div className="flex gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+            <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Annuler</Button>
+            <Button className="flex-1 text-white" onClick={() => void handleCreate()} disabled={submitting} style={{ background: 'var(--admin-red)' }}>
+              {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Création…</> : 'Créer la NC'}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
@@ -345,7 +284,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{label}</label>
+      <label className="text-xs font-medium" style={{ color: 'var(--admin-text)' }}>{label}</label>
       {children}
     </div>
   )
