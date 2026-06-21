@@ -163,7 +163,7 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
                           : 'font-medium'
                       )}
                       style={{
-                        color: active ? 'var(--gold)' : 'rgba(255,255,255,0.6)',
+                        color: active ? 'var(--gold)' : 'rgba(255,255,255,0.9)',
                         background: active ? 'rgba(201,168,76,0.12)' : 'transparent',
                         borderColor: active ? 'var(--gold)' : 'transparent',
                         ...(active ? {} : { '--tw-hover-bg': 'rgba(255,255,255,0.06)' } as React.CSSProperties),
@@ -171,13 +171,13 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
                       onMouseEnter={(e) => {
                         if (!active) {
                           e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-                          e.currentTarget.style.color = 'rgba(255,255,255,0.85)'
+                          e.currentTarget.style.color = '#ffffff'
                         }
                       }}
                       onMouseLeave={(e) => {
                         if (!active) {
                           e.currentTarget.style.background = 'transparent'
-                          e.currentTarget.style.color = 'rgba(255,255,255,0.6)'
+                          e.currentTarget.style.color = 'rgba(255,255,255,0.9)'
                         }
                       }}
                     >
