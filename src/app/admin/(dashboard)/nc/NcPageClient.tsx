@@ -199,7 +199,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
                       </Badge>
                     </TableCell>
                     <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                      {NC_TYPE_LABELS[(nc as any).ncType] ?? PROCESS_LABELS[(nc as any).processAffected] ?? '—'}
+                      {NC_TYPE_LABELS[nc.ncType ?? ''] ?? PROCESS_LABELS[nc.processAffected] ?? '—'}
                     </TableCell>
                     <TableCell className="max-w-[280px]">
                       <p className="truncate text-sm" style={{ color: 'var(--admin-text)' }}>{nc.description}</p>
@@ -210,7 +210,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
                       {nc.deadline ? fmt(nc.deadline) : '—'}
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm" asChild>
+                      <Button variant="ghost" size="sm" asChild aria-label="Voir la non-conformité">
                         <Link href={`/admin/nc/${nc.id}`}><ArrowRight className="w-3.5 h-3.5" /></Link>
                       </Button>
                     </TableCell>

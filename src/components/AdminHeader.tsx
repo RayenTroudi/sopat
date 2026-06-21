@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Menu, Bell, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -166,6 +166,7 @@ export function AdminHeader({ name, role }: Props) {
       {/* Mobile sidebar Sheet */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-56 p-0 flex flex-col" style={{ background: 'var(--admin-surface)' }}>
+          <SheetTitle className="sr-only">Navigation</SheetTitle>
           <AdminNavContent role={role} name={name} onNavigate={() => setSidebarOpen(false)} />
         </SheetContent>
       </Sheet>

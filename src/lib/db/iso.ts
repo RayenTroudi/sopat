@@ -47,6 +47,7 @@ export type NcListItem = {
   id: string
   reference: string
   status: string
+  ncType: string | null
   processAffected: string
   description: string
   detectedAt: Date
@@ -78,6 +79,7 @@ export async function listNcs(filters?: {
       id:              nonConformances.id,
       reference:       nonConformances.reference,
       status:          nonConformances.status,
+      ncType:          nonConformances.ncType,
       processAffected: nonConformances.processAffected,
       description:     nonConformances.description,
       detectedAt:      nonConformances.detectedAt,
