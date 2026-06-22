@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { WizardDraft } from '../EventWizard'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type Task = {
   taskDescription: string
@@ -126,16 +127,16 @@ export function Step4Retroplanning({
             </div>
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>Statut</label>
-              <select
-                value={task.status}
-                onChange={(e) => updateTask(idx, { status: e.target.value })}
-                className="w-full px-2 py-1.5 rounded border text-sm"
-                style={fieldStyle}
-              >
-                <option value="a_faire">À faire</option>
-                <option value="en_cours">En cours</option>
-                <option value="termine">Terminé</option>
-              </select>
+              <Select value={task.status} onValueChange={(v) => updateTask(idx, { status: v })}>
+                <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="a_faire">À faire</SelectItem>
+                  <SelectItem value="en_cours">En cours</SelectItem>
+                  <SelectItem value="termine">Terminé</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

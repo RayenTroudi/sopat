@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { WizardDraft } from '../EventWizard'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const schema = z.object({
   title: z.string().min(1, 'Titre requis'),
@@ -29,7 +30,7 @@ export function Step1General({
   partnerships: Array<{ id: string; partnerName: string }>
   onNext: (data: Partial<WizardDraft>) => void
 }) {
-  const { register, handleSubmit, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       title: draft.title ?? '',
@@ -77,18 +78,19 @@ export function Step1General({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--admin-text)' }}>Type *</label>
-          <select
-            {...register('eventType')}
-            className="w-full px-3 py-2 rounded-lg border text-sm"
-            style={fieldStyle}
-          >
-            <option value="nettoyage_plage">Nettoyage plage</option>
-            <option value="plantation">Plantation</option>
-            <option value="sensibilisation">Sensibilisation</option>
-            <option value="team_building">Team building</option>
-            <option value="journee_environnement">Journée environnement</option>
-            <option value="autre">Autre</option>
-          </select>
+          <Select value={watch('eventType')} onValueChange={(v) => setValue('eventType', v as FormValues['eventType'])}>
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="nettoyage_plage">Nettoyage plage</SelectItem>
+              <SelectItem value="plantation">Plantation</SelectItem>
+              <SelectItem value="sensibilisation">Sensibilisation</SelectItem>
+              <SelectItem value="team_building">Team building</SelectItem>
+              <SelectItem value="journee_environnement">Journée environnement</SelectItem>
+              <SelectItem value="autre">Autre</SelectItem>
+            </SelectContent>
+          </Select>
           {errors.eventType && <p className="text-xs text-red-500 mt-1">{errors.eventType.message}</p>}
         </div>
 
@@ -118,31 +120,39 @@ export function Step1General({
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--admin-text)' }}>Coordinateur SOPAT *</label>
-          <select
-            {...register('sopatCoordinatorId')}
-            className="w-full px-3 py-2 rounded-lg border text-sm"
-            style={fieldStyle}
+          <Select
+            value={(watch('sopatCoordinatorId') ?? '') === '' ? '__none__' : watch('sopatCoordinatorId')}
+            onValueChange={(v) => setValue('sopatCoordinatorId', v === '__none__' ? '' : v)}
           >
-            <option value="">Sélectionner…</option>
-            {teamMembers.map((m) => (
-              <option key={m.id} value={m.id}>{m.name}</option>
-            ))}
-          </select>
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue placeholder="Sélectionner…" />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__none__">Sélectionner…</SelectItem>
+              {teamMembers.map((m) => (
+                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {errors.sopatCoordinatorId && <p className="text-xs text-red-500 mt-1">{errors.sopatCoordinatorId.message}</p>}
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--admin-text)' }}>Partenariat RSE</label>
-          <select
-            {...register('partnerId')}
-            className="w-full px-3 py-2 rounded-lg border text-sm"
-            style={fieldStyle}
+          <Select
+            value={(watch('partnerId') ?? '') === '' ? '__none__' : (watch('partnerId') as string)}
+            onValueChange={(v) => setValue('partnerId', v === '__none__' ? '' : v)}
           >
-            <option value="">Aucun</option>
-            {partnerships.map((p) => (
-              <option key={p.id} value={p.id}>{p.partnerName}</option>
-            ))}
-          </select>
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue placeholder="Aucun" />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__none__">Aucun</SelectItem>
+              {partnerships.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.partnerName}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

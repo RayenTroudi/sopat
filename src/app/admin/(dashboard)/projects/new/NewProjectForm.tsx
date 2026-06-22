@@ -174,12 +174,12 @@ export function NewProjectForm({ clientOptions = [] }: { clientOptions?: ClientO
       )}
 
       {/* Navigation */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         {step > 1 && (
           <button
             type="button"
             onClick={() => setStep(step - 1)}
-            className="text-sm px-4 py-2.5 rounded-lg border transition-colors"
+            className="text-sm px-4 py-2.5 rounded-lg border transition-colors flex-1 sm:flex-none min-w-[7rem]"
             style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
           >
             ← Précédent
@@ -199,7 +199,7 @@ export function NewProjectForm({ clientOptions = [] }: { clientOptions?: ClientO
               const valid = fields.length === 0 || await form.trigger(fields)
               if (valid) setStep(step + 1)
             }}
-            className="text-sm font-medium px-5 py-2.5 rounded-lg text-white transition-colors"
+            className="text-sm font-medium px-5 py-2.5 rounded-lg text-white transition-colors flex-1 sm:flex-none min-w-[8rem]"
             style={{ background: 'var(--green)' }}
           >
             Suivant →
@@ -209,7 +209,7 @@ export function NewProjectForm({ clientOptions = [] }: { clientOptions?: ClientO
             type="button"
             onClick={(form as UseFormReturn<WizardFormValues>).handleSubmit(onSubmit)}
             disabled={isSubmitting}
-            className="text-sm font-medium px-5 py-2.5 rounded-lg text-white disabled:opacity-50 transition-colors"
+            className="text-sm font-medium px-5 py-2.5 rounded-lg text-white disabled:opacity-50 transition-colors flex-1 sm:flex-none min-w-[10rem]"
             style={{ background: 'var(--green)' }}
           >
             {isSubmitting ? 'Création…' : 'Créer le projet'}
@@ -218,7 +218,7 @@ export function NewProjectForm({ clientOptions = [] }: { clientOptions?: ClientO
 
         <a
           href="/admin/projects"
-          className="text-sm px-4 py-2.5 rounded-lg border transition-colors"
+          className="text-sm px-4 py-2.5 rounded-lg border transition-colors text-center w-full sm:w-auto sm:ml-auto"
           style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
         >
           Annuler

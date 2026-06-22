@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -215,18 +216,20 @@ export function PurchaseDrawer({ projectId, plantItems, suppliers, open, onClose
           {/* Plant list link (optional) */}
           {plantItems.length > 0 && (
             <Field label="Article de la liste végétale (optionnel)">
-              <select
-                {...register('plantListItemId')}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+              <Select
+                value={(watch('plantListItemId') ?? '') === '' ? '__none__' : (watch('plantListItemId') as string)}
+                onValueChange={(v) => setValue('plantListItemId', v === '__none__' ? '' : v)}
               >
-                <option value="">— Aucun lien / Article libre —</option>
-                {plantItems.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.botanicalName}{p.commonName ? ` (${p.commonName})` : ''}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue placeholder="— Aucun lien / Article libre —" />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="__none__">— Aucun lien / Article libre —</SelectItem>
+                  {plantItems.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.botanicalName}{p.commonName ? ` (${p.commonName})` : ''}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
           )}
 
@@ -279,16 +282,20 @@ export function PurchaseDrawer({ projectId, plantItems, suppliers, open, onClose
 
           {/* Supplier */}
           <Field label="Fournisseur">
-            <select
-              {...register('supplierId')}
-              className="w-full px-3 py-2 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+            <Select
+              value={(watch('supplierId') ?? '') === '' ? '__none__' : (watch('supplierId') as string)}
+              onValueChange={(v) => setValue('supplierId', v === '__none__' ? '' : v)}
             >
-              <option value="">— Sélectionner un fournisseur —</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
+              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectValue placeholder="— Sélectionner un fournisseur —" />
+              </SelectTrigger>
+              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectItem value="__none__">— Sélectionner un fournisseur —</SelectItem>
+                {suppliers.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
 
           {/* Invoice number */}

@@ -140,7 +140,7 @@ export function AdminHeader({ name, role }: Props) {
               <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--admin-text-muted)' }} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent align="end" className="w-52 bg-white">
             <DropdownMenuLabel>
               <p className="text-sm font-medium" style={{ color: 'var(--admin-text)' }}>{name}</p>
               <p className="text-xs font-normal mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>

@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import type { TeamMemberRow } from '@/lib/db/team'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const schema = z.object({
   partnerName: z.string().min(1, 'Nom du partenaire requis'),
@@ -89,6 +90,8 @@ export function NewRsePartnershipForm({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
     setError,
   } = useForm<FormValues>({
@@ -190,20 +193,33 @@ export function NewRsePartnershipForm({
 
       <Card title="Convention">
         <Field label="Référent SOPAT" required error={errors.sopatReferentId?.message}>
-          <select {...register('sopatReferentId')} className={inputClass} style={inputStyle}>
-            <option value="">Sélectionner un référent...</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
+          <Select
+            value={(watch('sopatReferentId') ?? '') === '' ? '__none__' : watch('sopatReferentId')}
+            onValueChange={(v) => setValue('sopatReferentId', v === '__none__' ? '' : v)}
+          >
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue placeholder="Sélectionner un référent..." />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__none__">Sélectionner un référent...</SelectItem>
+              {users.map((u) => (
+                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Statut initial" error={errors.status?.message}>
-          <select {...register('status')} className={inputClass} style={inputStyle}>
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
+          <Select value={watch('status') ?? 'en_cours_de_negociation'} onValueChange={(v) => setValue('status', v as FormValues['status'])}>
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              {STATUS_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Date de signature" error={errors.signedDate?.message}>
@@ -237,12 +253,20 @@ export function NewRsePartnershipForm({
         </div>
 
         <Field label="Nom de l'équipe" error={errors.teamName?.message}>
-          <select {...register('teamName')} className={inputClass} style={inputStyle}>
-            <option value="">Sélectionner une équipe...</option>
-            {TEAM_OPTIONS.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
+          <Select
+            value={(watch('teamName') ?? '') === '' ? '__none__' : (watch('teamName') as string)}
+            onValueChange={(v) => setValue('teamName', (v === '__none__' ? '' : v) as FormValues['teamName'])}
+          >
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue placeholder="Sélectionner une équipe..." />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__none__">Sélectionner une équipe...</SelectItem>
+              {TEAM_OPTIONS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Chef d'équipe" error={errors.teamLeadName?.message}>

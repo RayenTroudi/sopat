@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -262,17 +263,27 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
                     )}
                   </td>
                   <td className="py-1.5 pr-2 w-36">
-                    <select value={row.category} onChange={(e) => updateRow(row._key, { category: e.target.value })} className={inputCls} style={sel}>
-                      {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-                    </select>
+                    <Select value={row.category} onValueChange={(v) => updateRow(row._key, { category: v })}>
+                      <SelectTrigger className="h-8 text-xs bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="py-1.5 pr-2 w-20">
                     <input type="number" min="0" step="0.01" value={row.quantity} onChange={(e) => updateRow(row._key, { quantity: e.target.value })} className={inputCls} style={sel} placeholder="0" />
                   </td>
                   <td className="py-1.5 pr-2 w-24">
-                    <select value={row.unit} onChange={(e) => updateRow(row._key, { unit: e.target.value })} className={inputCls} style={sel}>
-                      {UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
-                    </select>
+                    <Select value={row.unit} onValueChange={(v) => updateRow(row._key, { unit: v })}>
+                      <SelectTrigger className="h-8 text-xs bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        {UNITS.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="py-1.5 pr-2 w-32">
                     <input type="number" min="0" step="0.001" value={row.unitPriceEstimate} onChange={(e) => updateRow(row._key, { unitPriceEstimate: e.target.value })} className={inputCls} style={sel} placeholder="0.000" />
@@ -281,10 +292,18 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
                     {sub > 0 ? sub.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 3 }) : '—'}
                   </td>
                   <td className="py-1.5 pr-2 w-36">
-                    <select value={row.supplierId} onChange={(e) => updateRow(row._key, { supplierId: e.target.value })} className={inputCls} style={sel}>
-                      <option value="">— Fournisseur —</option>
-                      {suppliers.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
+                    <Select
+                      value={row.supplierId === '' ? '__none__' : row.supplierId}
+                      onValueChange={(v) => updateRow(row._key, { supplierId: v === '__none__' ? '' : v })}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        <SelectValue placeholder="— Fournisseur —" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        <SelectItem value="__none__">— Fournisseur —</SelectItem>
+                        {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </td>
                   <td className="py-1.5 w-8">
                     <button

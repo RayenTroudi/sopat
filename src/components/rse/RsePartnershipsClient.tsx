@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import Link from 'next/link'
 import { RsePartnershipsBadge } from './RsePartnershipsBadge'
 import type { RsePartnershipListItem } from '@/lib/db/rse'
@@ -70,38 +71,96 @@ export function RsePartnershipsClient({
     <div>
       {/* Filters */}
       <div
-        className="flex items-center gap-3 px-5 py-3 border-b flex-wrap"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:items-center gap-2 lg:gap-3 px-4 sm:px-5 py-3 border-b"
         style={{ borderColor: 'var(--admin-border)' }}
       >
-        <select
-          value={searchParams.get('status') ?? ''}
-          onChange={(e) => updateParam('status', e.target.value)}
-          className="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green/20"
-          style={selectStyle}
+        <Select
+          value={(searchParams.get('status') ?? '') === '' ? '__all__' : (searchParams.get('status') ?? '')}
+          onValueChange={(v) => updateParam('status', v === '__all__' ? '' : v)}
         >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            {STATUS_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <select
-          value={searchParams.get('partnerType') ?? ''}
-          onChange={(e) => updateParam('partnerType', e.target.value)}
-          className="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green/20"
-          style={selectStyle}
+        <Select
+          value={(searchParams.get('partnerType') ?? '') === '' ? '__all__' : (searchParams.get('partnerType') ?? '')}
+          onValueChange={(v) => updateParam('partnerType', v === '__all__' ? '' : v)}
         >
-          {TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            {TYPE_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-        <span className="ml-auto text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+        <span className="text-xs sm:col-span-2 lg:col-span-1 lg:ml-auto" style={{ color: 'var(--admin-text-muted)' }}>
           {rows.length} partenariat{rows.length !== 1 ? 's' : ''}
         </span>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Mobile card list */}
+      <ul className="md:hidden divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+        {rows.length === 0 ? (
+          <li className="px-4 py-8 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+            Aucun partenariat RSE trouvé
+          </li>
+        ) : rows.map((row) => {
+          const days = daysUntil(row.endDate)
+          const expiryWarning = days !== null && days >= 0 && days <= 60
+          const isExpiredActive = days !== null && days < 0 && row.status === 'actif'
+          return (
+            <li key={row.id} style={{ borderColor: 'var(--admin-border)' }}>
+              <Link href={`/admin/rse/partnerships/${row.id}`} className="block px-4 py-3 active:bg-[var(--admin-bg)]">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-mono text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{row.conventionReference}</span>
+                      <RsePartnershipsBadge status={row.status} />
+                      {row.hasOverdueCommitments && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>⚠</span>
+                      )}
+                    </div>
+                    <p className="mt-1 font-medium text-sm" style={{ color: 'var(--admin-text)' }}>{row.partnerName}</p>
+                    <p className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{PARTNER_TYPE_LABELS[row.partnerType] ?? row.partnerType}</p>
+                    <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                      <div className="min-w-0">
+                        <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Référent</dt>
+                        <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{row.sopatReferentName ?? '—'}</dd>
+                      </div>
+                      <div className="min-w-0">
+                        <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Début</dt>
+                        <dd style={{ color: 'var(--admin-text)' }}>{fmt(row.startDate)}</dd>
+                      </div>
+                      <div className="min-w-0 col-span-2">
+                        <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Fin / Échéance</dt>
+                        <dd className="flex items-center gap-2 flex-wrap" style={{ color: 'var(--admin-text)' }}>
+                          <span>{fmt(row.endDate)}</span>
+                          {isExpiredActive && <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>Expiré</span>}
+                          {expiryWarning && !isExpiredActive && <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'var(--admin-amber-dim)', color: 'var(--admin-amber)' }}>J-{days}</span>}
+                          {row.autoRenewal && <span className="text-[11px]" style={{ color: 'var(--admin-text-dim)' }}>↻</span>}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <span className="text-xs font-medium shrink-0 mt-1" style={{ color: 'var(--admin-emerald)' }}>→</span>
+                </div>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>

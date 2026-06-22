@@ -13,6 +13,7 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from '@/components/ui/sheet'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 
@@ -127,35 +128,52 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
   return (
     <div className="space-y-6">
       {/* Page header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Non-Conformités</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Non-Conformités</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
             ISO 9001:2015 · clause 10.2 · {openCount} ouverte{openCount !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button onClick={() => setShowForm(true)} style={{ background: 'var(--admin-red)' }} className="text-white hover:opacity-90">
+        <Button
+          onClick={() => setShowForm(true)}
+          style={{ background: 'var(--admin-red)' }}
+          className="text-white hover:opacity-90 w-full sm:w-auto"
+        >
           + Créer une NC
         </Button>
       </div>
 
       {/* Filters bar */}
-      <div className="flex flex-wrap gap-2 items-center p-3 rounded-xl border" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-        <div className="relative">
-          <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setTimeout(() => void loadNcs(), 0) }} className={selectClass} style={selectStyle}>
-            <option value="">Tous statuts</option>
-            {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
-        </div>
-        <div className="relative">
-          <select value={filterProcess} onChange={(e) => { setFilterProcess(e.target.value); setTimeout(() => void loadNcs(), 0) }} className={selectClass} style={selectStyle}>
-            <option value="">Tous processus</option>
-            {Object.entries(PROCESS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
-        </div>
-        <div className="relative flex-1 min-w-[160px]">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 lg:items-center p-3 rounded-xl border"
+        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
+      >
+        <Select
+          value={filterStatus === '' ? '__all__' : filterStatus}
+          onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterStatus(next); setTimeout(() => void loadNcs(), 0) }}
+        >
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Tous statuts</SelectItem>
+            {Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select
+          value={filterProcess === '' ? '__all__' : filterProcess}
+          onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterProcess(next); setTimeout(() => void loadNcs(), 0) }}
+        >
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Tous processus</SelectItem>
+            {Object.entries(PROCESS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <div className="relative sm:col-span-2 lg:flex-1 lg:min-w-[160px]">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--admin-text-muted)' }} />
           <input
             value={search}
@@ -166,59 +184,109 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
             style={selectStyle}
           />
         </div>
-        <Button variant="outline" size="sm" onClick={() => void loadNcs()}>Filtrer</Button>
+        <Button variant="outline" size="sm" onClick={() => void loadNcs()} className="sm:col-span-2 lg:col-span-1 w-full lg:w-auto">Filtrer</Button>
       </div>
 
-      {/* Table */}
+      {/* List */}
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         {loading ? (
           <TableSkeleton columns={8} />
         ) : rows.length === 0 ? (
           <EmptyState icon={AlertTriangle} title="Aucune non-conformité trouvée" description="Modifiez vos filtres ou créez une nouvelle NC." />
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader className="sticky top-0 z-10" style={{ background: 'var(--admin-surface)' }}>
-                <TableRow style={{ borderColor: 'var(--admin-border)' }}>
-                  {['Référence', 'Statut', 'Type', 'Description', 'Projet', 'Assigné à', 'Délai', ''].map((h) => (
-                    <TableHead key={h} className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((nc) => (
-                  <TableRow
-                    key={nc.id}
-                    className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors duration-100"
-                    style={{ borderColor: 'var(--admin-border)' }}
-                  >
-                    <TableCell className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{nc.reference}</TableCell>
-                    <TableCell>
-                      <Badge className={cn('text-xs font-medium rounded-full', STATUS_COLORS[nc.status] ?? STATUS_COLORS.open)}>
-                        {STATUS_LABELS[nc.status] ?? nc.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                      {NC_TYPE_LABELS[nc.ncType ?? ''] ?? PROCESS_LABELS[nc.processAffected] ?? '—'}
-                    </TableCell>
-                    <TableCell className="max-w-[280px]">
-                      <p className="truncate text-sm" style={{ color: 'var(--admin-text)' }}>{nc.description}</p>
-                    </TableCell>
-                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{nc.projectName ?? '—'}</TableCell>
-                    <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{nc.assignedToName ?? '—'}</TableCell>
-                    <TableCell className="text-xs" style={{ color: nc.deadline && new Date(nc.deadline) < new Date() ? 'var(--admin-red)' : 'var(--admin-text-muted)' }}>
-                      {nc.deadline ? fmt(nc.deadline) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" asChild aria-label="Voir la non-conformité">
-                        <Link href={`/admin/nc/${nc.id}`}><ArrowRight className="w-3.5 h-3.5" /></Link>
-                      </Button>
-                    </TableCell>
+          <>
+            {/* Mobile card list */}
+            <ul className="md:hidden divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+              {rows.map((nc) => {
+                const overdue = nc.deadline && new Date(nc.deadline) < new Date()
+                return (
+                  <li key={nc.id} style={{ borderColor: 'var(--admin-border)' }}>
+                    <Link
+                      href={`/admin/nc/${nc.id}`}
+                      className="block px-4 py-3 active:bg-[var(--admin-bg)] transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{nc.reference}</span>
+                            <Badge className={cn('text-[10px] font-medium rounded-full px-2 py-0', STATUS_COLORS[nc.status] ?? STATUS_COLORS.open)}>
+                              {STATUS_LABELS[nc.status] ?? nc.status}
+                            </Badge>
+                            <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>
+                              {NC_TYPE_LABELS[nc.ncType ?? ''] ?? PROCESS_LABELS[nc.processAffected] ?? '—'}
+                            </span>
+                          </div>
+                          <p className="mt-1.5 text-sm line-clamp-2" style={{ color: 'var(--admin-text)' }}>{nc.description}</p>
+                          <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                            <div className="min-w-0">
+                              <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Projet</dt>
+                              <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{nc.projectName ?? '—'}</dd>
+                            </div>
+                            <div className="min-w-0">
+                              <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Assigné à</dt>
+                              <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{nc.assignedToName ?? '—'}</dd>
+                            </div>
+                            <div className="min-w-0 col-span-2">
+                              <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Délai</dt>
+                              <dd style={{ color: overdue ? 'var(--admin-red)' : 'var(--admin-text)' }}>
+                                {nc.deadline ? fmt(nc.deadline) : '—'}
+                              </dd>
+                            </div>
+                          </dl>
+                        </div>
+                        <ArrowRight className="w-4 h-4 shrink-0 mt-1" style={{ color: 'var(--admin-text-muted)' }} />
+                      </div>
+                    </Link>
+                  </li>
+                )
+              })}
+            </ul>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
+              <Table>
+                <TableHeader className="sticky top-0 z-10" style={{ background: 'var(--admin-surface)' }}>
+                  <TableRow style={{ borderColor: 'var(--admin-border)' }}>
+                    {['Référence', 'Statut', 'Type', 'Description', 'Projet', 'Assigné à', 'Délai', ''].map((h) => (
+                      <TableHead key={h} className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</TableHead>
+                    ))}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((nc) => (
+                    <TableRow
+                      key={nc.id}
+                      className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors duration-100"
+                      style={{ borderColor: 'var(--admin-border)' }}
+                    >
+                      <TableCell className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{nc.reference}</TableCell>
+                      <TableCell>
+                        <Badge className={cn('text-xs font-medium rounded-full', STATUS_COLORS[nc.status] ?? STATUS_COLORS.open)}>
+                          {STATUS_LABELS[nc.status] ?? nc.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                        {NC_TYPE_LABELS[nc.ncType ?? ''] ?? PROCESS_LABELS[nc.processAffected] ?? '—'}
+                      </TableCell>
+                      <TableCell className="max-w-[280px]">
+                        <p className="truncate text-sm" style={{ color: 'var(--admin-text)' }}>{nc.description}</p>
+                      </TableCell>
+                      <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{nc.projectName ?? '—'}</TableCell>
+                      <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{nc.assignedToName ?? '—'}</TableCell>
+                      <TableCell className="text-xs" style={{ color: nc.deadline && new Date(nc.deadline) < new Date() ? 'var(--admin-red)' : 'var(--admin-text-muted)' }}>
+                        {nc.deadline ? fmt(nc.deadline) : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm" asChild aria-label="Voir la non-conformité">
+                          <Link href={`/admin/nc/${nc.id}`}><ArrowRight className="w-3.5 h-3.5" /></Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
         )}
       </div>
 
@@ -231,17 +299,33 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
             <FormField label="Type de NC">
-              <select value={form.ncType} onChange={(e) => setForm((f) => ({ ...f, ncType: e.target.value }))} className={inputClass} style={inputStyle}>
-                <option value="">-- Sélectionner --</option>
-                {Object.entries(NC_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
+              <Select
+                value={form.ncType === '' ? '__none__' : form.ncType}
+                onValueChange={(v) => setForm((f) => ({ ...f, ncType: v === '__none__' ? '' : v }))}
+              >
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue placeholder="-- Sélectionner --" />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="__none__">-- Sélectionner --</SelectItem>
+                  {Object.entries(NC_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </FormField>
             <FormField label="Propriétaire">
-              <select value={form.ownerType} onChange={(e) => setForm((f) => ({ ...f, ownerType: e.target.value }))} className={inputClass} style={inputStyle}>
-                <option value="">-- Sélectionner --</option>
-                <option value="interne">Interne</option>
-                <option value="externe">Externe</option>
-              </select>
+              <Select
+                value={form.ownerType === '' ? '__none__' : form.ownerType}
+                onValueChange={(v) => setForm((f) => ({ ...f, ownerType: v === '__none__' ? '' : v }))}
+              >
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue placeholder="-- Sélectionner --" />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="__none__">-- Sélectionner --</SelectItem>
+                  <SelectItem value="interne">Interne</SelectItem>
+                  <SelectItem value="externe">Externe</SelectItem>
+                </SelectContent>
+              </Select>
             </FormField>
             {form.ncType === 'audit' && (
               <FormField label="Nom de l'auditeur">
@@ -255,10 +339,18 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
               <textarea value={form.rootCause} onChange={(e) => setForm((f) => ({ ...f, rootCause: e.target.value }))} rows={2} placeholder="Cause(s) racine identifiée(s)…" className={cn(inputClass, 'resize-none')} style={inputStyle} />
             </FormField>
             <FormField label="Assigné à">
-              <select value={form.assignedTo} onChange={(e) => setForm((f) => ({ ...f, assignedTo: e.target.value }))} className={inputClass} style={inputStyle}>
-                <option value="">— Non assigné —</option>
-                {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
+              <Select
+                value={form.assignedTo === '' ? '__none__' : form.assignedTo}
+                onValueChange={(v) => setForm((f) => ({ ...f, assignedTo: v === '__none__' ? '' : v }))}
+              >
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue placeholder="— Non assigné —" />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="__none__">— Non assigné —</SelectItem>
+                  {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </FormField>
             <FormField label="Délai de traitement">
               <input type="date" value={form.deadline} onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))} className={inputClass} style={inputStyle} />

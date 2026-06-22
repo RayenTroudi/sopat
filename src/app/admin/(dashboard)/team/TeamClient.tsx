@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { ROLE_LABELS } from '@/lib/auth-utils'
 import type { TeamMemberRow } from '@/lib/db/team'
 import type { UserRole } from '@/lib/auth-utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -86,9 +87,14 @@ function CreateDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: 
             <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>L'utilisateur devra le changer à sa première connexion.</p>
           </FF>
           <FF label="Rôle *">
-            <select value={form.role} onChange={(e) => set('role')(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}>
-              {ROLES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-            </select>
+            <Select value={form.role} onValueChange={(v) => set('role')(v)}>
+              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                {ROLES.map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </FF>
           <FF label="Téléphone"><Input value={form.phone} onChange={set('phone')} placeholder="+216 xx xxx xxx" /></FF>
 
@@ -149,9 +155,14 @@ function EditDrawer({ user, onClose, onUpdated }: { user: TeamMemberRow; onClose
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <FF label="Nom complet"><Input value={form.name} onChange={(v) => set('name')(v)} placeholder="Prénom Nom" /></FF>
           <FF label="Rôle">
-            <select value={form.role} onChange={(e) => set('role')(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}>
-              {ROLES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-            </select>
+            <Select value={form.role} onValueChange={(v) => set('role')(v)}>
+              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                {ROLES.map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
+              </SelectContent>
+            </Select>
           </FF>
           <FF label="Téléphone"><Input value={form.phone} onChange={(v) => set('phone')(v)} placeholder="+216 xx xxx xxx" /></FF>
 
@@ -216,12 +227,12 @@ export function TeamClient({ initialUsers }: { initialUsers: TeamMemberRow[] }) 
   return (
     <div className="space-y-6 max-w-[1200px]">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Gestion de l'équipe</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Gestion de l'équipe</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>Accès réservé aux administrateurs</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="text-xs px-4 py-2 rounded-lg font-medium text-white" style={{ background: 'var(--admin-emerald)' }}>
+        <button onClick={() => setShowCreate(true)} className="text-xs px-4 py-2 rounded-lg font-medium text-white w-full sm:w-auto" style={{ background: 'var(--admin-emerald)' }}>
           + Nouvel utilisateur
         </button>
       </div>
@@ -240,19 +251,24 @@ export function TeamClient({ initialUsers }: { initialUsers: TeamMemberRow[] }) 
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 sm:gap-3">
         <input
           value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher un membre…"
-          className="px-3 py-2 rounded-lg border text-sm w-64"
+          className="px-3 py-2 rounded-lg border text-sm w-full lg:w-64"
           style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
         />
-        <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
-          <option value="">Tous les rôles</option>
-          {ROLES.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-        </select>
+        <Select value={filterRole === '' ? '__all__' : filterRole} onValueChange={(v) => setFilterRole(v === '__all__' ? '' : v)}>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Tous les rôles</SelectItem>
+            {ROLES.map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
+          </SelectContent>
+        </Select>
         {(search || filterRole) && (
-          <button onClick={() => { setSearch(''); setFilterRole('') }} className="text-xs underline" style={{ color: 'var(--admin-text-muted)' }}>Réinitialiser</button>
+          <button onClick={() => { setSearch(''); setFilterRole('') }} className="text-xs underline sm:col-span-2 lg:col-span-1 text-left lg:self-center" style={{ color: 'var(--admin-text-muted)' }}>Réinitialiser</button>
         )}
       </div>
 
@@ -268,7 +284,59 @@ export function TeamClient({ initialUsers }: { initialUsers: TeamMemberRow[] }) 
             <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>Aucun utilisateur trouvé.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile card list */}
+            <ul className="md:hidden divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+              {filtered.map((u) => (
+                <li
+                  key={u.id}
+                  className={cn('px-4 py-3', !u.isActive ? 'opacity-60' : '')}
+                  style={{ borderColor: 'var(--admin-border)' }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-medium text-sm" style={{ color: 'var(--admin-text)' }}>{u.name}</p>
+                        <span
+                          className="text-[10px] px-2 py-0.5 rounded font-medium"
+                          style={{
+                            background: u.isActive ? 'var(--admin-emerald-dim)' : 'var(--admin-red-dim)',
+                            color:      u.isActive ? 'var(--admin-emerald)'     : 'var(--admin-red)',
+                          }}
+                        >
+                          {u.isActive ? 'Actif' : 'Inactif'}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] truncate" style={{ color: 'var(--admin-text-muted)' }}>{u.email}</p>
+                      <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                        <div className="min-w-0">
+                          <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Rôle</dt>
+                          <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{ROLE_LABELS[u.role]}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Équipe</dt>
+                          <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{teamLabel(u.role)}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Téléphone</dt>
+                          <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{u.phone ?? '—'}</dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Créé le</dt>
+                          <dd style={{ color: 'var(--admin-text)' }}>{fmtDate(u.createdAt)}</dd>
+                        </div>
+                      </dl>
+                      <div className="mt-2">
+                        <button onClick={() => setEditing(u)} className="text-xs underline" style={{ color: 'var(--admin-text-muted)' }}>Modifier</button>
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
@@ -308,7 +376,8 @@ export function TeamClient({ initialUsers }: { initialUsers: TeamMemberRow[] }) 
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 

@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useCallback } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const TYPE_OPTIONS = [
   { value: '', label: 'Tous les secteurs' },
@@ -38,35 +39,39 @@ export function ClientsFilterBar({ canCreate }: { canCreate: boolean }) {
 
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      <select
-        value={sp.get('type') ?? ''}
-        onChange={(e) => push('type', e.target.value)}
-        className="text-sm px-3 py-2 rounded-lg border focus:outline-none"
-        style={selectStyle}
+      <Select
+        value={(sp.get('type') ?? '') === '' ? '__all__' : (sp.get('type') ?? '')}
+        onValueChange={(v) => push('type', v === '__all__' ? '' : v)}
       >
-        {TYPE_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className="text-sm h-9 bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          {TYPE_OPTIONS.map((o) => (
+            <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <select
-        value={sp.get('country') ?? ''}
-        onChange={(e) => push('country', e.target.value)}
-        className="text-sm px-3 py-2 rounded-lg border focus:outline-none"
-        style={selectStyle}
+      <Select
+        value={(sp.get('country') ?? '') === '' ? '__all__' : (sp.get('country') ?? '')}
+        onValueChange={(v) => push('country', v === '__all__' ? '' : v)}
       >
-        <option value="">Tous les pays</option>
-        <option value="TN">🇹🇳 Tunisie</option>
-        <option value="FR">🇫🇷 France</option>
-        <option value="DZ">🇩🇿 Algérie</option>
-        <option value="MA">🇲🇦 Maroc</option>
-        <option value="QA">🇶🇦 Qatar</option>
-        <option value="LY">🇱🇾 Libye</option>
-        <option value="SA">🇸🇦 Arabie Saoudite</option>
-        <option value="AE">🇦🇪 Émirats arabes unis</option>
-      </select>
+        <SelectTrigger className="text-sm h-9 bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectItem value="__all__">Tous les pays</SelectItem>
+          <SelectItem value="TN">🇹🇳 Tunisie</SelectItem>
+          <SelectItem value="FR">🇫🇷 France</SelectItem>
+          <SelectItem value="DZ">🇩🇿 Algérie</SelectItem>
+          <SelectItem value="MA">🇲🇦 Maroc</SelectItem>
+          <SelectItem value="QA">🇶🇦 Qatar</SelectItem>
+          <SelectItem value="LY">🇱🇾 Libye</SelectItem>
+          <SelectItem value="SA">🇸🇦 Arabie Saoudite</SelectItem>
+          <SelectItem value="AE">🇦🇪 Émirats arabes unis</SelectItem>
+        </SelectContent>
+      </Select>
 
       <div className="flex-1" />
 

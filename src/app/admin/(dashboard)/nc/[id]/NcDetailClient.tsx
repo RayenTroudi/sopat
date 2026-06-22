@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import type { NcDetail, CapaDetail } from '@/lib/db/iso'
 import { CloudinaryUploader } from '@/components/upload/CloudinaryUploader'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const STATUS_LABELS: Record<string, string> = {
   open: 'Ouvert', in_progress: 'En cours', closed: 'Clôturé', verified: 'Vérifié',
@@ -222,17 +223,20 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
       {nc.status !== 'verified' && (
         <Card title="Changer le statut">
           <div className="flex gap-3 flex-wrap">
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="text-sm px-3 py-2 rounded-lg border flex-1"
-              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+            <Select
+              value={status === '' ? '__none__' : status}
+              onValueChange={(v) => setStatus(v === '__none__' ? '' : v)}
             >
-              <option value="">— Sélectionner un statut —</option>
-              <option value="in_progress">En cours</option>
-              <option value="closed">Clôturer</option>
-              <option value="verified">Vérifier (indépendant)</option>
-            </select>
+              <SelectTrigger className="text-sm bg-white flex-1" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectValue placeholder="— Sélectionner un statut —" />
+              </SelectTrigger>
+              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectItem value="__none__">— Sélectionner un statut —</SelectItem>
+                <SelectItem value="in_progress">En cours</SelectItem>
+                <SelectItem value="closed">Clôturer</SelectItem>
+                <SelectItem value="verified">Vérifier (indépendant)</SelectItem>
+              </SelectContent>
+            </Select>
             <button
               onClick={() => void updateStatus()}
               disabled={!status || statusLoading}
@@ -301,15 +305,18 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
               </FormField>
               <div className="grid grid-cols-2 gap-3">
                 <FormField label="Responsable *">
-                  <select
-                    value={capaForm.responsibleId}
-                    onChange={(e) => setCapaForm((f) => ({ ...f, responsibleId: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                  <Select
+                    value={capaForm.responsibleId === '' ? '__none__' : capaForm.responsibleId}
+                    onValueChange={(v) => setCapaForm((f) => ({ ...f, responsibleId: v === '__none__' ? '' : v }))}
                   >
-                    <option value="">— Sélectionner —</option>
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
+                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue placeholder="— Sélectionner —" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectItem value="__none__">— Sélectionner —</SelectItem>
+                      {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </FormField>
                 <FormField label="Délai">
                   <input

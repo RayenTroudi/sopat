@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { RsePartnershipDetail } from '@/lib/db/rse'
 import { RsePartnershipsBadge } from '../RsePartnershipsBadge'
 import type { TeamMemberRow } from '@/lib/db/team'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const TEAM_NAME_LABELS: Record<string, string> = {
   equipe_sd_pat: 'Équipe SD Pat',
@@ -268,16 +269,16 @@ export function ConventionTab({
           <p className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>Gestion du statut</p>
           {changingStatus ? (
             <div className="flex items-center gap-3">
-              <select
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value as typeof newStatus)}
-                className="text-sm border rounded-lg px-3 py-2 focus:outline-none"
-                style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
-              >
-                {STATUS_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
+              <Select value={newStatus} onValueChange={(v) => setNewStatus(v as typeof newStatus)}>
+                <SelectTrigger className="text-sm h-9 bg-white w-44" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <button
                 onClick={handleStatusChange}
                 disabled={saving}

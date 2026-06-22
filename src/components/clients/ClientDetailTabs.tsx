@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis } from 'recharts'
 import type { ClientRow, ClientInteractionRow } from '@/lib/db/clients'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type ClientProject = {
   id: string
@@ -410,18 +411,19 @@ export function ClientDetailTabs({
                   style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
                 >
                   <div className="grid grid-cols-2 gap-3">
-                    <select
+                    <Select
                       value={intForm.interactionType}
-                      onChange={(e) => setIntForm({ ...intForm, interactionType: e.target.value })}
-                      className={inputCls}
-                      style={inputSt}
+                      onValueChange={(v) => setIntForm({ ...intForm, interactionType: v })}
                     >
-                      {Object.entries(INTERACTION_CONFIG).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v.icon} {v.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        {Object.entries(INTERACTION_CONFIG).map(([k, v]) => (
+                          <SelectItem key={k} value={k}>{v.icon} {v.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <input
                       type="date"
                       value={intForm.date}

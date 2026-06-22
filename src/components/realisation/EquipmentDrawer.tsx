@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -228,19 +229,20 @@ export function EquipmentDrawer({ projectId, plantItems, open, onClose, onCreate
         <form onSubmit={(e) => void handleSubmit(e)} className="p-5 space-y-5">
           {/* Equipment type */}
           <Field label="Type d'engin *">
-            <select
-              value={equipmentTypeId}
-              onChange={(e) => setEquipmentTypeId(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border text-sm"
-              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+            <Select
+              value={equipmentTypeId === '' ? '__none__' : equipmentTypeId}
+              onValueChange={(v) => setEquipmentTypeId(v === '__none__' ? '' : v)}
             >
-              <option value="">— Sélectionner —</option>
-              {equipmentTypes.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {getIcon(t.iconName, t.name)} {t.displayNameFr}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectValue placeholder="— Sélectionner —" />
+              </SelectTrigger>
+              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectItem value="__none__">— Sélectionner —</SelectItem>
+                {equipmentTypes.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>{getIcon(t.iconName, t.name)} {t.displayNameFr}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
 
           {/* Description */}
@@ -327,14 +329,14 @@ export function EquipmentDrawer({ projectId, plantItems, open, onClose, onCreate
               />
             </Field>
             <Field label="Devise">
-              <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value as typeof CURRENCIES[number])}
-                className="w-full px-3 py-2 rounded-lg border text-sm"
-                style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-              >
-                {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <Select value={currency} onValueChange={(v) => setCurrency(v as typeof CURRENCIES[number])}>
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  {CURRENCIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
 

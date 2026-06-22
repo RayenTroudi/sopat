@@ -12,6 +12,7 @@ import type {
   ContractRow,
   SatisfactionRow,
 } from '@/lib/db/entretien'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -231,18 +232,28 @@ export function EntretienTab({ projectId, phaseStatus, plantZones, users, curren
                 <input type="datetime-local" value={planForm.visitDate} onChange={(e) => setPlanForm((f) => ({ ...f, visitDate:e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
               </FF>
               <FF label="Type de visite">
-                <select value={planForm.visitType} onChange={(e) => setPlanForm((f) => ({ ...f, visitType:e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
-                  {VISIT_TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                <Select value={planForm.visitType} onValueChange={(v) => setPlanForm((f) => ({ ...f, visitType: v }))}>
+                  <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    {VISIT_TYPE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </FF>
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Durée estimée (h)">
                   <input type="number" step="0.5" min="0" value={planForm.durationHours} onChange={(e) => setPlanForm((f) => ({ ...f, durationHours:e.target.value }))} placeholder="2" className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
                 </FF>
                 <FF label="Équipe assignée">
-                  <select value={planForm.teamMemberId} onChange={(e) => setPlanForm((f) => ({ ...f, teamMemberId:e.target.value }))} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}>
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                  </select>
+                  <Select value={planForm.teamMemberId} onValueChange={(v) => setPlanForm((f) => ({ ...f, teamMemberId: v }))}>
+                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </FF>
               </div>
               <FF label="Notes">

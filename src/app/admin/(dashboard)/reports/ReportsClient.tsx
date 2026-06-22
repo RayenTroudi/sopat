@@ -12,6 +12,7 @@ import { REGION_LABELS, REGION_COLORS } from '@/lib/db/international'
 import {
   LineChart, Line,
 } from 'recharts'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,14 +74,14 @@ const NC_COLORS: Record<string, string> = {
 function Section({ title, subtitle, action, children }: { title: string; subtitle?: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-      <div className="flex items-start justify-between gap-4 px-5 py-4 border-b" style={{ borderColor: 'var(--admin-border)' }}>
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4 px-4 sm:px-5 py-4 border-b" style={{ borderColor: 'var(--admin-border)' }}>
+        <div className="min-w-0">
           <h2 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</h2>
           {subtitle && <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>{subtitle}</p>}
         </div>
-        {action}
+        {action && <div className="shrink-0 flex flex-wrap items-center gap-2">{action}</div>}
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-4 sm:p-5">{children}</div>
     </div>
   )
 }
@@ -129,16 +130,16 @@ function BudgetVarianceReport({ rows, countryFilter }: { rows: BudgetVarianceRow
       subtitle="Comparaison budget approuvé, prédiction ML et dépenses réelles"
       action={
         <div className="flex items-center gap-2">
-          <select
-            value={sort}
-            onChange={(e) => setSort(e.target.value as typeof sort)}
-            className="text-xs px-2 py-1 rounded border"
-            style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-          >
-            <option value="variance">Tri : variance</option>
-            <option value="spend">Tri : dépenses</option>
-            <option value="ref">Tri : référence</option>
-          </select>
+          <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
+            <SelectTrigger className="text-xs h-8 px-2 py-1 bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="variance">Tri : variance</SelectItem>
+              <SelectItem value="spend">Tri : dépenses</SelectItem>
+              <SelectItem value="ref">Tri : référence</SelectItem>
+            </SelectContent>
+          </Select>
           <button
             onClick={handleExport}
             className="text-xs px-3 py-1.5 rounded-lg font-medium"
@@ -152,7 +153,50 @@ function BudgetVarianceReport({ rows, countryFilter }: { rows: BudgetVarianceRow
       {filtered.length === 0 ? (
         <p className="text-sm text-center py-6" style={{ color: 'var(--admin-text-muted)' }}>Aucun projet avec données budgétaires.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+          {/* Mobile card list */}
+          <ul className="md:hidden divide-y -mx-4 sm:-mx-5" style={{ borderColor: 'var(--admin-border)' }}>
+            {sorted.map((r) => (
+              <li key={r.id} className="px-4 sm:px-5 py-3" style={{ borderColor: 'var(--admin-border)' }}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Link href={`/admin/projects/${r.id}`} className="font-mono text-xs font-semibold hover:underline" style={{ color: 'var(--admin-blue)' }}>
+                    {r.reference}
+                  </Link>
+                  <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{STATUS_LABELS[r.status] ?? r.status}</span>
+                </div>
+                <p className="mt-1 text-sm font-medium truncate" style={{ color: 'var(--admin-text)' }}>{r.name}</p>
+                <p className="text-[11px] truncate" style={{ color: 'var(--admin-text-muted)' }}>
+                  {r.country ? String.fromCodePoint(...(r.country.toUpperCase().split('').map((c) => 127397 + c.charCodeAt(0)))) + ' ' : ''}
+                  {r.clientName}
+                </p>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                  <div>
+                    <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Budget approuvé</dt>
+                    <dd className="tabular-nums" style={{ color: 'var(--admin-text)' }}>{r.approvedBudget !== null ? fmtTnd(r.approvedBudget) : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Prédiction ML</dt>
+                    <dd className="tabular-nums" style={{ color: 'var(--admin-text)' }}>{r.mlPrediction !== null ? fmtTnd(r.mlPrediction) : '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Dépenses réelles</dt>
+                    <dd className="tabular-nums font-medium" style={{ color: 'var(--admin-text)' }}>{fmtTnd(r.actualSpend)}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Variance %</dt>
+                    <dd className="tabular-nums font-semibold" style={{ color: varianceColor(r.variancePct) }}>{fmtPct(r.variancePct)}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Erreur ML %</dt>
+                    <dd className="tabular-nums" style={{ color: varianceColor(r.mlErrorPct) }}>{fmtPct(r.mlErrorPct)}</dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
@@ -198,7 +242,8 @@ function BudgetVarianceReport({ rows, countryFilter }: { rows: BudgetVarianceRow
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
     </Section>
   )
@@ -337,7 +382,54 @@ function ProjectTimeline({ projects }: { projects: TimelineProject[] }) {
       {projects.length === 0 ? (
         <p className="text-sm text-center py-6" style={{ color: 'var(--admin-text-muted)' }}>Aucun projet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <>
+        {/* Mobile stacked timeline */}
+        <div className="md:hidden space-y-3">
+          {projects.map((p) => (
+            <div key={p.id} className="rounded-lg border p-3" style={{ borderColor: 'var(--admin-border)' }}>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: statusColors[p.status] ?? '#9BB5A8' }} />
+                <Link href={`/admin/projects/${p.id}`} className="text-xs font-medium truncate hover:underline" style={{ color: 'var(--admin-text)' }}>
+                  {p.reference} — {p.name}
+                </Link>
+              </div>
+              <p className="text-[11px] mt-0.5 truncate" style={{ color: 'var(--admin-text-muted)' }}>{p.clientName}</p>
+              <div className="mt-2 relative h-5 rounded" style={{ background: 'var(--admin-bg)' }}>
+                {todayPct !== null && (
+                  <div className="absolute top-0 bottom-0 w-px z-10" style={{ left: `${todayPct}%`, background: 'var(--admin-red)', opacity: 0.5 }} />
+                )}
+                {p.phases.map((ph) => {
+                  const color = PHASE_COLORS[ph.phase] ?? '#9BB5A8'
+                  const style = barStyle(ph.startedAt, ph.completedAt, color)
+                  if (!style) return null
+                  return <div key={ph.phase} className="absolute top-1 h-3 rounded-sm" style={{ ...style, opacity: ph.status === 'completed' ? 1 : 0.7 }} />
+                })}
+                {p.estimatedDeliveryDate && pct(p.estimatedDeliveryDate) !== null && (
+                  <div className="absolute top-0 bottom-0 w-0.5" style={{ left: `${pct(p.estimatedDeliveryDate)}%`, background: 'var(--admin-amber)', opacity: 0.8 }} />
+                )}
+              </div>
+            </div>
+          ))}
+          {/* Legend (mobile) */}
+          <div className="flex flex-wrap gap-3 pt-2 mt-2 border-t" style={{ borderColor: 'var(--admin-border)' }}>
+            {Object.entries(PHASE_LABELS).map(([key, label]) => (
+              <div key={key} className="flex items-center gap-1.5">
+                <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: PHASE_COLORS[key] }} />
+                <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{label}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-1.5">
+              <div className="w-0.5 h-3" style={{ backgroundColor: 'var(--admin-red)' }} />
+              <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>Aujourd&apos;hui</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="w-0.5 h-3" style={{ backgroundColor: 'var(--admin-amber)' }} />
+              <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>Livraison estimée</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="hidden md:block overflow-x-auto">
           {/* Month scale */}
           <div className="relative mb-1" style={{ marginLeft: 220, height: 20 }}>
             {ticks.filter((_, i) => i % 2 === 0).map((t) => (
@@ -431,6 +523,7 @@ function ProjectTimeline({ projects }: { projects: TimelineProject[] }) {
             </div>
           </div>
         </div>
+        </>
       )}
     </Section>
   )
@@ -473,7 +566,7 @@ function MlAccuracyReport({ data }: { data: MlAccuracySummary }) {
       ) : (
         <div className="space-y-6">
           {/* Summary KPIs */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="rounded-xl border p-4" style={{ borderColor: 'var(--admin-border)' }}>
               <p className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>RMSE</p>
               <p className="text-2xl font-bold tabular-nums mt-1" style={{ color: 'var(--admin-text)' }}>
@@ -533,8 +626,31 @@ function MlAccuracyReport({ data }: { data: MlAccuracySummary }) {
             </ResponsiveContainer>
           </div>
 
-          {/* Detailed table */}
-          <div className="overflow-x-auto">
+          {/* Mobile card list */}
+          <ul className="md:hidden divide-y rounded-lg border" style={{ borderColor: 'var(--admin-border)' }}>
+            {data.rows.map((r) => (
+              <li key={r.projectId} className="px-3 py-3" style={{ borderColor: 'var(--admin-border)' }}>
+                <div className="flex items-center justify-between gap-2">
+                  <Link href={`/admin/projects/${r.projectId}`} className="font-mono text-xs font-semibold hover:underline" style={{ color: 'var(--admin-blue)' }}>{r.reference}</Link>
+                  {r.isFallback ? (
+                    <span className="px-1.5 py-0.5 rounded text-[10px]" style={{ background: 'var(--admin-amber-dim)', color: 'var(--admin-amber)' }}>Estimée</span>
+                  ) : (
+                    <span className="text-[10px]" style={{ color: 'var(--admin-text-muted)' }}>{r.modelVersion ?? '—'}</span>
+                  )}
+                </div>
+                <p className="mt-1 text-sm truncate" style={{ color: 'var(--admin-text)' }}>{r.name}</p>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                  <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Prédiction ML</dt><dd className="tabular-nums" style={{ color: 'var(--admin-text)' }}>{fmtTnd(r.predictedTotal)}</dd></div>
+                  <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Dépenses réelles</dt><dd className="tabular-nums font-medium" style={{ color: 'var(--admin-text)' }}>{fmtTnd(r.actualSpend)}</dd></div>
+                  <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Erreur abs.</dt><dd className="tabular-nums" style={{ color: 'var(--admin-text)' }}>{fmtTnd(r.errorAbs)}</dd></div>
+                  <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Erreur %</dt><dd className="tabular-nums font-semibold" style={{ color: varianceColor(r.errorPct) }}>{fmtPct(r.errorPct)}</dd></div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+
+          {/* Detailed table (desktop) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
@@ -643,8 +759,30 @@ function InternationalReport({ rows }: { rows: InternationalReportRow[] }) {
             ))}
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
+          {/* Mobile card list */}
+          <ul className="md:hidden divide-y rounded-lg border" style={{ borderColor: 'var(--admin-border)' }}>
+            {rows.map((r) => (
+              <li key={r.country} className="px-3 py-3" style={{ borderColor: 'var(--admin-border)' }}>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <p className="font-medium text-sm" style={{ color: 'var(--admin-text)' }}>
+                    <span className="text-base mr-1.5">{r.flag}</span>{r.countryName}
+                  </p>
+                  <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: `${REGION_COLORS[r.region]}22`, color: REGION_COLORS[r.region] ?? 'var(--admin-text-muted)' }}>
+                    {REGION_LABELS[r.region] ?? r.region}
+                  </span>
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                  <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Projets / terminés</dt><dd className="tabular-nums" style={{ color: 'var(--admin-text)' }}>{r.projectCount} / {r.completedCount}</dd></div>
+                  <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Taux complétion</dt><dd className="tabular-nums font-semibold" style={{ color: r.completionRate === null ? 'var(--admin-text-muted)' : r.completionRate >= 80 ? 'var(--admin-emerald)' : r.completionRate >= 50 ? 'var(--admin-amber)' : 'var(--admin-red)' }}>{r.completionRate !== null ? `${r.completionRate}%` : '—'}</dd></div>
+                  <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Budget (DT)</dt><dd className="tabular-nums" style={{ color: 'var(--admin-text)' }}>{r.budgetTND !== null ? `${FMT_NUM.format(r.budgetTND)} DT` : '—'}</dd></div>
+                  <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Variance moy.</dt><dd className="tabular-nums font-semibold" style={{ color: varianceColor(r.avgVariancePct) }}>{r.avgVariancePct !== null ? `${r.avgVariancePct > 0 ? '+' : ''}${r.avgVariancePct}%` : '—'}</dd></div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+
+          {/* Table (desktop) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
@@ -725,7 +863,7 @@ function EquipmentReport({ data }: { data: EquipmentReportData }) {
   return (
     <div className="space-y-6">
       {/* KPI row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         {[
           { label: 'Total dépensé (engins)', value: fmtTnd(data.totalEquipmentSpend) },
           { label: 'Projets avec location', value: String(data.byProject.filter((p) => p.equipmentCost > 0).length) },
@@ -778,7 +916,20 @@ function EquipmentReport({ data }: { data: EquipmentReportData }) {
 
       {/* By project type */}
       <Section title="Dépenses engins par type de projet" subtitle="Coût total de location selon la catégorie de projet">
-        <div className="overflow-x-auto">
+        {/* Mobile card list */}
+        <ul className="md:hidden divide-y rounded-lg border" style={{ borderColor: 'var(--admin-border)' }}>
+          {data.byProjectType.map((r) => (
+            <li key={r.projectType} className="px-3 py-3 flex items-center justify-between gap-3" style={{ borderColor: 'var(--admin-border)' }}>
+              <div className="min-w-0">
+                <p className="text-sm truncate" style={{ color: 'var(--admin-text)' }}>{PROJECT_TYPE_LABELS[r.projectType] ?? r.projectType}</p>
+                <p className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{r.rentalCount} location{r.rentalCount !== 1 ? 's' : ''}</p>
+              </div>
+              <p className="tabular-nums text-sm font-semibold shrink-0" style={{ color: 'var(--admin-text)' }}>{fmtTnd(r.totalCost)}</p>
+            </li>
+          ))}
+        </ul>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
@@ -802,7 +953,25 @@ function EquipmentReport({ data }: { data: EquipmentReportData }) {
 
       {/* Per-project breakdown */}
       <Section title="Détail par projet" subtitle="Coût engins et ratio sur les dépenses totales">
-        <div className="overflow-x-auto">
+        {/* Mobile card list */}
+        <ul className="md:hidden divide-y rounded-lg border" style={{ borderColor: 'var(--admin-border)' }}>
+          {data.byProject.filter((p) => p.equipmentCost > 0).map((p) => (
+            <li key={p.projectId} className="px-3 py-3" style={{ borderColor: 'var(--admin-border)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-mono text-xs" style={{ color: 'var(--admin-text-muted)' }}>{p.reference}</span>
+                <span className="text-[10px]" style={{ color: 'var(--admin-text-muted)' }}>{PROJECT_TYPE_LABELS[p.projectType] ?? p.projectType}</span>
+              </div>
+              <p className="mt-1 text-sm truncate" style={{ color: 'var(--admin-text)' }}>{p.projectName}</p>
+              <dl className="mt-2 grid grid-cols-3 gap-x-3 gap-y-1 text-[11px]">
+                <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Engins</dt><dd className="tabular-nums font-semibold" style={{ color: 'var(--admin-amber)' }}>{fmtTnd(p.equipmentCost)}</dd></div>
+                <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Total</dt><dd className="tabular-nums" style={{ color: 'var(--admin-text)' }}>{fmtTnd(p.totalProjectSpend)}</dd></div>
+                <div><dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Ratio</dt><dd className="tabular-nums" style={{ color: 'var(--admin-text)' }}>{p.equipmentRatio !== null ? `${p.equipmentRatio}%` : '—'}</dd></div>
+              </dl>
+            </li>
+          ))}
+        </ul>
+
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
@@ -838,11 +1007,12 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
   const [activeTab, setActiveTab] = useState<'budget' | 'nc' | 'timeline' | 'ml' | 'international' | 'equipment'>('budget')
   const [countryFilter, setCountryFilter] = useState('')
 
+  const ALL_COUNTRIES = '__all__'
   // Collect unique countries from budget variance data
   const countries = useMemo(() => {
     const seen = new Set<string>()
     return [
-      { value: '', label: 'Tous les pays' },
+      { value: ALL_COUNTRIES, label: 'Tous les pays' },
       ...international.map((r) => ({ value: r.country, label: `${r.flag} ${r.countryName}` })).filter((o) => {
         if (seen.has(o.value)) return false
         seen.add(o.value)
@@ -863,39 +1033,55 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
   return (
     <div className="space-y-6 max-w-[1400px]">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Rapports analytiques</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Rapports analytiques</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
             Analyse des performances · Qualité ISO 9001:2015
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {countries.length > 1 && activeTab !== 'international' && activeTab !== 'equipment' && (
-            <select
-              value={countryFilter}
-              onChange={(e) => setCountryFilter(e.target.value)}
-              className="text-xs px-2 py-1.5 rounded border"
-              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+            <Select
+              value={countryFilter === '' ? ALL_COUNTRIES : countryFilter}
+              onValueChange={(v) => setCountryFilter(v === ALL_COUNTRIES ? '' : v)}
             >
-              {countries.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
+              <SelectTrigger className="text-xs h-8 px-2 py-1.5 bg-white flex-1 sm:flex-none sm:w-44" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                {countries.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
-          <Link href="/admin" className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-            ← Tableau de bord
-          </Link>
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="flex gap-1 border-b" style={{ borderColor: 'var(--admin-border)' }}>
+      {/* Tab picker — dropdown on mobile, tab bar on md+ */}
+      <div className="md:hidden">
+        <Select value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+          <SelectTrigger
+            className="w-full font-medium bg-white"
+            style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
+            aria-label="Section du rapport"
+          >
+            <SelectValue placeholder="Sélectionner une section" />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            {TABS.map((tab) => (
+              <SelectItem key={tab.key} value={tab.key}>{tab.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="hidden md:flex gap-1 border-b overflow-x-auto -mx-1 px-1" style={{ borderColor: 'var(--admin-border)' }}>
         {TABS.map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
+            className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0"
             style={{
               borderColor: activeTab === tab.key ? 'var(--admin-emerald)' : 'transparent',
               color:       activeTab === tab.key ? 'var(--admin-emerald)' : 'var(--admin-text-muted)',

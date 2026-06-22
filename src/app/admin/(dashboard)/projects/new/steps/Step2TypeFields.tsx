@@ -3,6 +3,7 @@
 import { UseFormReturn, useWatch } from 'react-hook-form'
 import { ZoneBuilder } from '@/components/projects/ZoneBuilder'
 import type { WizardFormValues } from '../NewProjectForm'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const inputClass = 'w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-green/20 transition'
 const inputStyle = { background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }
@@ -39,7 +40,7 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
           <Field label="Nom de la municipalité / institution" error={errors.municipalityClient?.message} required>
             <input {...register('municipalityClient')} className={inputClass} style={inputStyle} placeholder="Municipalité de Sfax" />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <Field label="Nombre de communes" error={errors.numberOfMunicipalities?.message}>
               <input {...register('numberOfMunicipalities', { valueAsNumber: true })} type="number" className={inputClass} style={inputStyle} />
             </Field>
@@ -64,7 +65,7 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
           <Field label="Commune / maître d'ouvrage" error={errors.municipalityClient?.message} required>
             <input {...register('municipalityClient')} className={inputClass} style={inputStyle} />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <Field label="Surface du site (m²)" error={errors.siteAreaM2?.message}>
               <input {...register('siteAreaM2')} type="number" step="0.01" className={inputClass} style={inputStyle} />
             </Field>
@@ -80,7 +81,7 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
 
       {projectType === 'siege_social' && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <Field label="Nombre d'étages" error={errors.floorCount?.message}>
               <input {...register('floorCount', { valueAsNumber: true })} type="number" className={inputClass} style={inputStyle} />
             </Field>
@@ -102,7 +103,7 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
 
       {projectType === 'hotelier_touristique' && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <Field label="Surface du site (m²)" error={errors.siteAreaM2?.message}>
               <input {...register('siteAreaM2')} type="number" step="0.01" className={inputClass} style={inputStyle} />
             </Field>
@@ -139,14 +140,22 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
 
       {projectType === 'interieur' && (
         <>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <Field label="Type de bâtiment">
-              <select className={inputClass} style={inputStyle} {...register('municipalityClient')}>
-                <option value="">—</option>
-                {['Siège social', 'Hôtel', 'Résidence', 'Commerce', 'Autre'].map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
+              <Select
+                value={(watch('municipalityClient') ?? '') === '' ? '__none__' : (watch('municipalityClient') as string)}
+                onValueChange={(v) => setValue('municipalityClient', v === '__none__' ? '' : v)}
+              >
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue placeholder="—" />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="__none__">—</SelectItem>
+                  {['Siège social', 'Hôtel', 'Résidence', 'Commerce', 'Autre'].map((b) => (
+                    <SelectItem key={b} value={b}>{b}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="Nombre d'étages" error={errors.floorCount?.message}>
               <input {...register('floorCount', { valueAsNumber: true })} type="number" className={inputClass} style={inputStyle} />

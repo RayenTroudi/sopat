@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { RseCommitmentBadge } from '../RsePartnershipsBadge'
 import type { RseCommitment } from '@/lib/db/rse'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const FREQUENCY_LABELS: Record<string, string> = {
   unique: 'Unique',
@@ -73,6 +74,8 @@ export function EngagementsTab({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
     reset,
     setError,
@@ -142,13 +145,18 @@ export function EngagementsTab({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type</label>
-              <select {...register('commitmentType')} className={inputClass} style={inputStyle}>
-                <option value="autre">Autre</option>
-                <option value="action_annuelle">Action annuelle</option>
-                <option value="sensibilisation">Sensibilisation</option>
-                <option value="communication">Communication</option>
-                <option value="projet_paysager">Projet paysager</option>
-              </select>
+              <Select value={watch('commitmentType') ?? 'autre'} onValueChange={(v) => setValue('commitmentType', v as AddValues['commitmentType'])}>
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="autre">Autre</SelectItem>
+                  <SelectItem value="action_annuelle">Action annuelle</SelectItem>
+                  <SelectItem value="sensibilisation">Sensibilisation</SelectItem>
+                  <SelectItem value="communication">Communication</SelectItem>
+                  <SelectItem value="projet_paysager">Projet paysager</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="col-span-2 space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Description <span className="text-red-500">*</span></label>
@@ -157,21 +165,31 @@ export function EngagementsTab({
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Fréquence</label>
-              <select {...register('frequency')} className={inputClass} style={inputStyle}>
-                <option value="annuel">Annuel</option>
-                <option value="unique">Unique</option>
-                <option value="semestriel">Semestriel</option>
-                <option value="trimestriel">Trimestriel</option>
-                <option value="mensuel">Mensuel</option>
-              </select>
+              <Select value={watch('frequency') ?? 'annuel'} onValueChange={(v) => setValue('frequency', v as AddValues['frequency'])}>
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="annuel">Annuel</SelectItem>
+                  <SelectItem value="unique">Unique</SelectItem>
+                  <SelectItem value="semestriel">Semestriel</SelectItem>
+                  <SelectItem value="trimestriel">Trimestriel</SelectItem>
+                  <SelectItem value="mensuel">Mensuel</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Responsable</label>
-              <select {...register('responsibleParty')} className={inputClass} style={inputStyle}>
-                <option value="sopat">SOPAT</option>
-                <option value="partenaire">Partenaire</option>
-                <option value="conjoint">Conjoint</option>
-              </select>
+              <Select value={watch('responsibleParty') ?? 'sopat'} onValueChange={(v) => setValue('responsibleParty', v as AddValues['responsibleParty'])}>
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="sopat">SOPAT</SelectItem>
+                  <SelectItem value="partenaire">Partenaire</SelectItem>
+                  <SelectItem value="conjoint">Conjoint</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Prochaine échéance</label>

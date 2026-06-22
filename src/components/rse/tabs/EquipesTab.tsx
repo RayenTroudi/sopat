@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const TEAM_LABELS: Record<string, string> = {
   rse: 'RSE',
@@ -110,31 +111,34 @@ export function EquipesTab({
         {localTeams.map((team, idx) => (
           <div key={idx} className="rounded-lg border p-3 space-y-3" style={{ borderColor: 'var(--admin-border)' }}>
             <div className="flex items-center justify-between">
-              <select
-                value={team.teamName}
-                onChange={(e) => updateTeam(idx, { teamName: e.target.value })}
-                className="px-2 py-1.5 rounded border text-sm"
-                style={fieldStyle}
-              >
-                {Object.entries(TEAM_LABELS).map(([v, l]) => (
-                  <option key={v} value={v}>{l}</option>
-                ))}
-              </select>
+              <Select value={team.teamName} onValueChange={(v) => updateTeam(idx, { teamName: v })}>
+                <SelectTrigger className="h-9 text-sm bg-white w-52" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  {Object.entries(TEAM_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <button onClick={() => removeTeam(idx)} className="text-xs" style={{ color: 'var(--admin-red)' }}>
                 Supprimer
               </button>
             </div>
-            <select
-              value={team.teamLeaderId ?? ''}
-              onChange={(e) => updateTeam(idx, { teamLeaderId: e.target.value || null })}
-              className="w-full px-2 py-1.5 rounded border text-sm"
-              style={fieldStyle}
+            <Select
+              value={team.teamLeaderId ?? '__none__'}
+              onValueChange={(v) => updateTeam(idx, { teamLeaderId: v === '__none__' ? null : v })}
             >
-              <option value="">Aucun chef</option>
-              {teamMembers.map((m) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectValue placeholder="Aucun chef" />
+              </SelectTrigger>
+              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectItem value="__none__">Aucun chef</SelectItem>
+                {teamMembers.map((m) => (
+                  <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <div>
               <div className="flex flex-wrap gap-1 mb-2">
                 {(team.missions ?? []).map((m, mi) => (

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { WizardDraft } from '../EventWizard'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const TEAM_NAMES = [
   { value: 'rse', label: 'RSE' },
@@ -95,30 +96,33 @@ export function Step2Teams({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>Nom de l&apos;équipe</label>
-              <select
-                value={team.teamName}
-                onChange={(e) => updateTeam(idx, { teamName: e.target.value })}
-                className="w-full px-2 py-1.5 rounded-lg border text-sm"
-                style={fieldStyle}
-              >
-                {TEAM_NAMES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
+              <Select value={team.teamName} onValueChange={(v) => updateTeam(idx, { teamName: v })}>
+                <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  {TEAM_NAMES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>Chef d&apos;équipe</label>
-              <select
-                value={team.teamLeaderId ?? ''}
-                onChange={(e) => updateTeam(idx, { teamLeaderId: e.target.value || null })}
-                className="w-full px-2 py-1.5 rounded-lg border text-sm"
-                style={fieldStyle}
+              <Select
+                value={team.teamLeaderId ?? '__none__'}
+                onValueChange={(v) => updateTeam(idx, { teamLeaderId: v === '__none__' ? null : v })}
               >
-                <option value="">Aucun</option>
-                {teamMembers.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
+                <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue placeholder="Aucun" />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="__none__">Aucun</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

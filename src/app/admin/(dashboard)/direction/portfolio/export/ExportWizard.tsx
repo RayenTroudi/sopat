@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { ProjectPicker, type PickerProject } from './ProjectPicker'
 import { DEFAULT_SECTIONS, type ExportConfig, type SectionToggles } from '@/lib/portfolio/types'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const SECTION_LABELS: Record<keyof SectionToggles, string> = {
   cover: 'Page de couverture',
@@ -107,16 +108,17 @@ export function ExportWizard({ projects }: { projects: PickerProject[] }) {
 
       <label className="block">
         <span className="text-sm">Type d&apos;export</span>
-        <select
-          className="w-full border rounded px-2 py-1"
-          value={exportType}
-          onChange={(e) => setExportType(e.target.value as ExportConfig['exportType'])}
-        >
-          <option value="full">Complet</option>
-          <option value="by_type">Par type</option>
-          <option value="by_country">Par pays</option>
-          <option value="custom">Personnalisé</option>
-        </select>
+        <Select value={exportType} onValueChange={(v) => setExportType(v as ExportConfig['exportType'])}>
+          <SelectTrigger className="bg-white">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white">
+            <SelectItem value="full">Complet</SelectItem>
+            <SelectItem value="by_type">Par type</SelectItem>
+            <SelectItem value="by_country">Par pays</SelectItem>
+            <SelectItem value="custom">Personnalisé</SelectItem>
+          </SelectContent>
+        </Select>
       </label>
 
       {exportType === 'custom' && (

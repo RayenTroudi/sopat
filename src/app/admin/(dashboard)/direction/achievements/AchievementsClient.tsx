@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import { useToast } from '@/components/ui/Toast'
 import { PROJECT_TYPE_LABEL_FR, PROJECT_TYPE_VALUES } from '@/lib/design-vocab'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type AchievementsPayload = {
   current: {
@@ -444,23 +445,23 @@ function YearRange({ yearFrom, yearTo, onChange }: { yearFrom: number; yearTo: n
   return (
     <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
       <span>De</span>
-      <select
-        value={yearFrom}
-        onChange={(e) => onChange(parseInt(e.target.value, 10), yearTo)}
-        className="px-2 py-1 rounded"
-        style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', color: 'var(--admin-text)' }}
-      >
-        {years.map((y) => <option key={y} value={y}>{y}</option>)}
-      </select>
+      <Select value={String(yearFrom)} onValueChange={(v) => onChange(parseInt(v, 10), yearTo)}>
+        <SelectTrigger className="h-8 text-xs bg-white w-20" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+        </SelectContent>
+      </Select>
       <span>à</span>
-      <select
-        value={yearTo}
-        onChange={(e) => onChange(yearFrom, parseInt(e.target.value, 10))}
-        className="px-2 py-1 rounded"
-        style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', color: 'var(--admin-text)' }}
-      >
-        {years.map((y) => <option key={y} value={y}>{y}</option>)}
-      </select>
+      <Select value={String(yearTo)} onValueChange={(v) => onChange(yearFrom, parseInt(v, 10))}>
+        <SelectTrigger className="h-8 text-xs bg-white w-20" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

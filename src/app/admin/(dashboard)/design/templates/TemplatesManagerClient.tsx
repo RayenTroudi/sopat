@@ -131,19 +131,19 @@ export function TemplatesManagerClient({ initialTemplates }: { initialTemplates:
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold" style={{ color: 'var(--admin-text)' }}>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl font-semibold" style={{ color: 'var(--admin-text)' }}>
             Modèles de concepts
           </h1>
-          <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+          <p className="text-xs sm:text-sm" style={{ color: 'var(--admin-text-muted)' }}>
             Les modèles publiés apparaissent dans « Inspiration depuis la bibliothèque » des Études.
           </p>
         </div>
         <button
           type="button"
           onClick={openCreate}
-          className="text-sm px-3 py-2 rounded font-medium"
+          className="text-sm px-3 py-2 rounded font-medium w-full sm:w-auto"
           style={{ background: 'var(--admin-emerald)', color: '#fff', border: '1px solid var(--admin-emerald)', cursor: 'pointer' }}
         >
           ✚ Nouveau modèle
@@ -154,6 +154,59 @@ export function TemplatesManagerClient({ initialTemplates }: { initialTemplates:
         className="rounded-lg overflow-hidden"
         style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)' }}
       >
+        {/* Mobile card list */}
+        <ul className="md:hidden divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+          {templates.length === 0 && (
+            <li className="px-4 py-8 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+              Aucun modèle pour l’instant.
+            </li>
+          )}
+          {templates.map((t) => (
+            <li key={t.id} className="px-4 py-3" style={{ borderColor: 'var(--admin-border)' }}>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-medium text-sm" style={{ color: 'var(--admin-text)' }}>{t.templateName}</p>
+                <button
+                  type="button"
+                  onClick={() => togglePublish(t)}
+                  className="text-[10px] px-2 py-0.5 rounded shrink-0"
+                  style={{
+                    background: t.isPublished ? 'var(--admin-emerald-dim)' : 'var(--admin-bg)',
+                    color:      t.isPublished ? 'var(--admin-emerald)'     : 'var(--admin-text-muted)',
+                    border: '1px solid ' + (t.isPublished ? 'var(--admin-emerald)' : 'var(--admin-border)'),
+                    cursor: 'pointer',
+                  }}
+                >{t.isPublished ? 'Publié' : 'Brouillon'}</button>
+              </div>
+              <dl className="mt-1.5 space-y-1 text-[11px]">
+                <div>
+                  <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Types de projet</dt>
+                  <dd style={{ color: 'var(--admin-text)' }}>{t.projectTypeContext.map((p) => PROJECT_TYPE_LABEL_FR[p] ?? p).join(', ') || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Créé par</dt>
+                  <dd style={{ color: 'var(--admin-text)' }}>{t.createdByName ?? '—'}</dd>
+                </div>
+              </dl>
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => openEdit(t)}
+                  className="flex-1 text-xs px-2 py-1.5"
+                  style={{ background: 'transparent', color: 'var(--admin-text)', border: '1px solid var(--admin-border)', borderRadius: 4, cursor: 'pointer' }}
+                >Éditer</button>
+                <button
+                  type="button"
+                  onClick={() => del(t)}
+                  className="flex-1 text-xs px-2 py-1.5"
+                  style={{ background: 'transparent', color: 'var(--admin-red)', border: '1px solid var(--admin-red)', borderRadius: 4, cursor: 'pointer' }}
+                >Supprimer</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr style={{ background: 'var(--admin-bg)', color: 'var(--admin-text-muted)' }}>
@@ -212,6 +265,7 @@ export function TemplatesManagerClient({ initialTemplates }: { initialTemplates:
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {creating && (

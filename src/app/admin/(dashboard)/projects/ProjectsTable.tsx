@@ -11,6 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { ProjectStatus } from '@/lib/db/projects'
 
 type ProjectRow = {
@@ -121,28 +122,40 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
         style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
       >
         {/* Status select */}
-        <div className="relative">
-          <select value={currentStatus} onChange={(e) => updateParam('status', e.target.value)} className={selectClass} style={selectStyle}>
-            {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
-        </div>
+        <Select value={currentStatus === '' ? '__all__' : currentStatus} onValueChange={(v) => updateParam('status', v === '__all__' ? '' : v)}>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
         {/* Type select */}
-        <div className="relative">
-          <select value={searchParams.get('projectType') ?? ''} onChange={(e) => updateParam('projectType', e.target.value)} className={selectClass} style={selectStyle}>
-            {TYPE_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
-        </div>
+        <Select
+          value={(searchParams.get('projectType') ?? '') === '' ? '__all__' : (searchParams.get('projectType') ?? '')}
+          onValueChange={(v) => updateParam('projectType', v === '__all__' ? '' : v)}
+        >
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            {TYPE_FILTER_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
         {/* Country select */}
-        <div className="relative">
-          <select value={searchParams.get('country') ?? ''} onChange={(e) => updateParam('country', e.target.value)} className={selectClass} style={selectStyle}>
-            {COUNTRY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--admin-text-muted)' }} />
-        </div>
+        <Select
+          value={(searchParams.get('country') ?? '') === '' ? '__all__' : (searchParams.get('country') ?? '')}
+          onValueChange={(v) => updateParam('country', v === '__all__' ? '' : v)}
+        >
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            {COUNTRY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
         <div className="sm:col-span-2 lg:col-span-1 lg:ml-auto flex justify-end">
           <Badge variant="secondary">{total} projet{total !== 1 ? 's' : ''}</Badge>

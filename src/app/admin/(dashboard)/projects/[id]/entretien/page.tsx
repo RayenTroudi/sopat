@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const FREQUENCY_OPTIONS = [
   { value: 'journaliere', label: 'Journalière' },
@@ -108,17 +109,20 @@ export default function EntretienPage() {
             <label className="block text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>
               Fréquence des visites
             </label>
-            <select
-              value={frequencyType}
-              onChange={e => setFrequencyType(e.target.value as FrequencyType | '')}
-              className={inputClass}
-              style={inputStyle}
+            <Select
+              value={frequencyType === '' ? '__none__' : frequencyType}
+              onValueChange={(v) => setFrequencyType((v === '__none__' ? '' : v) as FrequencyType | '')}
             >
-              <option value="">-- Sélectionner --</option>
-              {FREQUENCY_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectValue placeholder="-- Sélectionner --" />
+              </SelectTrigger>
+              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectItem value="__none__">-- Sélectionner --</SelectItem>
+                {FREQUENCY_OPTIONS.map(o => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

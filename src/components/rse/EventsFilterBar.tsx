@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const EVENT_TYPES = [
   { value: '', label: 'Tous les types' },
@@ -35,45 +36,54 @@ export function EventsFilterBar({ canCreate }: { canCreate: boolean }) {
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
   return (
-    <div className="flex flex-wrap gap-2 items-center">
-      <select
-        value={sp.get('type') ?? ''}
-        onChange={(e) => set('type', e.target.value)}
-        className="text-sm px-3 py-1.5 rounded-lg border"
-        style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 lg:items-center">
+      <Select
+        value={(sp.get('type') ?? '') === '' ? '__all__' : (sp.get('type') ?? '')}
+        onValueChange={(v) => set('type', v === '__all__' ? '' : v)}
       >
-        {EVENT_TYPES.map((t) => (
-          <option key={t.value} value={t.value}>{t.label}</option>
-        ))}
-      </select>
+        <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          {EVENT_TYPES.map((t) => (
+            <SelectItem key={t.value} value={t.value === '' ? '__all__' : t.value}>{t.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <select
-        value={sp.get('status') ?? ''}
-        onChange={(e) => set('status', e.target.value)}
-        className="text-sm px-3 py-1.5 rounded-lg border"
-        style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
+      <Select
+        value={(sp.get('status') ?? '') === '' ? '__all__' : (sp.get('status') ?? '')}
+        onValueChange={(v) => set('status', v === '__all__' ? '' : v)}
       >
-        {EVENT_STATUSES.map((s) => (
-          <option key={s.value} value={s.value}>{s.label}</option>
-        ))}
-      </select>
+        <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          {EVENT_STATUSES.map((s) => (
+            <SelectItem key={s.value} value={s.value === '' ? '__all__' : s.value}>{s.label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <select
-        value={sp.get('year') ?? ''}
-        onChange={(e) => set('year', e.target.value)}
-        className="text-sm px-3 py-1.5 rounded-lg border"
-        style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
+      <Select
+        value={(sp.get('year') ?? '') === '' ? '__all__' : (sp.get('year') ?? '')}
+        onValueChange={(v) => set('year', v === '__all__' ? '' : v)}
       >
-        <option value="">Toutes les années</option>
-        {years.map((y) => (
-          <option key={y} value={String(y)}>{y}</option>
-        ))}
-      </select>
+        <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectItem value="__all__">Toutes les années</SelectItem>
+          {years.map((y) => (
+            <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {canCreate && (
         <a
           href="/admin/rse/events/new?step=1"
-          className="ml-auto inline-flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium"
+          className="sm:col-span-2 lg:col-span-1 lg:ml-auto inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-lg text-sm font-medium w-full lg:w-auto"
           style={{ background: 'var(--admin-emerald)', color: '#fff' }}
         >
           + Créer un événement

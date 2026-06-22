@@ -1,5 +1,7 @@
 'use client'
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
 export type ZoneRow = {
   zoneName: string
   zoneType: string
@@ -60,16 +62,16 @@ export function ZoneBuilder({ value, onChange, showFloor = false }: Props) {
             value={zone.zoneName}
             onChange={(e) => updateZone(i, { zoneName: e.target.value })}
           />
-          <select
-            className={inputClass}
-            style={{ ...inputStyle, minWidth: 130 }}
-            value={zone.zoneType}
-            onChange={(e) => updateZone(i, { zoneType: e.target.value })}
-          >
-            {ZONE_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
+          <Select value={zone.zoneType} onValueChange={(v) => updateZone(i, { zoneType: v })}>
+            <SelectTrigger className="text-sm h-9 bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)', minWidth: 130 }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              {ZONE_TYPE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {showFloor && (
             <input
               className={inputClass}

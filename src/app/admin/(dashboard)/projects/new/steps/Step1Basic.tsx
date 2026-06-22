@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { UseFormReturn } from 'react-hook-form'
 import type { WizardFormValues } from '../NewProjectForm'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const inputClass = 'w-full text-sm px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-green/20 transition'
 const inputStyle = { background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }
@@ -97,12 +98,20 @@ export function Step1Basic({
         </div>
 
         <Field label="Type de projet" error={errors.projectType?.message} required>
-          <select {...register('projectType')} className={inputClass} style={inputStyle}>
-            <option value="">— Sélectionner —</option>
-            {PROJECT_TYPE_OPTIONS.map((t) => (
-              <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
-            ))}
-          </select>
+          <Select
+            value={(watch('projectType') ?? '') === '' ? '__none__' : (watch('projectType') as string)}
+            onValueChange={(v) => setValue('projectType', (v === '__none__' ? '' : v) as WizardFormValues['projectType'])}
+          >
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue placeholder="— Sélectionner —" />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__none__">— Sélectionner —</SelectItem>
+              {PROJECT_TYPE_OPTIONS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Pays" error={errors.country?.message} required>
@@ -110,20 +119,36 @@ export function Step1Basic({
         </Field>
 
         <Field label="Devise" error={errors.currency?.message}>
-          <select {...register('currency')} className={inputClass} style={inputStyle}>
-            {CURRENCY_OPTIONS.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
+          <Select
+            value={watch('currency') ?? 'TND'}
+            onValueChange={(v) => setValue('currency', v as WizardFormValues['currency'])}
+          >
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              {CURRENCY_OPTIONS.map((c) => (
+                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         <Field label="Secteur client" error={errors.clientSector?.message}>
-          <select {...register('clientSector')} className={inputClass} style={inputStyle}>
-            <option value="">— Sélectionner —</option>
-            {SECTOR_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
+          <Select
+            value={(watch('clientSector') ?? '') === '' ? '__none__' : (watch('clientSector') as string)}
+            onValueChange={(v) => setValue('clientSector', (v === '__none__' ? undefined : v) as WizardFormValues['clientSector'])}
+          >
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue placeholder="— Sélectionner —" />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__none__">— Sélectionner —</SelectItem>
+              {SECTOR_OPTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </Field>
 
         {/* CRM client selector */}

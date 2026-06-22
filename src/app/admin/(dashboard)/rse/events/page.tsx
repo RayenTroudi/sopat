@@ -23,13 +23,13 @@ export default async function RseEventsPage({
   const canCreate = session.user.role === 'admin' || session.user.role === 'direction'
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-5 sm:space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-xl font-bold" style={{ color: 'var(--admin-text)' }}>
+        <h1 className="text-lg sm:text-xl font-bold" style={{ color: 'var(--admin-text)' }}>
           Événements RSE
         </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--admin-text-muted)' }}>
+        <p className="text-xs sm:text-sm mt-1" style={{ color: 'var(--admin-text-muted)' }}>
           {events.length} événement{events.length !== 1 ? 's' : ''}
         </p>
       </div>

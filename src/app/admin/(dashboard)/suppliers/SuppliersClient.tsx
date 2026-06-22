@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import type { SupplierRow, SupplierEvaluationRow, SupplierCategory, SupplierStatus } from '@/lib/db/suppliers'
+import { Select as ShadSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -84,11 +85,16 @@ function Input({ value, onChange, placeholder, type = 'text', disabled }: { valu
   )
 }
 
-function Select({ value, onChange, children }: { value: string; onChange: (v: string) => void; children: React.ReactNode }) {
+function Select({ value, onChange, placeholder, children }: { value: string; onChange: (v: string) => void; placeholder?: string; children: React.ReactNode }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}>
-      {children}
-    </select>
+    <ShadSelect value={value === '' ? '__none__' : value} onValueChange={(v) => onChange(v === '__none__' ? '' : v)}>
+      <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        {children}
+      </SelectContent>
+    </ShadSelect>
   )
 }
 
@@ -169,12 +175,12 @@ function SupplierFormDrawer({ editing, form, setForm, onClose, onSaved }: {
           <div className="grid grid-cols-2 gap-3">
             <FF label="Catégorie *">
               <Select value={form.category} onChange={set('category')}>
-                {CATEGORY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {CATEGORY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </Select>
             </FF>
             <FF label="Statut ISO *">
               <Select value={form.isoStatus} onChange={set('isoStatus')}>
-                {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </Select>
             </FF>
           </div>
@@ -195,9 +201,9 @@ function SupplierFormDrawer({ editing, form, setForm, onClose, onSaved }: {
 
           <div className="grid grid-cols-2 gap-3">
             <FF label="Score d'évaluation (1–5)">
-              <Select value={form.evaluationScore} onChange={set('evaluationScore')}>
-                <option value="">—</option>
-                {[1,2,3,4,5].map((s) => <option key={s} value={s}>{s} / 5</option>)}
+              <Select value={form.evaluationScore} onChange={set('evaluationScore')} placeholder="—">
+                <SelectItem value="__none__">—</SelectItem>
+                {[1,2,3,4,5].map((s) => <SelectItem key={s} value={String(s)}>{s} / 5</SelectItem>)}
               </Select>
             </FF>
             <FF label="Date dernier audit">
@@ -386,36 +392,46 @@ export function SuppliersClient({ initialSuppliers, canEdit }: Props) {
   return (
     <div className="space-y-6 max-w-[1400px]">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Fournisseurs agréés</h1>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Fournisseurs agréés</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>Registre des fournisseurs · ISO 9001:2015 §7.4</p>
         </div>
         {canEdit && (
-          <button onClick={openCreate} className="text-xs px-4 py-2 rounded-lg font-medium text-white" style={{ background: 'var(--admin-emerald)' }}>
+          <button onClick={openCreate} className="text-xs px-4 py-2 rounded-lg font-medium text-white w-full sm:w-auto" style={{ background: 'var(--admin-emerald)' }}>
             + Nouveau fournisseur
           </button>
         )}
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 sm:gap-3">
         <input
           value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder="Rechercher un fournisseur…"
-          className="px-3 py-2 rounded-lg border text-sm w-64"
+          className="px-3 py-2 rounded-lg border text-sm w-full lg:w-64"
           style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
         />
-        <select value={filterCat} onChange={(e) => setFilterCat(e.target.value)} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
-          <option value="">Toutes catégories</option>
-          {CATEGORY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
-        <select value={filterStat} onChange={(e) => setFilterStat(e.target.value)} className="px-3 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
-          <option value="">Tous statuts</option>
-          {STATUS_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <ShadSelect value={filterCat === '' ? '__all__' : filterCat} onValueChange={(v) => setFilterCat(v === '__all__' ? '' : v)}>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Toutes catégories</SelectItem>
+            {CATEGORY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </ShadSelect>
+        <ShadSelect value={filterStat === '' ? '__all__' : filterStat} onValueChange={(v) => setFilterStat(v === '__all__' ? '' : v)}>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Tous statuts</SelectItem>
+            {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+          </SelectContent>
+        </ShadSelect>
         {(search || filterCat || filterStat) && (
-          <button onClick={() => { setSearch(''); setFilterCat(''); setFilterStat('') }} className="text-xs underline" style={{ color: 'var(--admin-text-muted)' }}>Réinitialiser</button>
+          <button onClick={() => { setSearch(''); setFilterCat(''); setFilterStat('') }} className="text-xs underline sm:col-span-2 lg:col-span-1 text-left lg:self-center" style={{ color: 'var(--admin-text-muted)' }}>Réinitialiser</button>
         )}
       </div>
 
@@ -431,7 +447,73 @@ export function SuppliersClient({ initialSuppliers, canEdit }: Props) {
             <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>Aucun fournisseur trouvé.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile card list */}
+            <ul className="md:hidden divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+              {filtered.map((s) => {
+                const ss = STATUS_STYLE[s.isoStatus]
+                const catLabel = CATEGORY_OPTIONS.find((c) => c.value === s.category)?.label ?? s.category
+                return (
+                  <li key={s.id} className={cn('px-4 py-3', s.isoStatus === 'suspendu' ? 'opacity-60' : '')} style={{ borderColor: 'var(--admin-border)' }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-sm" style={{ color: 'var(--admin-text)' }}>{s.name}</p>
+                          <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: ss.bg, color: ss.text }}>
+                            {STATUS_OPTIONS.find((o) => o.value === s.isoStatus)?.label ?? s.isoStatus}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{catLabel}</p>
+                        {(s.contactName || s.phone || s.email) && (
+                          <div className="mt-1.5 text-[11px] space-y-0.5">
+                            {s.contactName && <p style={{ color: 'var(--admin-text)' }}>{s.contactName}</p>}
+                            {s.phone && <p style={{ color: 'var(--admin-text-muted)' }}>{s.phone}</p>}
+                            {s.email && <p className="truncate" style={{ color: 'var(--admin-text-muted)' }}>{s.email}</p>}
+                          </div>
+                        )}
+                        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Ville</dt>
+                            <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{s.city ?? '—'}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Dernier audit</dt>
+                            <dd style={{ color: 'var(--admin-text)' }}>{fmtDate(s.lastAuditDate)}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Score</dt>
+                            <dd>
+                              {s.evaluationScore !== null ? (
+                                <div className="flex gap-0.5">
+                                  {[1,2,3,4,5].map((n) => <span key={n} style={{ color: (s.evaluationScore ?? 0) >= n ? '#F59E0B' : 'var(--admin-border)', fontSize: 12 }}>★</span>)}
+                                </div>
+                              ) : <span style={{ color: 'var(--admin-text-muted)' }}>—</span>}
+                            </dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Contrat</dt>
+                            <dd>
+                              {s.contractAssetUrl ? (
+                                <a href={s.contractAssetUrl} target="_blank" rel="noopener noreferrer" className="underline" style={{ color: 'var(--admin-blue)' }}>PDF</a>
+                              ) : <span style={{ color: 'var(--admin-text-muted)' }}>—</span>}
+                            </dd>
+                          </div>
+                        </dl>
+                        {canEdit && (
+                          <div className="mt-2 flex gap-3 text-xs">
+                            <button onClick={() => openEdit(s)} className="underline" style={{ color: 'var(--admin-text-muted)' }}>Modifier</button>
+                            <button onClick={() => setEvalTarget(s)} className="underline" style={{ color: 'var(--admin-blue)' }}>Évaluer</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
@@ -488,7 +570,8 @@ export function SuppliersClient({ initialSuppliers, canEdit }: Props) {
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 

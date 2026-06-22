@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { DmsDocRow } from '@/lib/dms/queries'
 import {
   TYPE_CODES, PROCESS_CODES, TYPE_LABELS, PROCESS_LABELS,
@@ -186,9 +187,9 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>
             Informations Documentées
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
@@ -198,7 +199,7 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
         {canEdit && (
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white"
+            className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white w-full sm:w-auto"
             style={{ background: 'var(--admin-emerald)' }}
           >
             <span>+</span> Nouveau document
@@ -207,48 +208,57 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <select
-          value={filterStatus}
-          onChange={(e) => { setFilterStatus(e.target.value); setTimeout(() => void loadDocs(), 0) }}
-          className="text-sm px-3 py-1.5 rounded-lg border"
-          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 sm:gap-3">
+        <Select
+          value={filterStatus === '' ? '__all__' : filterStatus}
+          onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterStatus(next); setTimeout(() => void loadDocs(), 0) }}
         >
-          <option value="">Tous statuts</option>
-          {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Tous statuts</SelectItem>
+            {Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
-        <select
-          value={filterType}
-          onChange={(e) => { setFilterType(e.target.value); setTimeout(() => void loadDocs(), 0) }}
-          className="text-sm px-3 py-1.5 rounded-lg border"
-          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+        <Select
+          value={filterType === '' ? '__all__' : filterType}
+          onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterType(next); setTimeout(() => void loadDocs(), 0) }}
         >
-          <option value="">Tous types</option>
-          {TYPE_CODES.map(t => <option key={t} value={t}>{t} – {TYPE_LABELS[t]}</option>)}
-        </select>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Tous types</SelectItem>
+            {TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
-        <select
-          value={filterProcess}
-          onChange={(e) => { setFilterProcess(e.target.value); setTimeout(() => void loadDocs(), 0) }}
-          className="text-sm px-3 py-1.5 rounded-lg border"
-          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+        <Select
+          value={filterProcess === '' ? '__all__' : filterProcess}
+          onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterProcess(next); setTimeout(() => void loadDocs(), 0) }}
         >
-          <option value="">Tous processus</option>
-          {PROCESS_CODES.map(p => <option key={p} value={p}>{p} – {PROCESS_LABELS[p]}</option>)}
-        </select>
+          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Tous processus</SelectItem>
+            {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
+          </SelectContent>
+        </Select>
 
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void loadDocs()}
           placeholder="Code ou titre…"
-          className="text-sm px-3 py-1.5 rounded-lg border flex-1 min-w-[160px]"
+          className="text-sm px-3 py-1.5 rounded-lg border w-full sm:col-span-2 lg:flex-1 lg:col-span-1 lg:min-w-[160px]"
           style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
         />
         <button
           onClick={() => void loadDocs()}
-          className="text-sm px-3 py-1.5 rounded-lg border"
+          className="text-sm px-3 py-1.5 rounded-lg border w-full sm:col-span-2 lg:col-span-1 lg:w-auto"
           style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
         >
           Filtrer
@@ -264,7 +274,56 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
         ) : rows.length === 0 ? (
           <p className="py-12 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>Aucun document trouvé.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* Mobile card list */}
+            <ul className="md:hidden divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+              {rows.map((doc) => {
+                const codeParts = doc.documentNumber.split('-')
+                const typeCode = codeParts[0] ?? ''
+                const processCode = codeParts[1] ?? ''
+                const s = simplifiedStatus(doc.status)
+                return (
+                  <li key={doc.id} className="px-4 py-3" style={{ borderColor: 'var(--admin-border)' }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{doc.documentNumber}</span>
+                          <span className={cn('text-[10px] px-2 py-0.5 rounded font-medium', s.className)}>{s.label}</span>
+                        </div>
+                        <p className="mt-1.5 text-sm font-medium line-clamp-2" style={{ color: 'var(--admin-text)' }}>{doc.title}</p>
+                        {doc.isoClauses.length > 0 && (
+                          <p className="mt-0.5 text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>ISO {doc.isoClauses.join(', ')}</p>
+                        )}
+                        <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type / Proc.</dt>
+                            <dd className="font-mono truncate" style={{ color: 'var(--admin-text)' }}>{typeCode} · {processCode}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Département</dt>
+                            <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{DEPARTMENT_LABELS[doc.department] ?? doc.department}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Responsable</dt>
+                            <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{doc.ownerName ?? '—'}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>En vigueur</dt>
+                            <dd style={{ color: 'var(--admin-text)' }}>{fmt(doc.effectiveDate)}</dd>
+                          </div>
+                        </dl>
+                        {doc.assetUrl && (
+                          <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs underline" style={{ color: 'var(--admin-blue)' }}>Ouvrir PDF</a>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+
+            {/* Desktop table */}
+            <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
@@ -317,7 +376,8 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
                 })}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -335,34 +395,40 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
               {/* Type + Process selectors — drive code generation */}
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Type *">
-                  <select
-                    value={form.typeCode}
-                    onChange={(e) => {
-                      const t = e.target.value as TypeCode
+                  <Select
+                    value={form.typeCode === '' ? '__none__' : form.typeCode}
+                    onValueChange={(v) => {
+                      const t = (v === '__none__' ? '' : v) as TypeCode | ''
                       setForm(f => ({ ...f, typeCode: t }))
-                      void handleTypeProcessChange(t, form.processCode)
+                      if (t) void handleTypeProcessChange(t, form.processCode)
                     }}
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
                   >
-                    <option value="">— Choisir —</option>
-                    {TYPE_CODES.map(t => <option key={t} value={t}>{t} – {TYPE_LABELS[t]}</option>)}
-                  </select>
+                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue placeholder="— Choisir —" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectItem value="__none__">— Choisir —</SelectItem>
+                      {TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </FF>
                 <FF label="Processus *">
-                  <select
-                    value={form.processCode}
-                    onChange={(e) => {
-                      const p = e.target.value as ProcessCode
+                  <Select
+                    value={form.processCode === '' ? '__none__' : form.processCode}
+                    onValueChange={(v) => {
+                      const p = (v === '__none__' ? '' : v) as ProcessCode | ''
                       setForm(f => ({ ...f, processCode: p }))
-                      void handleTypeProcessChange(form.typeCode, p)
+                      if (p) void handleTypeProcessChange(form.typeCode, p)
                     }}
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
                   >
-                    <option value="">— Choisir —</option>
-                    {PROCESS_CODES.map(p => <option key={p} value={p}>{p} – {PROCESS_LABELS[p]}</option>)}
-                  </select>
+                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue placeholder="— Choisir —" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectItem value="__none__">— Choisir —</SelectItem>
+                      {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </FF>
               </div>
 
@@ -388,40 +454,40 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
 
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Catégorie DMS">
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                  >
-                    {Object.entries(CATEGORY_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
+                  <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      {Object.entries(CATEGORY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </FF>
                 <FF label="Département">
-                  <select
-                    value={form.department}
-                    onChange={(e) => setForm(f => ({ ...f, department: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                  >
-                    {Object.entries(DEPARTMENT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
+                  <Select value={form.department} onValueChange={(v) => setForm(f => ({ ...f, department: v }))}>
+                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      {Object.entries(DEPARTMENT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </FF>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Confidentialité">
-                  <select
-                    value={form.confidentiality}
-                    onChange={(e) => setForm(f => ({ ...f, confidentiality: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                  >
-                    <option value="public">Public</option>
-                    <option value="internal">Interne</option>
-                    <option value="confidential">Confidentiel</option>
-                    <option value="restricted">Restreint</option>
-                  </select>
+                  <Select value={form.confidentiality} onValueChange={(v) => setForm(f => ({ ...f, confidentiality: v }))}>
+                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectItem value="public">Public</SelectItem>
+                      <SelectItem value="internal">Interne</SelectItem>
+                      <SelectItem value="confidential">Confidentiel</SelectItem>
+                      <SelectItem value="restricted">Restreint</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </FF>
                 <FF label="Clauses ISO">
                   <input

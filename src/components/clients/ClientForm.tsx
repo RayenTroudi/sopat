@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const schema = z.object({
   companyName: z.string().min(1, 'Requis'),
@@ -160,12 +161,20 @@ export function ClientForm({ initialValues, clientId, canToggleFeatured }: Clien
         </Field>
 
         <Field label="Potentiel client">
-          <select {...register('clientPotential')} className={inputClass} style={inputStyle}>
-            <option value="">-- Sélectionner --</option>
-            <option value="fort_potentiel">À fort potentiel</option>
-            <option value="faible_potentiel">À faible potentiel</option>
-            <option value="neutre">Neutre</option>
-          </select>
+          <Select
+            value={watch('clientPotential') ?? '__none__'}
+            onValueChange={(v) => setValue('clientPotential', v === '__none__' ? undefined : v as 'fort_potentiel' | 'faible_potentiel' | 'neutre')}
+          >
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue placeholder="-- Sélectionner --" />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__none__">-- Sélectionner --</SelectItem>
+              <SelectItem value="fort_potentiel">À fort potentiel</SelectItem>
+              <SelectItem value="faible_potentiel">À faible potentiel</SelectItem>
+              <SelectItem value="neutre">Neutre</SelectItem>
+            </SelectContent>
+          </Select>
         </Field>
         <Field label="Pays" error={errors.country?.message} required>
           <input {...register('country')} className={inputClass} style={inputStyle} maxLength={2} placeholder="TN" />

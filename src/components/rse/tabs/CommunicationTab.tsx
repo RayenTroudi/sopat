@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { RseCommunicationBadge } from '../RsePartnershipsBadge'
 import type { RseCommunication } from '@/lib/db/rse'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const COMM_TYPE_LABELS: Record<string, string> = {
   logo_sopat: 'Logo SOPAT',
@@ -58,6 +59,8 @@ export function CommunicationTab({
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
     reset,
     setError,
@@ -179,12 +182,20 @@ export function CommunicationTab({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type <span className="text-red-500">*</span></label>
-              <select {...register('communicationType')} className={inputClass} style={inputStyle}>
-                <option value="">Sélectionner...</option>
-                <option value="logo_sopat">Logo SOPAT</option>
-                <option value="logo_partenaire">Logo partenaire</option>
-                <option value="publication_commune">Publication commune</option>
-              </select>
+              <Select
+                value={(watch('communicationType') ?? '') === '' ? '__none__' : (watch('communicationType') as string)}
+                onValueChange={(v) => setValue('communicationType', (v === '__none__' ? '' : v) as SubmitValues['communicationType'])}
+              >
+                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue placeholder="Sélectionner..." />
+                </SelectTrigger>
+                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="__none__">Sélectionner...</SelectItem>
+                  <SelectItem value="logo_sopat">Logo SOPAT</SelectItem>
+                  <SelectItem value="logo_partenaire">Logo partenaire</SelectItem>
+                  <SelectItem value="publication_commune">Publication commune</SelectItem>
+                </SelectContent>
+              </Select>
               {errors.communicationType && <p className="text-xs text-red-500">{errors.communicationType.message}</p>}
             </div>
 

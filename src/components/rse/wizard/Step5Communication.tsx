@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { WizardDraft } from '../EventWizard'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const PHASES = [
   { value: 'avant', label: 'Avant l\'événement' },
@@ -125,27 +126,30 @@ export function Step5Communication({
                   />
 
                   <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={action.channel}
-                      onChange={(e) => updateAction(absIdx, { channel: e.target.value })}
-                      className="px-2 py-1.5 rounded border text-sm"
-                      style={fieldStyle}
+                    <Select value={action.channel} onValueChange={(v) => updateAction(absIdx, { channel: v })}>
+                      <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        {CHANNELS.map((c) => (
+                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={action.responsibleId ?? '__none__'}
+                      onValueChange={(v) => updateAction(absIdx, { responsibleId: v === '__none__' ? null : v })}
                     >
-                      {CHANNELS.map((c) => (
-                        <option key={c.value} value={c.value}>{c.label}</option>
-                      ))}
-                    </select>
-                    <select
-                      value={action.responsibleId ?? ''}
-                      onChange={(e) => updateAction(absIdx, { responsibleId: e.target.value || null })}
-                      className="px-2 py-1.5 rounded border text-sm"
-                      style={fieldStyle}
-                    >
-                      <option value="">Responsable (optionnel)</option>
-                      {teamMembers.map((m) => (
-                        <option key={m.id} value={m.id}>{m.name}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        <SelectValue placeholder="Responsable (optionnel)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                        <SelectItem value="__none__">Responsable (optionnel)</SelectItem>
+                        {teamMembers.map((m) => (
+                          <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               )

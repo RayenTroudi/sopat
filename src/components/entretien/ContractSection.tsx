@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import type { ContractRow } from '@/lib/db/entretien'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const FMT = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 
@@ -121,17 +122,20 @@ export function ContractSection({ projectId, contract, onUpdated }: Props) {
 
       <div className="grid grid-cols-2 gap-3">
         <FF label="Fréquence des visites">
-          <select
+          <Select
             value={form.visitFrequency}
-            onChange={(e) => {
-              const opt = FREQUENCY_OPTIONS.find((o) => o.value === e.target.value)
-              setForm((f) => ({ ...f, visitFrequency: e.target.value, visitFrequencyDays: opt?.days ?? f.visitFrequencyDays }))
+            onValueChange={(v) => {
+              const opt = FREQUENCY_OPTIONS.find((o) => o.value === v)
+              setForm((f) => ({ ...f, visitFrequency: v, visitFrequencyDays: opt?.days ?? f.visitFrequencyDays }))
             }}
-            className="w-full px-3 py-2 rounded-lg border text-sm"
-            style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }}
           >
-            {FREQUENCY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              {FREQUENCY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
         </FF>
         <FF label="Coût mensuel (TND)">
           <input type="number" step="any" min="0" value={form.monthlyCost} onChange={(e) => setForm((f) => ({ ...f, monthlyCost: e.target.value }))} placeholder="ex: 350" className="w-full px-3 py-2 rounded-lg border text-sm" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
