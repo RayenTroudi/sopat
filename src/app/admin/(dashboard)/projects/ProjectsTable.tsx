@@ -209,10 +209,10 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
                     <TableCell className="hidden sm:table-cell text-base text-center">{row.country ? countryFlag(row.country) : ''}</TableCell>
                     <TableCell><PhaseBadge status={row.status} /></TableCell>
                     <TableCell className="hidden md:table-cell">
-                      <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
                         <BudgetBadge approved={row.approvedBudget} />
                         {row.approvedBudget && row.currency && (
-                          <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.currency}</span>
+                          <span className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{row.currency}</span>
                         )}
                       </div>
                     </TableCell>

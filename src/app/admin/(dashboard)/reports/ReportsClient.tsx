@@ -620,8 +620,8 @@ function MlAccuracyReport({ data }: { data: MlAccuracySummary }) {
 
                 />
                 <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 11, color: 'var(--admin-text-muted)' }} />
-                <Bar dataKey="prédit"  fill="#2D5A27" opacity={0.7} maxBarSize={24} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="réel"    fill="#D97706" opacity={0.9} maxBarSize={24} radius={[2, 2, 0, 0]} />
+                <Bar dataKey="prédit"  fill="var(--chart-1)" opacity={0.75} maxBarSize={24} radius={[2, 2, 0, 0]} />
+                <Bar dataKey="réel"    fill="var(--chart-2)" opacity={0.95} maxBarSize={24} radius={[2, 2, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -892,7 +892,7 @@ function EquipmentReport({ data }: { data: EquipmentReportData }) {
               <Tooltip formatter={(value) => [typeof value === 'number' ? fmtTnd(value) : String(value ?? '')]} />
               <Bar dataKey="totalCost" name="Coût total" radius={[4, 4, 0, 0]}>
                 {data.byType.filter((r) => r.totalCost > 0).map((_, i) => (
-                  <Cell key={i} fill="#D97706" />
+                  <Cell key={i} fill={`var(--chart-${(i % 8) + 1})`} />
                 ))}
               </Bar>
             </BarChart>
@@ -908,7 +908,7 @@ function EquipmentReport({ data }: { data: EquipmentReportData }) {
               <XAxis dataKey="month" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
               <Tooltip formatter={(value) => [typeof value === 'number' ? fmtTnd(value) : String(value ?? '')]} />
-              <Line type="monotone" dataKey="totalCost" name="Dépenses engins" stroke="#D97706" strokeWidth={2} dot={{ r: 3 }} />
+              <Line type="monotone" dataKey="totalCost" name="Dépenses engins" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>
         </Section>

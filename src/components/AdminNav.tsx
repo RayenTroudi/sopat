@@ -196,7 +196,7 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
                       }}
                     >
                       <Icon className="w-[15px] h-[15px] shrink-0" />
-                      <span className="truncate">{item.label}</span>
+                      <span className="min-w-0 leading-tight break-words">{item.label}</span>
                     </Link>
                   )
                 })}

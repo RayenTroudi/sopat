@@ -21,8 +21,8 @@
 
   --font-display: var(--font-cormorant);
   --font-playfair: var(--font-playfair);
-  --font-sans: var(--font-inter);
-  --font-dm: var(--font-inter);
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-dm: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 :root {
@@ -55,8 +55,48 @@
   --admin-amber-dim: rgba(184, 135, 10, 0.08);
   --admin-emerald: #1C7A48;
   --admin-emerald-dim: rgba(28, 122, 72, 0.08);
+  --admin-emerald-ring: rgba(28, 122, 72, 0.22);
   --admin-blue: #2563EB;
   --admin-blue-dim: rgba(37, 99, 235, 0.08);
+  --admin-blue-ring: rgba(37, 99, 235, 0.22);
+  --admin-red-ring: rgba(217, 79, 79, 0.22);
+  --admin-amber-ring: rgba(184, 135, 10, 0.22);
+  --admin-slate: #475569;
+  --admin-slate-dim: rgba(71, 85, 105, 0.08);
+  --admin-slate-ring: rgba(71, 85, 105, 0.22);
+  --admin-purple: #7C3AED;
+  --admin-purple-dim: rgba(124, 58, 237, 0.08);
+  --admin-purple-ring: rgba(124, 58, 237, 0.22);
+  --admin-teal: #0D9488;
+  --admin-teal-dim: rgba(13, 148, 136, 0.08);
+  --admin-teal-ring: rgba(13, 148, 136, 0.22);
+
+  /* Semantic status aliases */
+  --admin-success: var(--admin-emerald);
+  --admin-success-dim: var(--admin-emerald-dim);
+  --admin-warning: var(--admin-amber);
+  --admin-warning-dim: var(--admin-amber-dim);
+  --admin-error: var(--admin-red);
+  --admin-error-dim: var(--admin-red-dim);
+  --admin-info: var(--admin-blue);
+  --admin-info-dim: var(--admin-blue-dim);
+  --admin-neutral: var(--admin-slate);
+  --admin-neutral-dim: var(--admin-slate-dim);
+
+  /* Card depth */
+  --admin-shadow-sm: 0 1px 2px rgba(15, 36, 25, 0.04);
+  --admin-shadow-md: 0 4px 12px rgba(15, 36, 25, 0.06), 0 1px 3px rgba(15, 36, 25, 0.04);
+  --admin-shadow-lg: 0 10px 24px rgba(15, 36, 25, 0.08), 0 2px 6px rgba(15, 36, 25, 0.05);
+
+  /* Chart palette — coherent, brand-aligned */
+  --chart-1: #1C7A48;
+  --chart-2: #C9A84C;
+  --chart-3: #2563EB;
+  --chart-4: #B8870A;
+  --chart-5: #7C3AED;
+  --chart-6: #0D9488;
+  --chart-7: #D94F4F;
+  --chart-8: #475569;
 
   /* shadcn ↔ SOPAT token bridge */
   --background:           var(--admin-bg);
@@ -88,8 +128,136 @@ html {
 body {
   background-color: var(--ivory);
   color: var(--charcoal);
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01", "ss03";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* ─── Typography system (Geist) ───────────────────────────────
+   Reusable hierarchy classes for the Admin Panel.
+   Use these instead of ad-hoc font-size / font-weight pairs. */
+.t-page-title {
+  font-family: var(--font-sans);
+  font-size: 1.875rem;     /* 30px */
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+.t-section-title {
+  font-family: var(--font-sans);
+  font-size: 1.375rem;     /* 22px */
+  line-height: 1.875rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--admin-text);
+}
+.t-card-title {
+  font-family: var(--font-sans);
+  font-size: 1rem;         /* 16px */
+  line-height: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--admin-text);
+}
+.t-card-title-lg {
+  font-family: var(--font-sans);
+  font-size: 1.125rem;     /* 18px */
+  line-height: 1.625rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--admin-text);
+}
+.t-metric {
+  font-family: var(--font-sans);
+  font-size: 1.875rem;     /* 30px */
+  line-height: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+}
+.t-metric-lg {
+  font-family: var(--font-sans);
+  font-size: 2rem;         /* 32px */
+  line-height: 2.375rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--admin-text);
+  font-variant-numeric: tabular-nums;
+}
+.t-table-header {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;     /* 14px */
+  line-height: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--admin-text-muted);
+}
+.t-body {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;     /* 14px */
+  line-height: 1.375rem;
+  font-weight: 400;
+  color: var(--admin-text);
+}
+.t-body-lg {
+  font-family: var(--font-sans);
+  font-size: 1rem;         /* 16px */
+  line-height: 1.5rem;
+  font-weight: 400;
+  color: var(--admin-text);
+}
+.t-label {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;    /* 13px */
+  line-height: 1.125rem;
+  font-weight: 500;
+  color: var(--admin-text);
+}
+.t-label-lg {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;     /* 14px */
+  line-height: 1.25rem;
+  font-weight: 500;
+  color: var(--admin-text);
+}
+.t-helper {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;      /* 12px */
+  line-height: 1rem;
+  font-weight: 400;
+  color: var(--admin-text-muted);
+}
+.t-button {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;     /* 14px */
+  line-height: 1.25rem;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.t-badge {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;      /* 12px */
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.t-nav {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;     /* 14px */
+  line-height: 1.25rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.t-nav-lg {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;    /* 15px */
+  line-height: 1.375rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
 }
 
 /* ─── Scroll reveal ─── */
@@ -262,6 +430,42 @@ body {
   background: var(--admin-card);
   color: var(--admin-text);
 }
+
+/* ─── Admin card depth ─── */
+.admin-card {
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
+  border-radius: 0.75rem;
+  box-shadow: var(--admin-shadow-sm);
+  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+}
+.admin-card-hover:hover {
+  box-shadow: var(--admin-shadow-md);
+  border-color: var(--admin-border-light);
+}
+
+/* ─── Status pills — consistent across all surfaces ─── */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.4;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.status-pill-success { background: var(--admin-success-dim); color: var(--admin-success); border-color: var(--admin-emerald-ring); }
+.status-pill-warning { background: var(--admin-warning-dim); color: var(--admin-warning); border-color: var(--admin-amber-ring); }
+.status-pill-error   { background: var(--admin-error-dim);   color: var(--admin-error);   border-color: var(--admin-red-ring); }
+.status-pill-info    { background: var(--admin-info-dim);    color: var(--admin-info);    border-color: var(--admin-blue-ring); }
+.status-pill-neutral { background: var(--admin-neutral-dim); color: var(--admin-neutral); border-color: var(--admin-slate-ring); }
+.status-pill-accent  { background: var(--admin-accent-dim);  color: var(--admin-accent);  border-color: rgba(201,168,76,0.32); }
+.status-pill-purple  { background: var(--admin-purple-dim);  color: var(--admin-purple);  border-color: var(--admin-purple-ring); }
+.status-pill-teal    { background: var(--admin-teal-dim);    color: var(--admin-teal);    border-color: var(--admin-teal-ring); }
 
 /* ─── Admin glow line ─── */
 .admin-glow-line {
