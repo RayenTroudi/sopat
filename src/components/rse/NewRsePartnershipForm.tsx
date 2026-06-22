@@ -254,8 +254,8 @@ export function NewRsePartnershipForm({
 
         <Field label="Nom de l'équipe" error={errors.teamName?.message}>
           <Select
-            value={(watch('teamName') ?? '') === '' ? '__none__' : (watch('teamName') as string)}
-            onValueChange={(v) => setValue('teamName', (v === '__none__' ? '' : v) as FormValues['teamName'])}
+            value={watch('teamName') ? (watch('teamName') as string) : '__none__'}
+            onValueChange={(v) => setValue('teamName', (v === '__none__' ? undefined : v) as FormValues['teamName'])}
           >
             <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="Sélectionner une équipe..." />

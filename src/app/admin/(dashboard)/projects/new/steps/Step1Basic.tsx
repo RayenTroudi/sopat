@@ -99,8 +99,8 @@ export function Step1Basic({
 
         <Field label="Type de projet" error={errors.projectType?.message} required>
           <Select
-            value={(watch('projectType') ?? '') === '' ? '__none__' : (watch('projectType') as string)}
-            onValueChange={(v) => setValue('projectType', (v === '__none__' ? '' : v) as WizardFormValues['projectType'])}
+            value={watch('projectType') ? (watch('projectType') as string) : '__none__'}
+            onValueChange={(v) => setValue('projectType', (v === '__none__' ? undefined : v) as WizardFormValues['projectType'])}
           >
             <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="— Sélectionner —" />
@@ -136,7 +136,7 @@ export function Step1Basic({
 
         <Field label="Secteur client" error={errors.clientSector?.message}>
           <Select
-            value={(watch('clientSector') ?? '') === '' ? '__none__' : (watch('clientSector') as string)}
+            value={watch('clientSector') ? (watch('clientSector') as string) : '__none__'}
             onValueChange={(v) => setValue('clientSector', (v === '__none__' ? undefined : v) as WizardFormValues['clientSector'])}
           >
             <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>

@@ -183,8 +183,8 @@ export function CommunicationTab({
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type <span className="text-red-500">*</span></label>
               <Select
-                value={(watch('communicationType') ?? '') === '' ? '__none__' : (watch('communicationType') as string)}
-                onValueChange={(v) => setValue('communicationType', (v === '__none__' ? '' : v) as SubmitValues['communicationType'])}
+                value={watch('communicationType') ? (watch('communicationType') as string) : '__none__'}
+                onValueChange={(v) => setValue('communicationType', (v === '__none__' ? undefined : v) as SubmitValues['communicationType'])}
               >
                 <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue placeholder="Sélectionner..." />
