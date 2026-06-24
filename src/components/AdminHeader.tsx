@@ -81,7 +81,7 @@ export function AdminHeader({ name, role }: Props) {
 
   return (
     <header
-      className="h-14 flex items-center justify-between px-4 lg:px-6 flex-shrink-0 sticky top-0 z-30"
+      className="h-12 flex items-center justify-between px-4 lg:px-5 flex-shrink-0 sticky top-0 z-30"
       style={{ background: 'var(--admin-surface)', borderBottom: '1px solid var(--admin-border)' }}
     >
       {/* Left: hamburger (mobile) + breadcrumbs (desktop) */}

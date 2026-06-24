@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <AdminNav role={session.role} name={session.name} />
         <div className="flex-1 flex flex-col min-w-0">
           <AdminHeader name={session.name} role={session.role} />
-          <main className="flex-1 p-6 admin-fade-in" style={{ background: 'var(--admin-bg)' }}>
+          <main className="flex-1 p-5 admin-fade-in" style={{ background: 'var(--admin-bg)' }}>
             {children}
           </main>
         </div>

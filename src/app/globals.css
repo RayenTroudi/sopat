@@ -10,10 +10,10 @@
   --color-mist: #E8E4DC;
 
   /* Admin light palette */
-  --color-admin-bg: #F4F6F5;
+  --color-admin-bg: #F6F7F7;
   --color-admin-surface: #FFFFFF;
   --color-admin-card: #FFFFFF;
-  --color-admin-border: #E2EBE7;
+  --color-admin-border: #E4E7E6;
   --color-admin-text: #1A2E24;
   --color-admin-muted: #5A7A6A;
   --color-admin-accent: #C9A84C;
@@ -36,11 +36,11 @@
   --white: #FFFFFF;
 
   /* Admin light theme */
-  --admin-bg: #F4F6F5;
+  --admin-bg: #F6F7F7;
   --admin-surface: #FFFFFF;
   --admin-card: #FFFFFF;
-  --admin-card-hover: #F7FAF8;
-  --admin-border: #E2EBE7;
+  --admin-card-hover: #F9FAFB;
+  --admin-border: #E4E7E6;
   --admin-border-light: #C8DBD2;
   --admin-text: #1A2E24;
   --admin-text-muted: #5A7A6A;
@@ -118,7 +118,7 @@
   --card-foreground:      var(--admin-text);
   --popover:              var(--admin-surface);
   --popover-foreground:   var(--admin-text);
-  --radius:               0.75rem;
+  --radius:               0.5rem;
 }
 
 html {
@@ -140,21 +140,29 @@ body {
    Use these instead of ad-hoc font-size / font-weight pairs. */
 .t-page-title {
   font-family: var(--font-sans);
-  font-size: 1.875rem;     /* 30px */
-  line-height: 2.25rem;
-  font-weight: 700;
+  font-size: 1.5rem;       /* 24px */
+  line-height: 2rem;
+  font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--admin-text);
 }
 .t-section-title {
   font-family: var(--font-sans);
-  font-size: 1.375rem;     /* 22px */
-  line-height: 1.875rem;
+  font-size: 1.125rem;     /* 18px */
+  line-height: 1.625rem;
   font-weight: 600;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.01em;
   color: var(--admin-text);
 }
 .t-card-title {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;     /* 14px */
+  line-height: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--admin-text);
+}
+.t-card-title-lg {
   font-family: var(--font-sans);
   font-size: 1rem;         /* 16px */
   line-height: 1.5rem;
@@ -162,29 +170,21 @@ body {
   letter-spacing: -0.005em;
   color: var(--admin-text);
 }
-.t-card-title-lg {
-  font-family: var(--font-sans);
-  font-size: 1.125rem;     /* 18px */
-  line-height: 1.625rem;
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  color: var(--admin-text);
-}
 .t-metric {
   font-family: var(--font-sans);
-  font-size: 1.875rem;     /* 30px */
-  line-height: 2.25rem;
+  font-size: 1.5rem;       /* 24px */
+  line-height: 2rem;
   font-weight: 700;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   color: var(--admin-text);
   font-variant-numeric: tabular-nums;
 }
 .t-metric-lg {
   font-family: var(--font-sans);
-  font-size: 2rem;         /* 32px */
-  line-height: 2.375rem;
+  font-size: 1.75rem;      /* 28px */
+  line-height: 2.125rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.025em;
   color: var(--admin-text);
   font-variant-numeric: tabular-nums;
 }
@@ -317,21 +317,21 @@ body {
 
 /* ─── Custom scrollbar ─── */
 ::-webkit-scrollbar {
-  width: 5px;
+  width: 4px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--ivory);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--gold);
-  border-radius: 0;
+  background: var(--admin-border-light);
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #b8952f;
+  background: var(--admin-muted);
 }
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--gold) var(--ivory);
+  scrollbar-color: var(--admin-border-light) transparent;
 }
 
 /* ─── Admin page transition ─── */
@@ -435,12 +435,10 @@ body {
 .admin-card {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
-  border-radius: 0.75rem;
-  box-shadow: var(--admin-shadow-sm);
-  transition: box-shadow 0.2s ease, transform 0.2s ease, border-color 0.2s ease;
+  border-radius: 8px;
+  transition: border-color 0.15s ease;
 }
 .admin-card-hover:hover {
-  box-shadow: var(--admin-shadow-md);
   border-color: var(--admin-border-light);
 }
 

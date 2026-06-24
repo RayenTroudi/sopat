@@ -129,44 +129,38 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
     <>
       {/* Logo */}
       <div
-        className="h-14 flex items-center px-5 shrink-0 border-b"
+        className="h-12 flex items-center px-4 shrink-0 border-b"
         style={{ borderColor: goldBorder }}
       >
         <span
-          className="font-bold text-sm tracking-widest uppercase"
-          style={{ color: ivory, letterSpacing: '0.12em', fontFamily: 'var(--font-sans)' }}
+          className="font-semibold text-[13px] tracking-tight"
+          style={{ color: ivory, fontFamily: 'var(--font-sans)' }}
         >
           SOPAT
         </span>
         <span
-          className="ml-2.5 text-[10px] px-1.5 py-0.5 rounded font-semibold tracking-wide"
-          style={{ background: gold, color: '#0F2419' }}
+          className="ml-2 text-[10px] px-1.5 py-px rounded font-semibold"
+          style={{ background: 'rgba(201,168,76,0.18)', color: gold, border: `1px solid ${goldBorder}` }}
         >
           Admin
         </span>
       </div>
 
       {/* Nav links */}
-      <nav className="admin-sidebar-scroll flex-1 overflow-y-auto py-4 px-2.5 space-y-0.5">
+      <nav className="admin-sidebar-scroll flex-1 overflow-y-auto py-3 px-3">
         {visibleGroups.map((g, gi) => {
           const isFirst = gi === 0
           return (
-            <div key={(g.label ?? 'top') + '-' + gi}>
-              {!isFirst && (
-                <div
-                  className="mx-2 my-3"
-                  style={{ height: '1px', background: divider }}
-                />
-              )}
+            <div key={(g.label ?? 'top') + '-' + gi} className={isFirst ? '' : 'mt-4'}>
               {g.label && (
                 <p
-                  className="px-3 pt-1 pb-1.5 text-[10px] font-semibold uppercase tracking-widest"
-                  style={{ color: gold, letterSpacing: '0.13em' }}
+                  className="px-2 pb-1 text-[10px] font-medium uppercase"
+                  style={{ color: 'rgba(245,240,232,0.35)', letterSpacing: '0.08em' }}
                 >
                   {g.label}
                 </p>
               )}
-              <div className="space-y-0.5">
+              <div className="space-y-px">
                 {g.items.filter(itemVisible).map((item) => {
                   const active = isActive(item)
                   const Icon = item.icon
@@ -176,27 +170,27 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
                       href={item.href}
                       onClick={onNavigate}
                       className={cn(
-                        'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150',
-                        active ? 'font-semibold' : 'font-normal'
+                        'flex items-center gap-2.5 px-2 py-1.5 rounded text-[13px] transition-colors duration-100',
+                        active ? 'font-medium' : 'font-normal'
                       )}
                       style={{
-                        color:       active ? gold : ivory,
-                        background:  active ? goldDim : 'transparent',
-                        borderLeft:  active ? `2px solid ${gold}` : '2px solid transparent',
+                        color:       active ? ivory : ivoryDim,
+                        background:  active ? 'rgba(245,240,232,0.10)' : 'transparent',
                       }}
                       onMouseEnter={(e) => {
-                        if (!active) {
-                          e.currentTarget.style.background = ivoryFaint
-                        }
+                        if (!active) e.currentTarget.style.background = ivoryFaint
+                        if (!active) e.currentTarget.style.color = ivory
                       }}
                       onMouseLeave={(e) => {
-                        if (!active) {
-                          e.currentTarget.style.background = 'transparent'
-                        }
+                        if (!active) e.currentTarget.style.background = 'transparent'
+                        if (!active) e.currentTarget.style.color = ivoryDim
                       }}
                     >
-                      <Icon className="w-[15px] h-[15px] shrink-0" />
-                      <span className="min-w-0 leading-tight break-words">{item.label}</span>
+                      <Icon className="w-[14px] h-[14px] shrink-0 opacity-70" style={{ color: active ? gold : 'inherit' }} />
+                      <span className="min-w-0 truncate">{item.label}</span>
+                      {active && (
+                        <span className="ml-auto w-1 h-1 rounded-full shrink-0" style={{ background: gold }} />
+                      )}
                     </Link>
                   )
                 })}
@@ -208,22 +202,21 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
 
       {/* Footer */}
       <div
-        className="px-4 py-3 border-t"
+        className="px-3 py-3 border-t"
         style={{ borderColor: goldBorder }}
       >
         {name && (
-          <div className="flex items-center gap-2.5 mb-3">
+          <div className="flex items-center gap-2 mb-2">
             <div
-              className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
+              className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0"
               style={{ background: goldDim, color: gold, border: `1px solid ${goldBorder}` }}
             >
               {initials(name)}
             </div>
-            <p className="text-xs font-medium truncate" style={{ color: ivory }}>{name}</p>
+            <p className="text-xs truncate" style={{ color: ivoryDim }}>{name}</p>
           </div>
         )}
-        <p className="text-[10px] font-medium tracking-wide" style={{ color: ivoryDim }}>ISO 9001:2015</p>
-        <p className="text-[10px] mt-0.5" style={{ color: 'rgba(245,240,232,0.22)' }}>v1.0 · SOPAT Admin</p>
+        <p className="text-[10px]" style={{ color: 'rgba(245,240,232,0.22)' }}>ISO 9001:2015 · v1.0</p>
       </div>
     </>
   )
@@ -232,8 +225,8 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
 export function AdminNav({ role, name }: { role?: UserRole; name?: string }) {
   return (
     <aside
-      className="hidden lg:flex flex-col w-56 shrink-0 h-screen sticky top-0"
-      style={{ background: 'var(--green)', borderRight: `1px solid ${goldBorder}` }}
+      className="hidden lg:flex flex-col shrink-0 h-screen sticky top-0"
+      style={{ width: '220px', background: 'var(--green)', borderRight: `1px solid ${goldBorder}` }}
     >
       <AdminNavContent role={role} name={name} />
     </aside>

@@ -18,12 +18,12 @@ export function AtRiskTable({ projects }: { projects: AtRiskProject[] }) {
   }
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto -mx-4">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
-            {['Référence', 'Projet', 'Phase', 'Budget consommé', 'Délai', 'Risques'].map((h) => (
-              <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+            {['Référence', 'Projet', 'Phase', 'Budget', 'Délai', 'Risques'].map((h) => (
+              <th key={h} className="text-left px-4 py-2 text-[11px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -38,52 +38,51 @@ export function AtRiskTable({ projects }: { projects: AtRiskProject[] }) {
             return (
               <tr
                 key={p.id}
-                className="hover:bg-[var(--admin-bg)] transition-colors"
+                className="admin-tr"
                 style={{ borderBottom: '1px solid var(--admin-border)' }}
               >
-                <td className="px-4 py-3">
-                  <Link href={`/admin/projects/${p.id}`} className="font-mono text-xs font-semibold hover:underline" style={{ color: 'var(--admin-blue)' }}>
+                <td className="px-4 py-2.5">
+                  <Link href={`/admin/projects/${p.id}`} className="font-mono text-[11px] font-semibold hover:underline" style={{ color: 'var(--admin-text-muted)' }}>
                     {p.reference}
                   </Link>
                 </td>
-                <td className="px-4 py-3 max-w-[160px]">
-                  <p className="truncate font-medium text-sm" style={{ color: 'var(--admin-text)' }}>{p.name}</p>
-                  <p className="truncate text-xs" style={{ color: 'var(--admin-text-muted)' }}>{p.clientName}</p>
+                <td className="px-4 py-2.5 max-w-[160px]">
+                  <p className="truncate text-[13px] font-medium" style={{ color: 'var(--admin-text)' }}>{p.name}</p>
+                  <p className="truncate text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{p.clientName}</p>
                 </td>
-                <td className="px-4 py-3">
-                  <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                <td className="px-4 py-2.5">
+                  <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>
                     {STATUS_LABELS[p.status] ?? p.status}
                   </span>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-2.5">
                   {p.spendPct !== null ? (
-                    <div className="space-y-1">
-                      <span className="text-sm font-semibold tabular-nums" style={{ color: spendColor }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-1 rounded-full overflow-hidden shrink-0" style={{ background: 'var(--admin-border)' }}>
+                        <div className="h-full" style={{ width: `${Math.min(p.spendPct, 100)}%`, background: spendColor }} />
+                      </div>
+                      <span className="text-[11px] font-medium tabular-nums" style={{ color: spendColor }}>
                         {p.spendPct.toFixed(0)}%
                       </span>
-                      <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--admin-border)' }}>
-                        <div className="h-full rounded-full" style={{ width: `${Math.min(p.spendPct, 100)}%`, background: spendColor }} />
-                      </div>
                     </div>
                   ) : (
-                    <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>—</span>
+                    <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>—</span>
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-2.5 whitespace-nowrap">
                   {p.estimatedDeliveryDate ? (
-                    <span className="text-xs" style={{ color: p.daysUntilDeadline !== null && p.daysUntilDeadline <= 0 ? 'var(--admin-red)' : p.daysUntilDeadline !== null && p.daysUntilDeadline <= 7 ? 'var(--admin-amber)' : 'var(--admin-text-muted)' }}>
-                      {p.daysUntilDeadline !== null && p.daysUntilDeadline <= 0 ? 'Dépassé' : p.daysUntilDeadline !== null ? `J${p.daysUntilDeadline < 0 ? '' : '+'}${p.daysUntilDeadline}` : ''}
-                      {' '}
+                    <span className="text-[11px]" style={{ color: p.daysUntilDeadline !== null && p.daysUntilDeadline <= 0 ? 'var(--admin-red)' : p.daysUntilDeadline !== null && p.daysUntilDeadline <= 7 ? 'var(--admin-amber)' : 'var(--admin-text-muted)' }}>
+                      {p.daysUntilDeadline !== null && p.daysUntilDeadline <= 0 ? 'Dépassé · ' : p.daysUntilDeadline !== null ? `J+${p.daysUntilDeadline} · ` : ''}
                       {new Date(p.estimatedDeliveryDate).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
                     </span>
                   ) : (
-                    <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>—</span>
+                    <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>—</span>
                   )}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-2.5">
                   <div className="flex flex-wrap gap-1">
                     {p.riskReasons.map((r, i) => (
-                      <span key={i} className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+                      <span key={i} className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
                         {r}
                       </span>
                     ))}

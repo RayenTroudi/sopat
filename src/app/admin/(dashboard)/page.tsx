@@ -37,22 +37,24 @@ const VISIT_TYPE_LABELS: Record<string, string> = {
 
 function Section({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <Card className="overflow-hidden">
-      <CardHeader className="flex flex-row items-center justify-between py-3 px-5 space-y-0">
-        <CardTitle className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</CardTitle>
+    <div
+      className="overflow-hidden"
+      style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px' }}
+    >
+      <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: '1px solid var(--admin-border)' }}>
+        <p className="text-[13px] font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</p>
         {action}
-      </CardHeader>
-      <Separator style={{ background: 'var(--admin-border)' }} />
-      <CardContent className="p-5">{children}</CardContent>
-    </Card>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
   )
 }
 
 function StarRating({ score }: { score: number }) {
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5 mt-1">
       {[1, 2, 3, 4, 5].map((s) => (
-        <span key={s} className="text-lg" style={{ color: score >= s ? '#F59E0B' : 'var(--admin-border)' }}>★</span>
+        <span key={s} className="text-sm leading-none" style={{ color: score >= s ? '#D97706' : 'var(--admin-border)' }}>★</span>
       ))}
     </div>
   )
@@ -90,9 +92,9 @@ export default async function AdminDashboard() {
     : 'green'
 
   const mainDashboard = (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* KPI cards — 4 columns */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
         <MetricCard
           icon={FolderOpen}
@@ -136,7 +138,7 @@ export default async function AdminDashboard() {
       </div>
 
       {/* Second row of KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
         <MetricCard
           icon={CheckCircle2}
@@ -170,7 +172,7 @@ export default async function AdminDashboard() {
 
       {/* RSE Partnerships card */}
       {(rseData.activeCount > 0 || rseData.overdueCommitmentsCount > 0) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <MetricCard
             icon={Handshake}
             title="Partenariats RSE actifs"
@@ -197,11 +199,14 @@ export default async function AdminDashboard() {
               : 'amber'
             }
           />
-          <div className="flex items-center justify-center">
+          <div
+            className="flex items-center justify-center rounded-lg border border-dashed"
+            style={{ borderColor: 'var(--admin-border)', minHeight: '88px' }}
+          >
             <Link
               href="/admin/rse/partnerships"
-              className="text-sm font-medium px-4 py-2 rounded-lg"
-              style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}
+              className="text-xs font-medium"
+              style={{ color: 'var(--admin-text-muted)' }}
             >
               Voir les partenariats →
             </Link>
@@ -210,13 +215,13 @@ export default async function AdminDashboard() {
       )}
 
       {/* Bottom grid: activity + risk + visits */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
         <Section title="Activité récente">
           <ActivityFeed entries={activity} />
         </Section>
 
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4">
           <Section
             title={`Projets à risque${atRisk.length > 0 ? ` — ${atRisk.length}` : ''}`}
             action={
@@ -258,49 +263,48 @@ export default async function AdminDashboard() {
             {upcomingVisits.length === 0 ? (
               <EmptyState icon={CalendarX} title="Aucune visite planifiée" description="Pas de visite dans les 7 prochains jours." />
             ) : (
-              <div className="space-y-2">
+              <div className="divide-y" style={{ borderColor: 'var(--admin-border)' }}>
                 {upcomingVisits.map((v) => {
                   const dayDiff = Math.ceil((new Date(v.visitDate).getTime() - Date.now()) / 86400000)
+                  const urgent = dayDiff <= 1
                   return (
                     <div
                       key={v.id}
-                      className="flex items-center gap-4 px-4 py-3 rounded-lg border"
-                      style={{ borderColor: 'var(--admin-border)' }}
+                      className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
                     >
-                      <div className="shrink-0 w-12 text-center">
-                        <p className="text-lg font-bold tabular-nums leading-none" style={{ color: 'var(--admin-emerald)' }}>
+                      <div className="shrink-0 w-10 text-center">
+                        <p className="text-sm font-bold tabular-nums leading-none" style={{ color: urgent ? 'var(--admin-amber)' : 'var(--admin-text)' }}>
                           {new Date(v.visitDate).getDate()}
                         </p>
-                        <p className="text-xs uppercase" style={{ color: 'var(--admin-text-muted)' }}>
+                        <p className="text-[10px] uppercase mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
                           {new Date(v.visitDate).toLocaleDateString('fr-FR', { month: 'short' })}
                         </p>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: 'var(--admin-text)' }}>
+                        <p className="text-[13px] font-medium truncate" style={{ color: 'var(--admin-text)' }}>
                           {v.projectName ?? '—'}
                         </p>
-                        <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                        <p className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>
                           {VISIT_TYPE_LABELS[v.visitType] ?? v.visitType}
                           {v.teamMemberName ? ` · ${v.teamMemberName}` : ''}
                           {v.durationHours ? ` · ${v.durationHours}h` : ''}
                         </p>
                       </div>
-                      <span
-                        className="text-xs px-2 py-0.5 rounded font-medium shrink-0"
-                        style={{
-                          background: dayDiff <= 1 ? 'var(--admin-amber-dim)' : 'var(--admin-emerald-dim)',
-                          color:      dayDiff <= 1 ? 'var(--admin-amber)'     : 'var(--admin-emerald)',
-                        }}
-                      >
-                        {dayDiff <= 0 ? "Aujourd'hui" : dayDiff === 1 ? 'Demain' : `J+${dayDiff}`}
-                      </span>
-                      <Link
-                        href={`/admin/projects/${v.projectId}?tab=entretien`}
-                        className="text-xs shrink-0 hover:underline"
-                        style={{ color: 'var(--admin-blue)' }}
-                      >
-                        Voir →
-                      </Link>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span
+                          className="text-[11px] font-medium"
+                          style={{ color: urgent ? 'var(--admin-amber)' : 'var(--admin-text-muted)' }}
+                        >
+                          {dayDiff <= 0 ? "Auj." : dayDiff === 1 ? 'Dem.' : `J+${dayDiff}`}
+                        </span>
+                        <Link
+                          href={`/admin/projects/${v.projectId}?tab=entretien`}
+                          className="text-[11px] hover:underline"
+                          style={{ color: 'var(--admin-text-muted)' }}
+                        >
+                          →
+                        </Link>
+                      </div>
                     </div>
                   )
                 })}
@@ -314,17 +318,21 @@ export default async function AdminDashboard() {
   )
 
   return (
-    <div className="space-y-6 max-w-[1400px]">
+    <div className="space-y-5 max-w-[1400px]">
       {/* Page title */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Tableau de bord</h1>
+          <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>Tableau de bord</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            Objectifs qualité ISO 9001:2015 · Mis à jour en temps réel
+            ISO 9001:2015 · Temps réel
           </p>
         </div>
-        <Link href="/admin/reports" className="text-xs px-3 py-1.5 rounded-lg font-medium" style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>
-          Voir les rapports →
+        <Link
+          href="/admin/reports"
+          className="text-xs px-3 py-1.5 font-medium transition-colors"
+          style={{ background: 'var(--admin-bg)', color: 'var(--admin-text-muted)', border: '1px solid var(--admin-border)', borderRadius: '6px' }}
+        >
+          Rapports →
         </Link>
       </div>
 
