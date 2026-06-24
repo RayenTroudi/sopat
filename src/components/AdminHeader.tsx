@@ -2,18 +2,9 @@
 'use client'
 
 import { useState } from 'react'
-import { usePathname } from 'next/navigation'
-import { Menu, Bell, ChevronDown } from 'lucide-react'
+import { Menu, Bell, ChevronDown, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,135 +19,105 @@ import LogoutButton from '@/components/auth/LogoutButton'
 import { ROLE_LABELS } from '@/lib/auth-utils'
 import type { UserRole } from '@/lib/auth-utils'
 
-const SEGMENT_LABELS: Record<string, string> = {
-  admin: 'Admin',
-  projects: 'Projets',
-  clients: 'Clients',
-  nc: 'Non-conformités',
-  audits: 'Audits',
-  documents: 'Documents',
-  suppliers: 'Fournisseurs',
-  design: 'Design',
-  concepts: 'Concepts',
-  templates: 'Modèles',
-  rse: 'RSE',
-  partnerships: 'Partenariats',
-  events: 'Événements',
-  impact: 'Impact RSE',
-  direction: 'Direction',
-  achievements: 'Réalisations',
-  portfolio: 'Portfolio',
-  reports: 'Rapports',
-  team: 'Équipe',
-  settings: 'Paramètres',
-  currencies: 'Devises',
-  ml: 'Modèle ML',
-  new: 'Nouveau',
-  'calendrier-entretien': 'Calendrier visites',
-}
-
 function initials(name: string) {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
-}
-
-function useBreadcrumbs(pathname: string) {
-  const segments = pathname.split('/').filter(Boolean)
-  // Always starts with 'admin', show up to 3 levels
-  const crumbs: { label: string; href: string; isLast: boolean }[] = []
-  let path = ''
-  for (let i = 0; i < Math.min(segments.length, 3); i++) {
-    path += '/' + segments[i]
-    const label = SEGMENT_LABELS[segments[i]] ?? segments[i]
-    crumbs.push({ label, href: path, isLast: i === segments.length - 1 || i === 2 })
-  }
-  return crumbs
 }
 
 type Props = { name: string; role: UserRole }
 
 export function AdminHeader({ name, role }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const pathname = usePathname()
-  const crumbs = useBreadcrumbs(pathname)
 
   return (
     <header
-      className="h-12 flex items-center justify-between px-4 lg:px-5 flex-shrink-0 sticky top-0 z-30"
-      style={{ background: 'var(--admin-surface)', borderBottom: '1px solid var(--admin-border)' }}
+      className="h-12 flex items-center justify-between px-4 lg:px-5 flex-shrink-0"
+      style={{ background: '#F4F8F5', borderRadius: '20px', margin: '8px 8px 0 8px' }}
     >
-      {/* Left: hamburger (mobile) + breadcrumbs (desktop) */}
-      <div className="flex items-center gap-3 min-w-0">
+      {/* Left: hamburger (mobile) + search */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <Button
           variant="ghost"
           size="icon"
           className="lg:hidden shrink-0"
+          style={{ color: '#2F6F4F' }}
           onClick={() => setSidebarOpen(true)}
         >
           <Menu className="w-5 h-5" />
         </Button>
 
-        <Breadcrumb className="hidden lg:flex">
-          <BreadcrumbList>
-            {crumbs.map((crumb, i) => (
-              <span key={crumb.href} className="flex items-center gap-1.5">
-                {i > 0 && <BreadcrumbSeparator />}
-                <BreadcrumbItem>
-                  {crumb.isLast ? (
-                    <BreadcrumbPage className="text-sm font-medium" style={{ color: 'var(--admin-text)' }}>
-                      {crumb.label}
-                    </BreadcrumbPage>
-                  ) : (
-                    <BreadcrumbLink href={crumb.href} className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>
-                      {crumb.label}
-                    </BreadcrumbLink>
-                  )}
-                </BreadcrumbItem>
-              </span>
-            ))}
-          </BreadcrumbList>
-        </Breadcrumb>
+        <div
+          className="relative hidden lg:flex items-center"
+          style={{ maxWidth: '320px', width: '100%' }}
+        >
+          <Search
+            className="absolute left-3 pointer-events-none"
+            style={{ width: '14px', height: '14px', color: 'rgba(47,111,79,0.5)' }}
+          />
+          <input
+            type="search"
+            placeholder="Rechercher…"
+            className="w-full text-sm outline-none bg-transparent"
+            style={{
+              height:       '34px',
+              paddingLeft:  '34px',
+              paddingRight: '12px',
+              borderRadius: '10px',
+              border:       '1.5px solid rgba(47,111,79,0.2)',
+              color:        '#2F6F4F',
+              background:   '#F4F8F5',
+            }}
+            onFocus={e => e.currentTarget.style.borderColor = 'rgba(47,111,79,0.5)'}
+            onBlur={e => e.currentTarget.style.borderColor = 'rgba(47,111,79,0.2)'}
+          />
+        </div>
       </div>
 
       {/* Right: bell + user dropdown */}
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          aria-label="Notifications"
+          style={{ color: '#2F6F4F' }}
+        >
           <Bell className="w-4 h-4" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-2 h-9">
+            <Button variant="ghost" className="flex items-center gap-2 px-2 h-9" style={{ color: '#2F6F4F' }}>
               <Avatar className="w-7 h-7">
                 <AvatarFallback
                   className="text-xs font-semibold"
-                  style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}
+                  style={{ background: 'rgba(47,111,79,0.12)', color: '#2F6F4F', border: '1px solid rgba(47,111,79,0.25)' }}
                 >
                   {initials(name)}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden sm:block text-sm font-medium" style={{ color: 'var(--admin-text)' }}>
+              <span className="hidden sm:block text-sm font-medium" style={{ color: '#2F6F4F' }}>
                 {name}
               </span>
-              <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--admin-text-muted)' }} />
+              <ChevronDown className="w-3.5 h-3.5" style={{ color: 'rgba(47,111,79,0.6)' }} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 bg-white">
+          <DropdownMenuContent align="end" className="w-52" style={{ background: '#F4F8F5', border: '1px solid rgba(47,111,79,0.15)' }}>
             <DropdownMenuLabel>
-              <p className="text-sm font-medium" style={{ color: 'var(--admin-text)' }}>{name}</p>
-              <p className="text-xs font-normal mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+              <p className="text-sm font-medium" style={{ color: '#2F6F4F' }}>{name}</p>
+              <p className="text-xs font-normal mt-0.5" style={{ color: 'rgba(47,111,79,0.6)' }}>
                 {ROLE_LABELS[role]}
               </p>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator style={{ background: 'rgba(47,111,79,0.1)' }} />
             {role === 'admin' && (
               <DropdownMenuItem asChild>
-                <a href="/admin/settings" className="cursor-pointer text-sm">Paramètres</a>
+                <a href="/admin/settings" className="cursor-pointer text-sm" style={{ color: '#2F6F4F' }}>Paramètres</a>
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
+            <DropdownMenuSeparator style={{ background: 'rgba(47,111,79,0.1)' }} />
             <DropdownMenuItem asChild>
               <div className="cursor-pointer">
-                <LogoutButton className="w-full text-left text-sm" />
+                <LogoutButton className="w-full text-left text-sm" style={{ color: '#2F6F4F' }} />
               </div>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -165,7 +126,7 @@ export function AdminHeader({ name, role }: Props) {
 
       {/* Mobile sidebar Sheet */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-56 p-0 flex flex-col" style={{ background: 'var(--admin-surface)', borderRight: '1px solid var(--admin-border)' }}>
+        <SheetContent side="left" className="w-[200px] p-0 flex flex-col" style={{ background: 'var(--admin-surface)', borderRight: '1px solid var(--admin-border)' }}>
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <AdminNavContent role={role} name={name} onNavigate={() => setSidebarOpen(false)} />
         </SheetContent>

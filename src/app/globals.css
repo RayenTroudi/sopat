@@ -10,7 +10,7 @@
   --color-mist: #E8E4DC;
 
   /* Admin green-tinted palette */
-  --color-admin-bg:      #E9F0EC;
+  --color-admin-bg:      #D4E4DA;
   --color-admin-surface: #F4F8F5;
   --color-admin-card:    #F4F8F5;
   --color-admin-border:  #C2D5C9;
@@ -41,7 +41,7 @@
      30% tint:   borders and dividers
      20% tint:   page background
   */
-  --admin-bg:          #E9F0EC;   /* green 20% tint — page canvas */
+  --admin-bg:          #D4E4DA;   /* matches sidebar active — unified content bg */
   --admin-surface:     #F4F8F5;   /* green 10% tint — cards, sidebar, header */
   --admin-card:        #F4F8F5;
   --admin-card-hover:  #EDF3EF;   /* slightly deeper on hover */
@@ -54,6 +54,7 @@
   --admin-accent-dim:  #FDF6E8;
   --admin-accent-glow: rgba(201, 168, 76, 0.15);
   --admin-green-dim:   rgba(28, 61, 46, 0.10);
+
   --admin-red: #D94F4F;
   --admin-red-dim: rgba(217, 79, 79, 0.08);
   --admin-amber: #B8870A;
@@ -75,6 +76,12 @@
   --admin-teal: #0D9488;
   --admin-teal-dim: rgba(13, 148, 136, 0.08);
   --admin-teal-ring: rgba(13, 148, 136, 0.22);
+
+  /* Sidebar */
+  --sidebar-bg:     var(--admin-surface);
+  --sidebar-hover:  #E2ECE6;
+  --sidebar-active: #D4E4DA;
+  --sidebar-accent: #2F6F4F;
 
   /* Semantic status aliases */
   --admin-success: var(--admin-emerald);
@@ -494,25 +501,46 @@ body {
   background: var(--admin-accent);
 }
 
-/* ─── Scrollbar for the admin sidebar ─── */
-.admin-sidebar-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--admin-border) transparent;
+/* ─── Replace white backgrounds with admin surface in the admin panel ─── */
+.admin-bg-override .bg-white,
+.admin-bg-override [class*="bg-white"] {
+  background-color: #F4F8F5 !important;
 }
-.admin-sidebar-scroll::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+
+/* ─── Sidebar nav: no scrollbar, still scrollable ─── */
+.admin-sidebar-nav {
+  scrollbar-width: none;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
-.admin-sidebar-scroll::-webkit-scrollbar-track {
+.admin-sidebar-nav::-webkit-scrollbar {
+  display: none;
+}
+
+/* Active nav item — merges with content area via concave notch pseudo-elements */
+.nav-item-active::before,
+.nav-item-active::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
   background: transparent;
 }
-.admin-sidebar-scroll::-webkit-scrollbar-thumb {
-  background: var(--admin-border);
-  border-radius: 2px;
+
+.nav-item-active::before {
+  top: -20px;
+  border-bottom-right-radius: 20px;
+  box-shadow: 10px 10px 0 0 var(--admin-bg);
 }
-.admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--admin-border-light);
+
+.nav-item-active::after {
+  bottom: -20px;
+  border-top-right-radius: 20px;
+  box-shadow: 10px -10px 0 0 var(--admin-bg);
 }
+
 
 /* ─── Scroll indicator ─── */
 @keyframes scrollPulse {

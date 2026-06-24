@@ -13,12 +13,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToastProvider>
-      <div className="min-h-screen flex" style={{ background: 'var(--admin-bg)', fontFamily: 'var(--font-sans)' }}>
-        <AdminNav role={session.role} name={session.name} />
+      <div className="min-h-screen flex admin-bg-override" style={{ background: '#D4E4DA', fontFamily: 'var(--font-sans)' }}>
+        <AdminNav role={session.role} />
         <div className="flex-1 flex flex-col min-w-0">
           <AdminHeader name={session.name} role={session.role} />
-          <main className="flex-1 p-5 admin-fade-in" style={{ background: 'var(--admin-bg)' }}>
-            {children}
+          <main className="flex-1 admin-fade-in" style={{ background: '#D4E4DA', padding: '8px 8px 8px 8px' }}>
+            <div style={{
+              background:   '#F4F8F5',
+              borderRadius: '20px',
+              padding:      '20px',
+              minHeight:    '100%',
+            }}>
+              {children}
+            </div>
           </main>
         </div>
       </div>

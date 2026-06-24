@@ -25,7 +25,7 @@ export function MetricCard({ title, value, subtitle, trend, accent = 'green', ic
   }
   const colors = accentColors[accent]
 
-  const trendUp = trend && trend.value > 0
+  const trendUp   = trend && trend.value > 0
   const trendDown = trend && trend.value < 0
 
   return (
