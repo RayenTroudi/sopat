@@ -9,14 +9,14 @@
   --color-charcoal: #2A2A2A;
   --color-mist: #E8E4DC;
 
-  /* Admin light palette */
-  --color-admin-bg: #F6F7F7;
-  --color-admin-surface: #FFFFFF;
-  --color-admin-card: #FFFFFF;
-  --color-admin-border: #E4E7E6;
-  --color-admin-text: #1A2E24;
-  --color-admin-muted: #5A7A6A;
-  --color-admin-accent: #C9A84C;
+  /* Admin green-tinted palette */
+  --color-admin-bg:      #E9F0EC;
+  --color-admin-surface: #F4F8F5;
+  --color-admin-card:    #F4F8F5;
+  --color-admin-border:  #C2D5C9;
+  --color-admin-text:    #1A2E24;
+  --color-admin-muted:   #4A6A5A;
+  --color-admin-accent:  #C9A84C;
   --color-admin-accent-dim: #FDF6E8;
 
   --font-display: var(--font-cormorant);
@@ -35,20 +35,25 @@
   --mist: #E8E4DC;
   --white: #FFFFFF;
 
-  /* Admin light theme */
-  --admin-bg: #F6F7F7;
-  --admin-surface: #FFFFFF;
-  --admin-card: #FFFFFF;
-  --admin-card-hover: #F9FAFB;
-  --admin-border: #E4E7E6;
-  --admin-border-light: #C8DBD2;
-  --admin-text: #1A2E24;
-  --admin-text-muted: #5A7A6A;
-  --admin-text-dim: #9BB5A8;
-  --admin-accent: #C9A84C;
-  --admin-accent-dim: #FDF6E8;
+  /* Admin green-tinted theme
+     Base green: #1C3D2E
+     50% tint:   #8E9E97  →  surfaces/sidebar at full 50% mix with white = #CEDEDB → lightened to F4F8F5
+     30% tint:   borders and dividers
+     20% tint:   page background
+  */
+  --admin-bg:          #E9F0EC;   /* green 20% tint — page canvas */
+  --admin-surface:     #F4F8F5;   /* green 10% tint — cards, sidebar, header */
+  --admin-card:        #F4F8F5;
+  --admin-card-hover:  #EDF3EF;   /* slightly deeper on hover */
+  --admin-border:      #C2D5C9;   /* green 30% tint — all borders */
+  --admin-border-light:#A8C4B8;   /* green 50% tint — focused/active borders */
+  --admin-text:        #1A2E24;   /* near-black green */
+  --admin-text-muted:  #4A6A5A;   /* green mid-tone */
+  --admin-text-dim:    #7A9A8A;   /* green light-tone */
+  --admin-accent:      #C9A84C;
+  --admin-accent-dim:  #FDF6E8;
   --admin-accent-glow: rgba(201, 168, 76, 0.15);
-  --admin-green-dim: rgba(28, 61, 46, 0.08);
+  --admin-green-dim:   rgba(28, 61, 46, 0.10);
   --admin-red: #D94F4F;
   --admin-red-dim: rgba(217, 79, 79, 0.08);
   --admin-amber: #B8870A;
@@ -103,12 +108,12 @@
   --foreground:           var(--admin-text);
   --primary:              var(--green);
   --primary-foreground:   var(--ivory);
-  --secondary:            var(--admin-bg);
+  --secondary:            var(--admin-card-hover);
   --secondary-foreground: var(--admin-text-muted);
-  --muted:                var(--admin-bg);
+  --muted:                var(--admin-card-hover);
   --muted-foreground:     var(--admin-text-muted);
-  --accent:               var(--admin-accent-dim);
-  --accent-foreground:    var(--admin-accent);
+  --accent:               var(--admin-card-hover);
+  --accent-foreground:    var(--admin-text);
   --destructive:          var(--admin-red);
   --destructive-foreground: #fff;
   --border:               var(--admin-border);
@@ -421,7 +426,7 @@ body {
 }
 .admin-input:focus {
   border-color: var(--admin-border-light);
-  box-shadow: 0 0 0 2px var(--admin-accent-glow);
+  box-shadow: 0 0 0 2px rgba(28, 61, 46, 0.12);
 }
 .admin-input::placeholder {
   color: var(--admin-text-dim);
@@ -436,9 +441,10 @@ body {
   background: var(--admin-surface);
   border: 1px solid var(--admin-border);
   border-radius: 8px;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 .admin-card-hover:hover {
+  background: var(--admin-card-hover);
   border-color: var(--admin-border-light);
 }
 
@@ -488,10 +494,10 @@ body {
   background: var(--admin-accent);
 }
 
-/* ─── Scrollbar for the dark admin sidebar (ivory/gold palette) ─── */
+/* ─── Scrollbar for the admin sidebar ─── */
 .admin-sidebar-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(201,168,76,0.28) transparent;
+  scrollbar-color: var(--admin-border) transparent;
 }
 .admin-sidebar-scroll::-webkit-scrollbar {
   width: 4px;
@@ -501,11 +507,11 @@ body {
   background: transparent;
 }
 .admin-sidebar-scroll::-webkit-scrollbar-thumb {
-  background: rgba(201,168,76,0.28);
+  background: var(--admin-border);
   border-radius: 2px;
 }
 .admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(201,168,76,0.55);
+  background: var(--admin-border-light);
 }
 
 /* ─── Scroll indicator ─── */

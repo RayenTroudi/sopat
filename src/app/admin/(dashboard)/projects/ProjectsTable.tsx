@@ -2,17 +2,15 @@
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { Search, ChevronDown, ChevronLeft, ChevronRight, FolderOpen } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FolderOpen } from 'lucide-react'
 import { PhaseBadge } from '@/components/projects/PhaseBadge'
 import { BudgetBadge } from '@/components/projects/BudgetBadge'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import type { ProjectStatus } from '@/lib/db/projects'
 
 type ProjectRow = {
   id: string
@@ -45,44 +43,35 @@ const TYPE_LABELS: Record<string, string> = {
   interieur:               'Intérieur',
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  ingenierie_territoriale: '🗺️',
-  espace_public:           '🌳',
-  siege_social:            '🏢',
-  hotelier_touristique:    '🏨',
-  residentiel:             '🏡',
-  interieur:               '🪴',
-}
-
 const TYPE_FILTER_OPTIONS = [
   { value: '', label: 'Tous les types' },
-  { value: 'ingenierie_territoriale', label: '🗺️ Ingénierie territoriale' },
-  { value: 'espace_public',           label: '🌳 Espace public' },
-  { value: 'siege_social',            label: '🏢 Siège social' },
-  { value: 'hotelier_touristique',    label: '🏨 Hôtelier & touristique' },
-  { value: 'residentiel',             label: '🏡 Résidentiel' },
-  { value: 'interieur',               label: '🪴 Intérieur' },
+  { value: 'ingenierie_territoriale', label: 'Ingénierie territoriale' },
+  { value: 'espace_public',           label: 'Espace public' },
+  { value: 'siege_social',            label: 'Siège social' },
+  { value: 'hotelier_touristique',    label: 'Hôtelier & touristique' },
+  { value: 'residentiel',             label: 'Résidentiel' },
+  { value: 'interieur',               label: 'Intérieur' },
 ]
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
+const STATUS_OPTIONS = [
   { value: '', label: 'Tous les statuts' },
-  { value: 'draft', label: 'Brouillon' },
-  { value: 'etudes', label: 'Études' },
+  { value: 'draft',       label: 'Brouillon' },
+  { value: 'etudes',      label: 'Études' },
   { value: 'realisation', label: 'Réalisation' },
-  { value: 'entretien', label: 'Entretien' },
-  { value: 'completed', label: 'Terminé' },
-  { value: 'cancelled', label: 'Annulé' },
+  { value: 'entretien',   label: 'Entretien' },
+  { value: 'completed',   label: 'Terminé' },
+  { value: 'cancelled',   label: 'Annulé' },
 ]
 
-const COUNTRY_OPTIONS: { value: string; label: string }[] = [
+const COUNTRY_OPTIONS = [
   { value: '', label: 'Tous les pays' },
-  { value: 'TN', label: '🇹🇳 Tunisie' },
-  { value: 'FR', label: '🇫🇷 France' },
-  { value: 'CI', label: "🇨🇮 Côte d'Ivoire" },
-  { value: 'MR', label: '🇲🇷 Mauritanie' },
-  { value: 'OM', label: '🇴🇲 Oman' },
-  { value: 'QA', label: '🇶🇦 Qatar' },
-  { value: 'LY', label: '🇱🇾 Libye' },
+  { value: 'TN', label: 'Tunisie' },
+  { value: 'FR', label: 'France' },
+  { value: 'CI', label: "Côte d'Ivoire" },
+  { value: 'MR', label: 'Mauritanie' },
+  { value: 'OM', label: 'Oman' },
+  { value: 'QA', label: 'Qatar' },
+  { value: 'LY', label: 'Libye' },
 ]
 
 function countryFlag(code: string): string {
@@ -92,11 +81,20 @@ function countryFlag(code: string): string {
 
 function fmt(date: Date | null): string {
   if (!date) return '—'
-  return new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return new Date(date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })
 }
 
-const selectClass = 'text-sm border rounded-lg pl-3 pr-8 py-2 appearance-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)] w-full sm:w-auto'
-const selectStyle = { background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }
+const TABLE_HEADS = [
+  { label: 'Réf.',         className: 'hidden md:table-cell w-24' },
+  { label: 'Projet',       className: '' },
+  { label: 'Client',       className: 'hidden lg:table-cell' },
+  { label: 'Type',         className: 'hidden xl:table-cell' },
+  { label: 'Pays',         className: 'hidden sm:table-cell w-12 text-center' },
+  { label: 'Phase',        className: 'w-28' },
+  { label: 'Budget',       className: 'hidden md:table-cell' },
+  { label: 'Livraison',    className: 'hidden xl:table-cell' },
+  { label: 'Créé',         className: 'hidden xl:table-cell' },
+]
 
 export function ProjectsTable({ rows, total, page, pageSize }: Props) {
   const router = useRouter()
@@ -113,88 +111,102 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
 
   const totalPages = Math.ceil(total / pageSize)
   const currentStatus = searchParams.get('status') ?? ''
+  const currentType = searchParams.get('projectType') ?? ''
+  const currentCountry = searchParams.get('country') ?? ''
+
+  const triggerStyle = { borderColor: 'var(--admin-border)', color: 'var(--admin-text)', background: 'var(--admin-surface)' }
+  const contentStyle = { borderColor: 'var(--admin-border)', color: 'var(--admin-text)', background: 'var(--admin-surface)' }
 
   return (
-    <div className="space-y-4">
-      {/* Filters bar */}
+    <div className="space-y-3">
+      {/* Filter bar */}
       <div
-        className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 lg:items-center p-3 rounded-xl border"
-        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
+        className="flex flex-wrap gap-2 items-center px-3 py-2"
+        style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px' }}
       >
-        {/* Status select */}
         <Select value={currentStatus === '' ? '__all__' : currentStatus} onValueChange={(v) => updateParam('status', v === '__all__' ? '' : v)}>
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectTrigger className="h-8 text-[13px] w-auto min-w-[130px]" style={triggerStyle}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-            {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>)}
+          <SelectContent style={contentStyle}>
+            {STATUS_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value} className="text-[13px]">{o.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        {/* Type select */}
-        <Select
-          value={(searchParams.get('projectType') ?? '') === '' ? '__all__' : (searchParams.get('projectType') ?? '')}
-          onValueChange={(v) => updateParam('projectType', v === '__all__' ? '' : v)}
-        >
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <Select value={currentType === '' ? '__all__' : currentType} onValueChange={(v) => updateParam('projectType', v === '__all__' ? '' : v)}>
+          <SelectTrigger className="h-8 text-[13px] w-auto min-w-[140px]" style={triggerStyle}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-            {TYPE_FILTER_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>)}
+          <SelectContent style={contentStyle}>
+            {TYPE_FILTER_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value} className="text-[13px]">{o.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        {/* Country select */}
-        <Select
-          value={(searchParams.get('country') ?? '') === '' ? '__all__' : (searchParams.get('country') ?? '')}
-          onValueChange={(v) => updateParam('country', v === '__all__' ? '' : v)}
-        >
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <Select value={currentCountry === '' ? '__all__' : currentCountry} onValueChange={(v) => updateParam('country', v === '__all__' ? '' : v)}>
+          <SelectTrigger className="h-8 text-[13px] w-auto min-w-[120px]" style={triggerStyle}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-            {COUNTRY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>)}
+          <SelectContent style={contentStyle}>
+            {COUNTRY_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value} className="text-[13px]">{o.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <div className="sm:col-span-2 lg:col-span-1 lg:ml-auto flex justify-end">
-          <Badge variant="secondary">{total} projet{total !== 1 ? 's' : ''}</Badge>
-        </div>
+        <span className="ml-auto text-[12px]" style={{ color: 'var(--admin-text-muted)' }}>
+          {total} projet{total !== 1 ? 's' : ''}
+        </span>
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden border" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+      <div
+        className="overflow-hidden"
+        style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px' }}
+      >
         {rows.length === 0 ? (
-          <EmptyState icon={FolderOpen} title="Aucun projet trouvé" description="Essayez de modifier vos filtres." />
+          <EmptyState
+            icon={FolderOpen}
+            title="Aucun projet trouvé"
+            description="Modifiez les filtres pour afficher d'autres résultats."
+          />
         ) : (
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="sticky top-0 z-10" style={{ background: 'var(--admin-surface)' }}>
                 <TableRow style={{ borderColor: 'var(--admin-border)' }}>
-                  <TableHead className="hidden md:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Réf.</TableHead>
-                  <TableHead className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Projet</TableHead>
-                  <TableHead className="hidden lg:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Client</TableHead>
-                  <TableHead className="hidden xl:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type</TableHead>
-                  <TableHead className="hidden sm:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Pays</TableHead>
-                  <TableHead className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Phase</TableHead>
-                  <TableHead className="hidden md:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Budget</TableHead>
-                  <TableHead className="hidden xl:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Livraison est.</TableHead>
-                  <TableHead className="hidden xl:table-cell text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Créé le</TableHead>
+                  {TABLE_HEADS.map((h) => (
+                    <TableHead
+                      key={h.label}
+                      className={`py-2.5 text-[11px] font-medium ${h.className}`}
+                      style={{ color: 'var(--admin-text-muted)' }}
+                    >
+                      {h.label}
+                    </TableHead>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((row) => (
                   <TableRow
                     key={row.id}
-                    className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors duration-100"
+                    className="admin-tr transition-colors duration-100"
                     style={{ borderColor: 'var(--admin-border)' }}
                   >
-                    <TableCell className="hidden md:table-cell font-mono text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.reference}</TableCell>
-                    <TableCell>
-                      <Link href={`/admin/projects/${row.id}`} className="font-medium hover:underline" style={{ color: 'var(--admin-text)' }}>
+                    <TableCell className="hidden md:table-cell py-2.5 font-mono text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>
+                      {row.reference}
+                    </TableCell>
+                    <TableCell className="py-2.5">
+                      <Link
+                        href={`/admin/projects/${row.id}`}
+                        className="text-[13px] font-medium hover:underline"
+                        style={{ color: 'var(--admin-text)' }}
+                      >
                         {row.name}
                       </Link>
-                      {/* Mobile-only secondary line */}
                       <div className="md:hidden mt-0.5 text-[11px] font-mono" style={{ color: 'var(--admin-text-muted)' }}>
                         {row.reference}
                       </div>
@@ -202,22 +214,32 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
                         {row.clientName}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell text-xs" style={{ color: 'var(--admin-text-muted)' }}>{row.clientName}</TableCell>
-                    <TableCell className="hidden xl:table-cell text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                      {TYPE_ICONS[row.projectType] ?? ''} {TYPE_LABELS[row.projectType] ?? row.projectType}
+                    <TableCell className="hidden lg:table-cell py-2.5 text-[13px]" style={{ color: 'var(--admin-text-muted)' }}>
+                      {row.clientName}
                     </TableCell>
-                    <TableCell className="hidden sm:table-cell text-base text-center">{row.country ? countryFlag(row.country) : ''}</TableCell>
-                    <TableCell><PhaseBadge status={row.status} /></TableCell>
-                    <TableCell className="hidden md:table-cell">
+                    <TableCell className="hidden xl:table-cell py-2.5 text-[12px]" style={{ color: 'var(--admin-text-muted)' }}>
+                      {TYPE_LABELS[row.projectType] ?? row.projectType}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell py-2.5 text-center text-base">
+                      {row.country ? countryFlag(row.country) : ''}
+                    </TableCell>
+                    <TableCell className="py-2.5">
+                      <PhaseBadge status={row.status} />
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell py-2.5">
                       <div className="flex items-center gap-2">
                         <BudgetBadge approved={row.approvedBudget} />
                         {row.approvedBudget && row.currency && (
-                          <span className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{row.currency}</span>
+                          <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{row.currency}</span>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden xl:table-cell text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmt(row.estimatedDeliveryDate)}</TableCell>
-                    <TableCell className="hidden xl:table-cell text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmt(row.createdAt)}</TableCell>
+                    <TableCell className="hidden xl:table-cell py-2.5 text-[12px] tabular-nums" style={{ color: 'var(--admin-text-muted)' }}>
+                      {fmt(row.estimatedDeliveryDate)}
+                    </TableCell>
+                    <TableCell className="hidden xl:table-cell py-2.5 text-[12px] tabular-nums" style={{ color: 'var(--admin-text-muted)' }}>
+                      {fmt(row.createdAt)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -228,14 +250,28 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-3">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => updateParam('page', String(page - 1))}>
-            <ChevronLeft className="w-4 h-4 mr-1" /> Précédent
-          </Button>
-          <Badge variant="outline">Page {page} sur {totalPages}</Badge>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => updateParam('page', String(page + 1))}>
-            Suivant <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
+        <div className="flex items-center justify-between px-1">
+          <span className="text-[12px]" style={{ color: 'var(--admin-text-muted)' }}>
+            Page {page} sur {totalPages} · {total} résultats
+          </span>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page <= 1}
+              onClick={() => updateParam('page', String(page - 1))}
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Préc.
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages}
+              onClick={() => updateParam('page', String(page + 1))}
+            >
+              Suiv. <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
         </div>
       )}
     </div>

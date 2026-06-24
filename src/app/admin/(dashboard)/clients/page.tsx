@@ -1,9 +1,12 @@
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { listClients } from '@/lib/db/clients'
 import { ClientCard } from '@/components/clients/ClientCard'
 import { ClientsFilterBar } from '@/components/clients/ClientsFilterBar'
+import { Building2 } from 'lucide-react'
+import { EmptyState } from '@/components/ui/EmptyState'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Clients | SOPAT Admin' }
@@ -31,14 +34,25 @@ export default async function ClientsPage({
   const canSeeFullPrivate = ['admin', 'direction'].includes(role)
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-xl font-bold" style={{ color: 'var(--admin-text)' }}>
-          Clients
-        </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--admin-text-muted)' }}>
-          {clientsList.length} client{clientsList.length !== 1 ? 's' : ''}
-        </p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
+            Clients
+          </h1>
+          <p className="text-[12px] mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            {clientsList.length} client{clientsList.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {canCreate && (
+          <Link
+            href="/admin/clients/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouveau client
+          </Link>
+        )}
       </div>
 
       <Suspense>
@@ -47,25 +61,26 @@ export default async function ClientsPage({
 
       {clientsList.length === 0 ? (
         <div
-          className="rounded-xl border p-12 text-center"
-          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
+          className="overflow-hidden"
+          style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px' }}
         >
-          <p className="text-4xl mb-3">🏢</p>
-          <p className="font-medium" style={{ color: 'var(--admin-text)' }}>
-            Aucun client pour le moment
-          </p>
-          {canCreate && (
-            <a
-              href="/admin/clients/new"
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium"
-              style={{ background: 'var(--admin-emerald)', color: '#fff' }}
-            >
-              Créer le premier client
-            </a>
-          )}
+          <EmptyState
+            icon={Building2}
+            title="Aucun client pour le moment"
+            description={canCreate ? 'Créez le premier client pour commencer.' : undefined}
+            action={canCreate ? (
+              <Link
+                href="/admin/clients/new"
+                className="text-[13px] font-medium px-3 py-1.5 rounded transition-opacity hover:opacity-90"
+                style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+              >
+                Créer le premier client
+              </Link>
+            ) : undefined}
+          />
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {clientsList.map((c) => (
             <ClientCard
               key={c.id}

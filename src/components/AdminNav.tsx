@@ -95,14 +95,14 @@ function initials(name?: string) {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-/* Ivory at different opacities — matches the public Nav's palette exactly */
-const ivory     = 'rgba(245,240,232,0.88)'
-const ivoryDim  = 'rgba(245,240,232,0.40)'
-const ivoryFaint= 'rgba(245,240,232,0.18)'
-const gold      = '#C9A84C'
-const goldDim   = 'rgba(201,168,76,0.14)'
-const goldBorder= 'rgba(201,168,76,0.28)'
-const divider   = 'rgba(201,168,76,0.15)'
+const border    = 'var(--admin-border)'
+const text      = 'var(--admin-text)'
+const textMuted = 'var(--admin-text-muted)'
+const textDim   = 'var(--admin-text-dim)'
+const activeBg  = 'rgba(28,61,46,0.10)'   /* green 10% — active nav item */
+const hoverBg   = 'rgba(28,61,46,0.06)'   /* green 6% — hover */
+const accent    = 'var(--green)'
+const accentDim = 'rgba(28,61,46,0.12)'
 
 export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; name?: string; onNavigate?: () => void }) {
   const pathname = usePathname()
@@ -130,24 +130,24 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
       {/* Logo */}
       <div
         className="h-12 flex items-center px-4 shrink-0 border-b"
-        style={{ borderColor: goldBorder }}
+        style={{ borderColor: border }}
       >
         <span
           className="font-semibold text-[13px] tracking-tight"
-          style={{ color: ivory, fontFamily: 'var(--font-sans)' }}
+          style={{ color: text, fontFamily: 'var(--font-sans)' }}
         >
           SOPAT
         </span>
         <span
           className="ml-2 text-[10px] px-1.5 py-px rounded font-semibold"
-          style={{ background: 'rgba(201,168,76,0.18)', color: gold, border: `1px solid ${goldBorder}` }}
+          style={{ background: accentDim, color: accent, border: `1px solid ${border}` }}
         >
           Admin
         </span>
       </div>
 
       {/* Nav links */}
-      <nav className="admin-sidebar-scroll flex-1 overflow-y-auto py-3 px-3">
+      <nav className="admin-scroll flex-1 overflow-y-auto py-3 px-3">
         {visibleGroups.map((g, gi) => {
           const isFirst = gi === 0
           return (
@@ -155,7 +155,7 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
               {g.label && (
                 <p
                   className="px-2 pb-1 text-[10px] font-medium uppercase"
-                  style={{ color: 'rgba(245,240,232,0.35)', letterSpacing: '0.08em' }}
+                  style={{ color: textDim, letterSpacing: '0.08em' }}
                 >
                   {g.label}
                 </p>
@@ -174,22 +174,25 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
                         active ? 'font-medium' : 'font-normal'
                       )}
                       style={{
-                        color:       active ? ivory : ivoryDim,
-                        background:  active ? 'rgba(245,240,232,0.10)' : 'transparent',
+                        color:      active ? text : textMuted,
+                        background: active ? activeBg : 'transparent',
                       }}
                       onMouseEnter={(e) => {
-                        if (!active) e.currentTarget.style.background = ivoryFaint
-                        if (!active) e.currentTarget.style.color = ivory
+                        if (!active) e.currentTarget.style.background = hoverBg
+                        if (!active) e.currentTarget.style.color = text
                       }}
                       onMouseLeave={(e) => {
                         if (!active) e.currentTarget.style.background = 'transparent'
-                        if (!active) e.currentTarget.style.color = ivoryDim
+                        if (!active) e.currentTarget.style.color = textMuted
                       }}
                     >
-                      <Icon className="w-[14px] h-[14px] shrink-0 opacity-70" style={{ color: active ? gold : 'inherit' }} />
+                      <Icon
+                        className="w-[14px] h-[14px] shrink-0"
+                        style={{ color: active ? accent : textMuted }}
+                      />
                       <span className="min-w-0 truncate">{item.label}</span>
                       {active && (
-                        <span className="ml-auto w-1 h-1 rounded-full shrink-0" style={{ background: gold }} />
+                        <span className="ml-auto w-1 h-1 rounded-full shrink-0" style={{ background: accent }} />
                       )}
                     </Link>
                   )
@@ -203,20 +206,20 @@ export function AdminNavContent({ role, name, onNavigate }: { role?: UserRole; n
       {/* Footer */}
       <div
         className="px-3 py-3 border-t"
-        style={{ borderColor: goldBorder }}
+        style={{ borderColor: border }}
       >
         {name && (
           <div className="flex items-center gap-2 mb-2">
             <div
               className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0"
-              style={{ background: goldDim, color: gold, border: `1px solid ${goldBorder}` }}
+              style={{ background: accentDim, color: accent, border: `1px solid ${border}` }}
             >
               {initials(name)}
             </div>
-            <p className="text-xs truncate" style={{ color: ivoryDim }}>{name}</p>
+            <p className="text-[12px] truncate" style={{ color: textMuted }}>{name}</p>
           </div>
         )}
-        <p className="text-[10px]" style={{ color: 'rgba(245,240,232,0.22)' }}>ISO 9001:2015 · v1.0</p>
+        <p className="text-[10px]" style={{ color: textDim }}>ISO 9001:2015 · v1.0</p>
       </div>
     </>
   )
@@ -226,7 +229,7 @@ export function AdminNav({ role, name }: { role?: UserRole; name?: string }) {
   return (
     <aside
       className="hidden lg:flex flex-col shrink-0 h-screen sticky top-0"
-      style={{ width: '220px', background: 'var(--green)', borderRight: `1px solid ${goldBorder}` }}
+      style={{ width: '220px', background: 'var(--admin-surface)', borderRight: '1px solid var(--admin-border)' }}
     >
       <AdminNavContent role={role} name={name} />
     </aside>

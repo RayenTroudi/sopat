@@ -25,27 +25,25 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
   }))
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>
+          <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
             Projets
           </h1>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            Gestion de tous les projets paysagers
+          <p className="text-[12px] mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            {total} projet{total !== 1 ? 's' : ''} au total
           </p>
         </div>
         <Link
           href="/admin/projects/new"
-          className="inline-flex items-center justify-center gap-2 text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors w-full sm:w-auto shrink-0"
-          style={{ background: 'var(--green)' }}
+          className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
         >
           + Nouveau projet
         </Link>
       </div>
 
-      {/* Table */}
       <ProjectsTable
         rows={maskedRows}
         total={total}

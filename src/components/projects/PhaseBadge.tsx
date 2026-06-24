@@ -24,7 +24,7 @@ const STYLES: Record<Phase, string> = {
 export function PhaseBadge({ status }: { status: string }) {
   const phase = (status as Phase) in LABELS ? (status as Phase) : 'draft'
   return (
-    <Badge className={cn('rounded-full text-xs font-medium', STYLES[phase])}>
+    <Badge className={cn('text-[11px] font-medium', STYLES[phase])}>
       {LABELS[phase]}
     </Badge>
   )

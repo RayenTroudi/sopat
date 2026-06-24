@@ -9,13 +9,20 @@ type Props = {
 
 export function EmptyState({ icon: Icon, title, description, action }: Props) {
   return (
-    <div className="admin-fade-in flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
-      <Icon className="w-10 h-10" style={{ color: 'var(--admin-text-dim)' }} />
-      <p className="text-sm font-medium" style={{ color: 'var(--admin-text)' }}>{title}</p>
+    <div className="flex flex-col items-center justify-center py-12 px-4 text-center gap-2">
+      <div
+        className="w-8 h-8 rounded flex items-center justify-center mb-1"
+        style={{ background: 'var(--admin-bg)' }}
+      >
+        <Icon className="w-4 h-4" style={{ color: 'var(--admin-text-dim)' }} />
+      </div>
+      <p className="text-[13px] font-medium" style={{ color: 'var(--admin-text)' }}>{title}</p>
       {description && (
-        <p className="text-xs max-w-xs" style={{ color: 'var(--admin-text-muted)' }}>{description}</p>
+        <p className="text-[12px] max-w-xs leading-relaxed" style={{ color: 'var(--admin-text-muted)' }}>
+          {description}
+        </p>
       )}
-      {action}
+      {action && <div className="mt-2">{action}</div>}
     </div>
   )
 }

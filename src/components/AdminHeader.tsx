@@ -165,7 +165,7 @@ export function AdminHeader({ name, role }: Props) {
 
       {/* Mobile sidebar Sheet */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-56 p-0 flex flex-col" style={{ background: 'var(--green)' }}>
+        <SheetContent side="left" className="w-56 p-0 flex flex-col" style={{ background: 'var(--admin-surface)', borderRight: '1px solid var(--admin-border)' }}>
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <AdminNavContent role={role} name={name} onNavigate={() => setSidebarOpen(false)} />
         </SheetContent>
