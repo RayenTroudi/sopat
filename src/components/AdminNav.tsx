@@ -455,8 +455,8 @@ export function AdminNav({ role }: { role?: UserRole }) {
         transition:   'width 200ms ease',
         overflow:     'visible',
         borderRadius: '20px',
-        margin:       '0 0 8px 0',
-        height:       'calc(100vh - 8px)',
+        margin:       '8px 0 8px 8px',
+        height:       'calc(100vh - 16px)',
       }}
     >
       <AdminNavContent role={role} collapsed={collapsed} />
