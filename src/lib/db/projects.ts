@@ -7,6 +7,7 @@ import {
   clients,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
+import { attachDmsCode } from '../dms/attach'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -293,51 +294,69 @@ export async function assertProjectAccess(
 export async function createProject(input: CreateProjectInput) {
   const reference = await generateReference()
 
-  const [project] = await db
-    .insert(projects)
-    .values({
-      reference,
-      name: input.name,
-      clientName: input.clientName,
-      clientEmail: input.clientEmail,
-      clientPhone: input.clientPhone,
-      siteAddress: input.siteAddress,
-      siteAreaM2: input.siteAreaM2,
-      projectType: input.projectType,
-      status: 'etudes',
-      startDate: input.startDate,
-      estimatedDeliveryDate: input.estimatedDeliveryDate,
-      assignedEtudesChefId: input.assignedEtudesChefId,
-      notes: input.notes,
-      country: input.country ?? 'TN',
-      currency: input.currency ?? 'TND',
-      clientSector: input.clientSector,
-      clientAnonymized: input.clientAnonymized ?? false,
-      conceptTitle: input.conceptTitle,
-      conceptDescription: input.conceptDescription,
-      designVocabulary: input.designVocabulary,
-      plantPalettePhilosophy: input.plantPalettePhilosophy,
-      linearMeters: input.linearMeters,
-      floorCount: input.floorCount,
-      municipalityClient: input.municipalityClient,
-      territorySurfaceKm2: input.territorySurfaceKm2,
-      numberOfMunicipalities: input.numberOfMunicipalities,
-      lightingIncluded: input.lightingIncluded ?? false,
-      clientId: input.clientId ?? null,
+  return db.transaction(async (tx) => {
+    const [project] = await tx
+      .insert(projects)
+      .values({
+        reference,
+        name:                   input.name,
+        clientName:             input.clientName,
+        clientEmail:            input.clientEmail,
+        clientPhone:            input.clientPhone,
+        siteAddress:            input.siteAddress,
+        siteAreaM2:             input.siteAreaM2,
+        projectType:            input.projectType,
+        status:                 'etudes',
+        startDate:              input.startDate,
+        estimatedDeliveryDate:  input.estimatedDeliveryDate,
+        assignedEtudesChefId:   input.assignedEtudesChefId,
+        notes:                  input.notes,
+        country:                input.country ?? 'TN',
+        currency:               input.currency ?? 'TND',
+        clientSector:           input.clientSector,
+        clientAnonymized:       input.clientAnonymized ?? false,
+        conceptTitle:           input.conceptTitle,
+        conceptDescription:     input.conceptDescription,
+        designVocabulary:       input.designVocabulary,
+        plantPalettePhilosophy: input.plantPalettePhilosophy,
+        linearMeters:           input.linearMeters,
+        floorCount:             input.floorCount,
+        municipalityClient:     input.municipalityClient,
+        territorySurfaceKm2:    input.territorySurfaceKm2,
+        numberOfMunicipalities: input.numberOfMunicipalities,
+        lightingIncluded:       input.lightingIncluded ?? false,
+        clientId:               input.clientId ?? null,
+        createdBy:              input.createdBy,
+      })
+      .returning()
+
+    // Initial phase record — stays in same transaction
+    await tx.insert(projectPhases).values({
+      projectId: project.id,
+      phase:     'etudes',
+      status:    'in_progress',
+      startedAt: new Date(),
       createdBy: input.createdBy,
     })
-    .returning()
 
-  // Create the initial etudes phase record
-  await db.insert(projectPhases).values({
-    projectId: project.id,
-    phase: 'etudes',
-    status: 'in_progress',
-    startedAt: new Date(),
-    createdBy: input.createdBy,
+    const dmsCode = await attachDmsCode(tx, {
+      typeCode:    'PRS',
+      processCode: 'RE',
+      designation: input.name,
+      department:  'realisation',
+      category:    'cartographie_processus',
+      entityType:  'project',
+      entityId:    project.id,
+      authorId:    input.createdBy,
+    })
+
+    await tx
+      .update(projects)
+      .set({ dmsDocumentCode: dmsCode })
+      .where(eq(projects.id, project.id))
+
+    return { ...project, dmsDocumentCode: dmsCode }
   })
-
-  return project
 }
 
 export async function updateProject(
