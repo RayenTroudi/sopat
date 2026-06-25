@@ -8,6 +8,7 @@ import {
   nonConformances,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
+import { attachDmsCode } from '../dms/attach'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -135,31 +136,49 @@ export async function getPurchaseOrders(projectId: string): Promise<PurchaseOrde
 }
 
 export async function createPurchaseOrder(input: PurchaseOrderInput) {
-  const qty = parseFloat(input.quantityPurchased)
+  const qty   = parseFloat(input.quantityPurchased)
   const price = parseFloat(input.unitPricePaid)
   const total = (qty * price).toFixed(3)
 
-  const [order] = await db
-    .insert(purchaseOrders)
-    .values({
-      projectId: input.projectId,
-      plantListItemId: input.plantListItemId || null,
-      itemDescription: input.itemDescription,
-      quantityPurchased: input.quantityPurchased,
-      unitPricePaid: input.unitPricePaid,
-      totalCost: total,
-      supplierId: input.supplierId || null,
-      supplierInvoiceNumber: input.supplierInvoiceNumber,
-      invoiceAssetId: input.invoiceAssetId || null,
-      purchaseDate: input.purchaseDate,
-      purchasedBy: input.purchasedBy,
-      status: 'received',
-      notes: input.notes,
-      createdBy: input.createdBy,
-    })
-    .returning()
+  return db.transaction(async (tx) => {
+    const [order] = await tx
+      .insert(purchaseOrders)
+      .values({
+        projectId:             input.projectId,
+        plantListItemId:       input.plantListItemId || null,
+        itemDescription:       input.itemDescription,
+        quantityPurchased:     input.quantityPurchased,
+        unitPricePaid:         input.unitPricePaid,
+        totalCost:             total,
+        supplierId:            input.supplierId || null,
+        supplierInvoiceNumber: input.supplierInvoiceNumber,
+        invoiceAssetId:        input.invoiceAssetId || null,
+        purchaseDate:          input.purchaseDate,
+        purchasedBy:           input.purchasedBy,
+        status:                'received',
+        notes:                 input.notes,
+        createdBy:             input.createdBy,
+      })
+      .returning()
 
-  return order
+    const dmsCode = await attachDmsCode(tx, {
+      typeCode:    'FOR',
+      processCode: 'AC',
+      designation: input.itemDescription,
+      department:  'finance',
+      category:    'bon_commande',
+      entityType:  'purchase_order',
+      entityId:    order.id,
+      authorId:    input.createdBy,
+    })
+
+    await tx
+      .update(purchaseOrders)
+      .set({ dmsDocumentCode: dmsCode })
+      .where(eq(purchaseOrders.id, order.id))
+
+    return { ...order, dmsDocumentCode: dmsCode }
+  })
 }
 
 export async function deletePurchaseOrder(orderId: string, projectId: string) {
