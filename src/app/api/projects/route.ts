@@ -93,8 +93,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(project, { status: 201 })
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
     console.error('[POST /api/projects]', err)
-    return NextResponse.json({ error: 'Erreur serveur', detail: message }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
