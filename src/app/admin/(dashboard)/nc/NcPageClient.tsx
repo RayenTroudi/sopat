@@ -219,6 +219,14 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{nc.reference}</span>
+                            {nc.dmsDocumentCode && (
+                              <span
+                                className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                                style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                              >
+                                {nc.dmsDocumentCode}
+                              </span>
+                            )}
                             <Badge className={cn('text-[10px] font-medium rounded-full px-2 py-0', STATUS_COLORS[nc.status] ?? STATUS_COLORS.open)}>
                               {STATUS_LABELS[nc.status] ?? nc.status}
                             </Badge>
@@ -269,7 +277,19 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                       className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors duration-100"
                       style={{ borderColor: 'var(--admin-border)' }}
                     >
-                      <TableCell className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{nc.reference}</TableCell>
+                      <TableCell className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {nc.reference}
+                          {nc.dmsDocumentCode && (
+                            <span
+                              className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                              style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                            >
+                              {nc.dmsDocumentCode}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Badge className={cn('text-xs font-medium rounded-full', STATUS_COLORS[nc.status] ?? STATUS_COLORS.open)}>
                           {STATUS_LABELS[nc.status] ?? nc.status}

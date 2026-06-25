@@ -126,6 +126,16 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
           <div>
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl font-semibold font-mono" style={{ color: 'var(--admin-text)' }}>{nc.reference}</h1>
+              {nc.dmsDocumentCode && (
+                <a
+                  href={`/admin/documents?search=${encodeURIComponent(nc.dmsDocumentCode)}`}
+                  className="font-mono text-[11px] px-2 py-0.5 rounded hover:opacity-75 transition-opacity"
+                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                  title="Voir dans le registre documentaire"
+                >
+                  {nc.dmsDocumentCode}
+                </a>
+              )}
               <span className={cn('text-xs px-2 py-0.5 rounded font-medium', STATUS_COLORS[nc.status])}>
                 {STATUS_LABELS[nc.status]}
               </span>
