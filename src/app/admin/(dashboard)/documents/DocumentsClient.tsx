@@ -458,7 +458,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                   {[
                     'Type', 'Processus', 'Code', 'Désignation',
                     'Version', 'Date', 'Classement', 'MDP',
-                    'Statut', 'Observations', '',
+                    'Observations', '',
                   ].map(h => (
                     <th key={h} className="text-left px-3 py-2.5 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
                   ))}
@@ -509,10 +509,6 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                           ? <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--admin-amber-dim)', color: 'var(--admin-amber)' }}>Oui</span>
                           : <span className="text-[10px]" style={{ color: 'var(--admin-text-muted)' }}>Non</span>
                         }
-                      </td>
-                      {/* Statut */}
-                      <td className="px-3 py-2.5 whitespace-nowrap">
-                        <span className={cn('text-[10px] px-2 py-0.5 rounded font-medium', s.className)}>{s.label}</span>
                       </td>
                       {/* Observations */}
                       <td className="px-3 py-2.5 max-w-[200px]">
