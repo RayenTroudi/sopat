@@ -65,6 +65,8 @@ export async function attachDmsCode(
 
 ### Behaviour
 
+`attachDmsCode` does **not** call `getNextCode()` from `numbering.ts` — that function opens its own `db.execute()` outside any transaction. Instead, `attachDmsCode` inlines the same atomic UPDATE directly against the caller's `tx`. This is intentional: if the counter increment ran outside the transaction, a rollback would leave the counter incremented with no matching DMS entry.
+
 Executes three statements within the **caller-provided transaction**:
 
 1. **Atomic counter bump:**
