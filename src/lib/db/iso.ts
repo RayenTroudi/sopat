@@ -10,6 +10,7 @@ import {
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql, ilike, or } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
+import { attachDmsCode } from '../dms/attach'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ export type NcListItem = {
   detectedByName: string | null
   assignedToName: string | null
   createdAt: Date
+  dmsDocumentCode: string | null
 }
 
 export async function listNcs(filters?: {
@@ -90,6 +92,7 @@ export async function listNcs(filters?: {
       detectedByName:  detUser.name,
       assignedToName:  asgnUser.name,
       createdAt:       nonConformances.createdAt,
+      dmsDocumentCode: nonConformances.dmsDocumentCode,
     })
     .from(nonConformances)
     .leftJoin(projects, eq(nonConformances.projectId, projects.id))
@@ -135,6 +138,7 @@ export type NcDetail = {
   closedById: string | null
   closedByName: string | null
   createdAt: Date
+  dmsDocumentCode: string | null
   capa: CapaDetail[]
 }
 
@@ -181,6 +185,7 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       closedById:      nonConformances.closedBy,
       closedByName:    clsUser.name,
       createdAt:       nonConformances.createdAt,
+      dmsDocumentCode: nonConformances.dmsDocumentCode,
     })
     .from(nonConformances)
     .leftJoin(projects, eq(nonConformances.projectId, projects.id))
@@ -221,42 +226,61 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
 }
 
 export async function createNc(input: {
-  reference:          string
-  projectId?:         string
-  processAffected?:   string
-  ncType?:            string
-  ownerType?:         string
-  auditorName?:       string
-  description:        string
-  rootCause?:         string
-  assignedTo?:        string
-  deadline?:          Date
+  reference:           string
+  projectId?:          string
+  processAffected?:    string
+  ncType?:             string
+  ownerType?:          string
+  auditorName?:        string
+  description:         string
+  rootCause?:          string
+  assignedTo?:         string
+  deadline?:           Date
   beforePhotoAssetId?: string
   afterPhotoAssetId?:  string
-  detectedBy:         string
-  createdBy:          string
+  detectedBy:          string
+  createdBy:           string
 }) {
-  const [nc] = await db
-    .insert(nonConformances)
-    .values({
-      reference:          input.reference,
-      projectId:          input.projectId || null,
-      processAffected:    (input.processAffected as NcProcess) || null,
-      ncType:             (input.ncType as typeof nonConformances.$inferInsert['ncType']) || null,
-      ownerType:          (input.ownerType as typeof nonConformances.$inferInsert['ownerType']) || null,
-      auditorName:        input.auditorName,
-      description:        input.description,
-      rootCause:          input.rootCause,
-      assignedTo:         input.assignedTo || null,
-      deadline:           input.deadline,
-      beforePhotoAssetId: input.beforePhotoAssetId || null,
-      afterPhotoAssetId:  input.afterPhotoAssetId || null,
-      detectedBy:         input.detectedBy,
-      status:             'open',
-      createdBy:          input.createdBy,
+  return db.transaction(async (tx) => {
+    const [nc] = await tx
+      .insert(nonConformances)
+      .values({
+        reference:          input.reference,
+        projectId:          input.projectId || null,
+        processAffected:    (input.processAffected as NcProcess) || null,
+        ncType:             (input.ncType as typeof nonConformances.$inferInsert['ncType']) || null,
+        ownerType:          (input.ownerType as typeof nonConformances.$inferInsert['ownerType']) || null,
+        auditorName:        input.auditorName,
+        description:        input.description,
+        rootCause:          input.rootCause,
+        assignedTo:         input.assignedTo || null,
+        deadline:           input.deadline,
+        beforePhotoAssetId: input.beforePhotoAssetId || null,
+        afterPhotoAssetId:  input.afterPhotoAssetId || null,
+        detectedBy:         input.detectedBy,
+        status:             'open',
+        createdBy:          input.createdBy,
+      })
+      .returning()
+
+    const dmsCode = await attachDmsCode(tx, {
+      typeCode:    'FOR',
+      processCode: 'MI',
+      designation: input.description,
+      department:  'qualite',
+      category:    'ncr',
+      entityType:  'non_conformance',
+      entityId:    nc.id,
+      authorId:    input.createdBy,
     })
-    .returning()
-  return nc
+
+    await tx
+      .update(nonConformances)
+      .set({ dmsDocumentCode: dmsCode })
+      .where(eq(nonConformances.id, nc.id))
+
+    return { ...nc, dmsDocumentCode: dmsCode }
+  })
 }
 
 export async function updateNcStatus(
