@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { db } from '../../../db/index'
 import {
   suppliers,
@@ -51,7 +52,7 @@ export type SupplierEvaluationRow = {
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
-export async function listSuppliers(opts?: { search?: string; category?: string; status?: string }): Promise<SupplierRow[]> {
+async function _listSuppliers(opts?: { search?: string; category?: string; status?: string }): Promise<SupplierRow[]> {
   const rows = await db
     .select({
       id:              suppliers.id,
@@ -88,6 +89,8 @@ export async function listSuppliers(opts?: { search?: string; category?: string;
 
   return rows as SupplierRow[]
 }
+
+export const listSuppliers = unstable_cache(_listSuppliers, ['suppliers-list'], { revalidate: 60, tags: ['suppliers-list'] })
 
 export async function getSupplierById(id: string): Promise<SupplierRow | null> {
   const [row] = await db

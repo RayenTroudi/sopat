@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { db } from '../../../db/index'
 import {
   projects,
@@ -10,7 +11,7 @@ import {
   budgetPredictions,
   users,
 } from '../../../db/schema'
-import { eq, and, isNull, desc, asc, sql, lt, gte, lte, isNotNull } from 'drizzle-orm'
+import { eq, and, isNull, desc, asc, sql, lt, gte, lte, isNotNull, inArray } from 'drizzle-orm'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -147,18 +148,22 @@ async function getAvgBudgetVariance(): Promise<number | null> {
 
   if (completedWithBudget.length === 0) return null
 
-  const spentRows = await Promise.all(
-    completedWithBudget.map(async (p) => {
-      const [res] = await db
-        .select({ total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text` })
-        .from(purchaseOrders)
-        .where(eq(purchaseOrders.projectId, p.id))
-      return {
-        approvedBudget: parseFloat(p.approvedBudget!),
-        totalSpent:     parseFloat(res?.total ?? '0'),
-      }
+  const ids = completedWithBudget.map((p) => p.id)
+  const spentByProject = await db
+    .select({
+      projectId: purchaseOrders.projectId,
+      total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text`,
     })
-  )
+    .from(purchaseOrders)
+    .where(inArray(purchaseOrders.projectId, ids))
+    .groupBy(purchaseOrders.projectId)
+
+  const spentMap = new Map(spentByProject.map((r) => [r.projectId, r.total]))
+
+  const spentRows = completedWithBudget.map((p) => ({
+    approvedBudget: parseFloat(p.approvedBudget!),
+    totalSpent:     parseFloat(spentMap.get(p.id) ?? '0'),
+  }))
 
   const variances = spentRows
     .filter((r) => r.approvedBudget > 0)
@@ -277,18 +282,42 @@ export async function getAtRiskProjects(): Promise<AtRiskProject[]> {
     .from(projects)
     .where(and(isNull(projects.deletedAt), sql`${projects.status} IN ('etudes','realisation','entretien')`))
 
+  if (activeProjects.length === 0) return []
+
+  const projectIds = activeProjects.map((p) => p.id)
+
+  // Batch both lookups — 2 queries total instead of 2N
+  const [spentRows, ncRows] = await Promise.all([
+    db.select({
+        projectId: purchaseOrders.projectId,
+        total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text`,
+      })
+      .from(purchaseOrders)
+      .where(inArray(purchaseOrders.projectId, projectIds))
+      .groupBy(purchaseOrders.projectId),
+    db.select({
+        projectId: nonConformances.projectId,
+        count: sql<number>`count(*)`,
+      })
+      .from(nonConformances)
+      .where(and(
+        inArray(nonConformances.projectId, projectIds),
+        isNull(nonConformances.deletedAt),
+        sql`${nonConformances.status} IN ('open','in_progress')`,
+      ))
+      .groupBy(nonConformances.projectId),
+  ])
+
+  const spentByProject = new Map(spentRows.map((r) => [r.projectId, r.total]))
+  const ncByProject    = new Map(ncRows.map((r) => [r.projectId, Number(r.count)]))
+
   const results: AtRiskProject[] = []
 
   for (const p of activeProjects) {
     const riskReasons: string[] = []
 
-    // Budget risk
-    const [spentRow] = await db
-      .select({ total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text` })
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.projectId, p.id))
-
-    const spent      = parseFloat(spentRow?.total ?? '0')
+    const totalSpent = spentByProject.get(p.id) ?? '0'
+    const spent      = parseFloat(totalSpent)
     const approved   = p.approvedBudget ? parseFloat(p.approvedBudget) : null
     const spendPct   = approved && approved > 0 ? (spent / approved) * 100 : null
 
@@ -296,7 +325,6 @@ export async function getAtRiskProjects(): Promise<AtRiskProject[]> {
       riskReasons.push(spendPct >= 100 ? `Budget dépassé (${spendPct.toFixed(0)}%)` : `Budget à 90% (${spendPct.toFixed(0)}%)`)
     }
 
-    // Deadline risk
     const daysUntilDeadline = p.estimatedDeliveryDate
       ? Math.ceil((p.estimatedDeliveryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
       : null
@@ -305,13 +333,7 @@ export async function getAtRiskProjects(): Promise<AtRiskProject[]> {
       riskReasons.push(daysUntilDeadline <= 0 ? 'Délai dépassé' : `Délai dans ${daysUntilDeadline}j`)
     }
 
-    // NC risk
-    const [ncRow] = await db
-      .select({ count: sql<number>`count(*)` })
-      .from(nonConformances)
-      .where(and(eq(nonConformances.projectId, p.id), isNull(nonConformances.deletedAt), sql`${nonConformances.status} IN ('open','in_progress')`))
-
-    const openNcCount = Number(ncRow?.count ?? 0)
+    const openNcCount = ncByProject.get(p.id) ?? 0
     if (openNcCount > 0) riskReasons.push(`${openNcCount} NC ouverte${openNcCount > 1 ? 's' : ''}`)
 
     if (riskReasons.length > 0) {
@@ -322,7 +344,7 @@ export async function getAtRiskProjects(): Promise<AtRiskProject[]> {
         clientName:            p.clientName,
         status:                p.status,
         approvedBudget:        p.approvedBudget,
-        totalSpent:            spentRow?.total ?? '0',
+        totalSpent,
         spendPct,
         estimatedDeliveryDate: p.estimatedDeliveryDate,
         daysUntilDeadline,
@@ -363,7 +385,7 @@ export async function getUpcomingVisits(days = 7): Promise<UpcomingVisit[]> {
 
 // ─── Master KPI loader ────────────────────────────────────────────────────────
 
-export async function getDashboardKpis(): Promise<KpiData> {
+async function _getDashboardKpis(): Promise<KpiData> {
   const [
     activeProjects,
     onTimeDeliveryRate,
@@ -392,3 +414,11 @@ export async function getDashboardKpis(): Promise<KpiData> {
     satisfactionScore,
   }
 }
+
+export const getDashboardKpis = unstable_cache(_getDashboardKpis, ['dashboard-kpis'], { revalidate: 60, tags: ['dashboard-kpis'] })
+
+async function _getRecentActivityCached(limit: number) { return getRecentActivity(limit) }
+export const getCachedRecentActivity = unstable_cache(_getRecentActivityCached, ['dashboard-activity'], { revalidate: 30, tags: ['dashboard-activity'] })
+
+async function _getAtRiskProjectsCached() { return getAtRiskProjects() }
+export const getCachedAtRiskProjects = unstable_cache(_getAtRiskProjectsCached, ['dashboard-at-risk'], { revalidate: 60, tags: ['dashboard-at-risk'] })

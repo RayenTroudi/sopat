@@ -1,4 +1,5 @@
 // src/lib/dms/queries.ts
+import { unstable_cache } from 'next/cache'
 import { db } from '../../../db/index'
 import {
   dmsDocuments,
@@ -62,7 +63,7 @@ export type DmsCreateInput = {
   createdBy:        string
 }
 
-export async function listDmsDocuments(
+async function _listDmsDocuments(
   filters?: DmsListFilters,
 ): Promise<{ rows: DmsDocRow[]; total: number }> {
   const page     = filters?.page     ?? 1
@@ -85,55 +86,56 @@ export async function listDmsDocuments(
     ) : undefined,
   ].filter(Boolean)
 
-  const rows = await db
-    .select({
-      id:               dmsDocuments.id,
-      documentNumber:   dmsDocuments.documentNumber,
-      title:            dmsDocuments.title,
-      category:         dmsDocuments.category,
-      department:       dmsDocuments.department,
-      status:           dmsDocuments.status,
-      confidentiality:  dmsDocuments.confidentiality,
-      isoClauses:       dmsDocuments.isoClauses,
-      tags:             dmsDocuments.tags,
-      effectiveDate:    dmsDocuments.effectiveDate,
-      nextReviewDate:   dmsDocuments.nextReviewDate,
-      ownerId:          dmsDocuments.ownerId,
-      ownerName:        ownerUsers.name,
-      authorId:         dmsDocuments.authorId,
-      authorName:       authorUsers.name,
-      currentVersionId: dmsDocuments.currentVersionId,
-      assetUrl:         cloudinaryAssets.secureUrl,
-      legacyReference:  dmsDocuments.legacyReference,
-      createdAt:        dmsDocuments.createdAt,
-      updatedAt:        dmsDocuments.updatedAt,
-    })
-    .from(dmsDocuments)
-    .leftJoin(ownerUsers,  eq(ownerUsers.id,  dmsDocuments.ownerId))
-    .leftJoin(authorUsers, eq(authorUsers.id, dmsDocuments.authorId))
-    .leftJoin(
-      cloudinaryAssets,
-      eq(
-        cloudinaryAssets.id,
-        sql`(
-          SELECT cv.cloudinary_asset_id FROM dms_document_versions cv
-          WHERE cv.id = ${dmsDocuments.currentVersionId}
-          LIMIT 1
-        )`,
-      ),
-    )
-    .where(and(...conditions))
-    .orderBy(asc(dmsDocuments.documentNumber))
-    .limit(pageSize)
-    .offset(offset)
-
-  const [{ total }] = await db
-    .select({ total: sql<number>`count(*)` })
-    .from(dmsDocuments)
-    .where(and(...conditions))
+  const [rows, [{ total }]] = await Promise.all([
+    db.select({
+        id:               dmsDocuments.id,
+        documentNumber:   dmsDocuments.documentNumber,
+        title:            dmsDocuments.title,
+        category:         dmsDocuments.category,
+        department:       dmsDocuments.department,
+        status:           dmsDocuments.status,
+        confidentiality:  dmsDocuments.confidentiality,
+        isoClauses:       dmsDocuments.isoClauses,
+        tags:             dmsDocuments.tags,
+        effectiveDate:    dmsDocuments.effectiveDate,
+        nextReviewDate:   dmsDocuments.nextReviewDate,
+        ownerId:          dmsDocuments.ownerId,
+        ownerName:        ownerUsers.name,
+        authorId:         dmsDocuments.authorId,
+        authorName:       authorUsers.name,
+        currentVersionId: dmsDocuments.currentVersionId,
+        assetUrl:         cloudinaryAssets.secureUrl,
+        legacyReference:  dmsDocuments.legacyReference,
+        createdAt:        dmsDocuments.createdAt,
+        updatedAt:        dmsDocuments.updatedAt,
+      })
+      .from(dmsDocuments)
+      .leftJoin(ownerUsers,  eq(ownerUsers.id,  dmsDocuments.ownerId))
+      .leftJoin(authorUsers, eq(authorUsers.id, dmsDocuments.authorId))
+      .leftJoin(
+        cloudinaryAssets,
+        eq(
+          cloudinaryAssets.id,
+          sql`(
+            SELECT cv.cloudinary_asset_id FROM dms_document_versions cv
+            WHERE cv.id = ${dmsDocuments.currentVersionId}
+            LIMIT 1
+          )`,
+        ),
+      )
+      .where(and(...conditions))
+      .orderBy(asc(dmsDocuments.documentNumber))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ total: sql<number>`count(*)` })
+      .from(dmsDocuments)
+      .where(and(...conditions)),
+  ])
 
   return { rows: rows as DmsDocRow[], total: Number(total) }
 }
+
+export const listDmsDocuments = unstable_cache(_listDmsDocuments, ['dms-documents-list'], { revalidate: 30, tags: ['dms-documents-list'] })
 
 export async function createDmsDocument(
   input: DmsCreateInput,

@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { db } from '../../../db/index'
 import { clients, clientInteractions, projects, users, cloudinaryAssets } from '../../../db/schema'
 import { eq, and, isNull, desc, ilike, or, sql } from 'drizzle-orm'
@@ -108,7 +109,7 @@ async function getAggregatesForClients(
 
 // ─── List ─────────────────────────────────────────────────────────────────────
 
-export async function listClients(filters?: {
+async function _listClients(filters?: {
   type?: string
   country?: string
   isFeatured?: boolean
@@ -151,6 +152,8 @@ export async function listClients(filters?: {
     ...(aggMap.get(r.id) ?? { projectCount: 0, lastProjectDate: null, totalRevenueTND: 0 }),
   }))
 }
+
+export const listClients = unstable_cache(_listClients, ['clients-list'], { revalidate: 30, tags: ['clients-list'] })
 
 // ─── Get by ID ────────────────────────────────────────────────────────────────
 

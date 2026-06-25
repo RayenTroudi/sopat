@@ -1,5 +1,6 @@
 // src/app/api/dms/route.ts
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
 import { auth } from '@/lib/auth'
 import { listDmsDocuments, createDmsDocument } from '@/lib/dms/queries'
@@ -69,5 +70,6 @@ export async function POST(req: NextRequest) {
     legacyReference: d.legacyReference,
     createdBy:       session.user.userId,
   })
+  revalidateTag('dms-documents-list', 'default')
   return NextResponse.json(doc, { status: 201 })
 }

@@ -347,13 +347,13 @@ function EvalPanel({ supplier, onClose, onUpdated }: { supplier: SupplierRow; on
 // ─── Main client component ────────────────────────────────────────────────────
 
 type Props = {
-  initialSuppliers: SupplierRow[]
-  canEdit:          boolean
-  currentUserId:    string
+  canEdit:       boolean
+  currentUserId: string
 }
 
-export function SuppliersClient({ initialSuppliers, canEdit }: Props) {
-  const [suppliers, setSuppliers]   = useState<SupplierRow[]>(initialSuppliers)
+export function SuppliersClient({ canEdit }: Props) {
+  const [suppliers, setSuppliers]   = useState<SupplierRow[]>([])
+  const [loading, setLoading]       = useState(true)
   const [search, setSearch]         = useState('')
   const [filterCat, setFilterCat]   = useState('')
   const [filterStat, setFilterStat] = useState('')
@@ -361,6 +361,13 @@ export function SuppliersClient({ initialSuppliers, canEdit }: Props) {
   const [editing, setEditing]       = useState<SupplierRow | null>(null)
   const [form, setForm]             = useState<FormState>(EMPTY_FORM)
   const [evalTarget, setEvalTarget] = useState<SupplierRow | null>(null)
+
+  useEffect(() => {
+    fetch('/api/suppliers')
+      .then((r) => r.json())
+      .then((data) => { setSuppliers(data); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
 
   function openCreate() { setEditing(null); setForm(EMPTY_FORM); setShowForm(true) }
   function openEdit(s: SupplierRow) { setEditing(s); setForm(formFromRow(s)); setShowForm(true) }
@@ -439,10 +446,20 @@ export function SuppliersClient({ initialSuppliers, canEdit }: Props) {
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: 'var(--admin-border)' }}>
           <p className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>
-            {filtered.length} fournisseur{filtered.length !== 1 ? 's' : ''}
+            {loading ? '…' : `${filtered.length} fournisseur${filtered.length !== 1 ? 's' : ''}`}
           </p>
         </div>
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="px-5 py-3 flex gap-4 animate-pulse">
+                <div className="h-4 rounded flex-1" style={{ background: 'var(--admin-border)' }} />
+                <div className="h-4 rounded w-24" style={{ background: 'var(--admin-border)' }} />
+                <div className="h-4 rounded w-20" style={{ background: 'var(--admin-border)' }} />
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="p-8 text-center">
             <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>Aucun fournisseur trouvé.</p>
           </div>

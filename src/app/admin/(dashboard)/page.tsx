@@ -5,6 +5,8 @@ import {
   getRecentActivity,
   getAtRiskProjects,
   getUpcomingVisits,
+  getCachedRecentActivity,
+  getCachedAtRiskProjects,
 } from '@/lib/db/dashboard'
 import { runEmailReminderSweep } from '@/lib/tasks/email-reminders'
 import { getRseDashboardData } from '@/lib/db/rse'
@@ -66,8 +68,8 @@ export default async function AdminDashboard() {
 
   const [kpis, activity, atRisk, upcomingVisits, rseData, intlData] = await Promise.all([
     getDashboardKpis(),
-    getRecentActivity(20),
-    getAtRiskProjects(),
+    getCachedRecentActivity(20),
+    getCachedAtRiskProjects(),
     getUpcomingVisits(7),
     getRseDashboardData(),
     getInternationalDashboardData(),

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { auth } from '@/lib/auth'
-import { getAllProjects, createProject, logActivity } from '@/lib/db/projects'
+import { getAllProjects, createProject, logActivity, maskClientName } from '@/lib/db/projects'
 import type { ProjectStatus, ProjectType } from '@/lib/db/projects'
 import { z } from 'zod'
 
@@ -56,7 +57,12 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await getAllProjects({ status: status ?? undefined, projectType: projectType ?? undefined, page, pageSize })
-    return NextResponse.json(result)
+    const userRole = session.user.role
+    const maskedRows = result.rows.map((r) => ({
+      ...r,
+      clientName: maskClientName(r.clientName, r.clientAnonymized ?? false, userRole),
+    }))
+    return NextResponse.json({ ...result, rows: maskedRows })
   } catch (err) {
     console.error('[GET /api/projects]', err)
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
@@ -90,6 +96,10 @@ export async function POST(req: NextRequest) {
       action: 'project.created',
       newState: { reference: project.reference, name: project.name, status: project.status },
     })
+
+    revalidateTag('projects-list', 'default')
+    revalidateTag('dashboard-kpis', 'default')
+    revalidateTag('dashboard-at-risk', 'default')
 
     return NextResponse.json(project, { status: 201 })
   } catch (err) {

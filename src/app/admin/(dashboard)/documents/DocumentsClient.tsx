@@ -1,7 +1,7 @@
 'use client'
 // src/app/admin/(dashboard)/documents/DocumentsClient.tsx
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { DmsDocRow } from '@/lib/dms/queries'
@@ -105,8 +105,6 @@ type User = { id: string; name: string }
 // ── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
-  initialRows:   DmsDocRow[]
-  total:         number
   users:         User[]
   canEdit:       boolean
   currentUserId: string
@@ -128,9 +126,9 @@ const EMPTY_FORM = {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function DmsDocumentsClient({ initialRows, total, users, canEdit, currentUserId }: Props) {
-  const [rows, setRows]         = useState(initialRows)
-  const [loading, setLoading]   = useState(false)
+export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
+  const [rows, setRows]         = useState<DmsDocRow[]>([])
+  const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
 
   const [filterStatus,  setFilterStatus]  = useState('')
@@ -142,6 +140,8 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [codePreview, setCodePreview] = useState('')
+
+  useEffect(() => { loadDocs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadDocs() {
     setLoading(true)

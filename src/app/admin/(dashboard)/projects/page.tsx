@@ -1,28 +1,13 @@
 import Link from 'next/link'
-import { getAllProjects, maskClientName } from '@/lib/db/projects'
-import { ProjectsTable } from './ProjectsTable'
-import type { ProjectStatus, ProjectType } from '@/lib/db/projects'
 import { auth } from '@/lib/auth'
+import { ProjectsTable } from './ProjectsTable'
+import { Suspense } from 'react'
 
 export const metadata = { title: 'Projets — SOPAT Admin' }
-export const dynamic = 'force-dynamic'
 
-type SearchParams = Promise<{ status?: string; page?: string; projectType?: string; country?: string }>
-
-export default async function ProjectsPage({ searchParams }: { searchParams: SearchParams }) {
-  const [sp, session] = await Promise.all([searchParams, auth()])
-  const status = sp.status as ProjectStatus | undefined
-  const projectType = sp.projectType as ProjectType | undefined
-  const country = sp.country || undefined
-  const page = parseInt(sp.page ?? '1', 10)
+export default async function ProjectsPage() {
+  const session = await auth()
   const userRole = session?.user.role ?? 'etudes_team'
-
-  const { rows, total, pageSize } = await getAllProjects({ status, projectType, country, page, pageSize: 25 })
-
-  const maskedRows = rows.map((r) => ({
-    ...r,
-    clientName: maskClientName(r.clientName, r.clientAnonymized ?? false, userRole),
-  }))
 
   return (
     <div className="space-y-4">
@@ -31,9 +16,6 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
           <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
             Projets
           </h1>
-          <p className="text-[12px] mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            {total} projet{total !== 1 ? 's' : ''} au total
-          </p>
         </div>
         <Link
           href="/admin/projects/new"
@@ -44,12 +26,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Sea
         </Link>
       </div>
 
-      <ProjectsTable
-        rows={maskedRows}
-        total={total}
-        page={page}
-        pageSize={pageSize}
-      />
+      <Suspense>
+        <ProjectsTable userRole={userRole} />
+      </Suspense>
     </div>
   )
 }

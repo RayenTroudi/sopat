@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { listSuppliers, createSupplier, type SupplierCategory, type SupplierStatus } from '@/lib/db/suppliers'
 import { z } from 'zod'
@@ -61,5 +62,6 @@ export async function POST(req: NextRequest) {
     createdBy:       session.user.userId,
   })
 
+  revalidateTag('suppliers-list', 'default')
   return NextResponse.json(row, { status: 201 })
 }

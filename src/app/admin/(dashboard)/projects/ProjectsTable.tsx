@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, FolderOpen } from 'lucide-react'
 import { PhaseBadge } from '@/components/projects/PhaseBadge'
@@ -29,10 +30,7 @@ type ProjectRow = {
 }
 
 type Props = {
-  rows: ProjectRow[]
-  total: number
-  page: number
-  pageSize: number
+  userRole: string
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -97,10 +95,34 @@ const TABLE_HEADS = [
   { label: 'Créé',         className: 'hidden xl:table-cell' },
 ]
 
-export function ProjectsTable({ rows, total, page, pageSize }: Props) {
+export function ProjectsTable({ userRole }: Props) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+
+  const [rows, setRows]         = useState<ProjectRow[]>([])
+  const [total, setTotal]       = useState(0)
+  const [pageSize, setPageSize] = useState(25)
+  const [loading, setLoading]   = useState(true)
+
+  const currentStatus  = searchParams.get('status') ?? ''
+  const currentType    = searchParams.get('projectType') ?? ''
+  const currentCountry = searchParams.get('country') ?? ''
+  const page           = parseInt(searchParams.get('page') ?? '1', 10)
+
+  useEffect(() => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (currentStatus)  params.set('status', currentStatus)
+    if (currentType)    params.set('projectType', currentType)
+    if (currentCountry) params.set('country', currentCountry)
+    params.set('page', String(page))
+    params.set('pageSize', '25')
+    fetch(`/api/projects?${params}`)
+      .then((r) => r.json())
+      .then((data) => { setRows(data.rows ?? []); setTotal(data.total ?? 0); setPageSize(data.pageSize ?? 25); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [currentStatus, currentType, currentCountry, page])
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -111,9 +133,6 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
   }
 
   const totalPages = Math.ceil(total / pageSize)
-  const currentStatus = searchParams.get('status') ?? ''
-  const currentType = searchParams.get('projectType') ?? ''
-  const currentCountry = searchParams.get('country') ?? ''
 
   const triggerStyle = { borderColor: 'var(--admin-border)', color: 'var(--admin-text)', background: 'var(--admin-surface)' }
   const contentStyle = { borderColor: 'var(--admin-border)', color: 'var(--admin-text)', background: 'var(--admin-surface)' }
@@ -168,7 +187,18 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
         className="overflow-hidden"
         style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px' }}
       >
-        {rows.length === 0 ? (
+        {loading ? (
+          <div className="divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="px-4 py-3 flex gap-4 animate-pulse">
+                <div className="h-4 rounded w-20" style={{ background: 'var(--admin-border)' }} />
+                <div className="h-4 rounded flex-1" style={{ background: 'var(--admin-border)' }} />
+                <div className="h-4 rounded w-24" style={{ background: 'var(--admin-border)' }} />
+                <div className="h-4 rounded w-16" style={{ background: 'var(--admin-border)' }} />
+              </div>
+            ))}
+          </div>
+        ) : rows.length === 0 ? (
           <EmptyState
             icon={FolderOpen}
             title="Aucun projet trouvé"

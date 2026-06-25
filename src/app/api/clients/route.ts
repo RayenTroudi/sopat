@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { listClients, createClient } from '@/lib/db/clients'
 import { z } from 'zod'
@@ -66,6 +67,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const id = await createClient({ ...parsed.data, createdBy: session.user.userId })
+    revalidateTag('clients-list', 'default')
     return NextResponse.json({ id }, { status: 201 })
   } catch (err) {
     console.error('[POST /api/clients]', err)

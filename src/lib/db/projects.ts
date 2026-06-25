@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache'
 import { db } from '../../../db/index'
 import {
   projects,
@@ -141,7 +142,7 @@ export function maskClientName(clientName: string, anonymized: boolean, role: st
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
-export async function getAllProjects(filters?: {
+async function _getAllProjects(filters?: {
   status?: ProjectStatus
   projectType?: ProjectType
   country?: string
@@ -152,57 +153,61 @@ export async function getAllProjects(filters?: {
   const pageSize = filters?.pageSize ?? 25
   const offset = (page - 1) * pageSize
 
-  // Build where conditions
   const conditions = [isNull(projects.deletedAt)]
   if (filters?.status) conditions.push(eq(projects.status, filters.status))
   if (filters?.projectType) conditions.push(eq(projects.projectType, filters.projectType))
   if (filters?.country) conditions.push(eq(projects.country, filters.country))
 
-  const rows = await db
-    .select({
-      id: projects.id,
-      reference: projects.reference,
-      name: projects.name,
-      clientName: projects.clientName,
-      clientEmail: projects.clientEmail,
-      clientPhone: projects.clientPhone,
-      siteAddress: projects.siteAddress,
-      siteAreaM2: projects.siteAreaM2,
-      projectType: projects.projectType,
-      country: projects.country,
-      currency: projects.currency,
-      clientAnonymized: projects.clientAnonymized,
-      status: projects.status,
-      startDate: projects.startDate,
-      estimatedDeliveryDate: projects.estimatedDeliveryDate,
-      actualDeliveryDate: projects.actualDeliveryDate,
-      assignedEtudesChefId: projects.assignedEtudesChefId,
-      assignedRealisationChefId: projects.assignedRealisationChefId,
-      assignedEntretienChefId: projects.assignedEntretienChefId,
-      approvedBudget: projects.approvedBudget,
-      notes: projects.notes,
-      createdAt: projects.createdAt,
-      updatedAt: projects.updatedAt,
-      deletedAt: projects.deletedAt,
-      createdBy: projects.createdBy,
-      clientId: projects.clientId,
-      clientDisplayName: clients.displayName,
-      dmsDocumentCode: projects.dmsDocumentCode,
-    })
-    .from(projects)
-    .leftJoin(clients, eq(projects.clientId, clients.id))
-    .where(and(...conditions))
-    .orderBy(desc(projects.createdAt))
-    .limit(pageSize)
-    .offset(offset)
-
-  const [{ total }] = await db
-    .select({ total: sql<number>`count(*)` })
-    .from(projects)
-    .where(and(...conditions))
+  const [rows, [{ total }]] = await Promise.all([
+    db.select({
+        id: projects.id,
+        reference: projects.reference,
+        name: projects.name,
+        clientName: projects.clientName,
+        clientEmail: projects.clientEmail,
+        clientPhone: projects.clientPhone,
+        siteAddress: projects.siteAddress,
+        siteAreaM2: projects.siteAreaM2,
+        projectType: projects.projectType,
+        country: projects.country,
+        currency: projects.currency,
+        clientAnonymized: projects.clientAnonymized,
+        status: projects.status,
+        startDate: projects.startDate,
+        estimatedDeliveryDate: projects.estimatedDeliveryDate,
+        actualDeliveryDate: projects.actualDeliveryDate,
+        assignedEtudesChefId: projects.assignedEtudesChefId,
+        assignedRealisationChefId: projects.assignedRealisationChefId,
+        assignedEntretienChefId: projects.assignedEntretienChefId,
+        approvedBudget: projects.approvedBudget,
+        notes: projects.notes,
+        createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
+        deletedAt: projects.deletedAt,
+        createdBy: projects.createdBy,
+        clientId: projects.clientId,
+        clientDisplayName: clients.displayName,
+        dmsDocumentCode: projects.dmsDocumentCode,
+      })
+      .from(projects)
+      .leftJoin(clients, eq(projects.clientId, clients.id))
+      .where(and(...conditions))
+      .orderBy(desc(projects.createdAt))
+      .limit(pageSize)
+      .offset(offset),
+    db.select({ total: sql<number>`count(*)` })
+      .from(projects)
+      .where(and(...conditions)),
+  ])
 
   return { rows, total: Number(total), page, pageSize }
 }
+
+export const getAllProjects = unstable_cache(
+  _getAllProjects,
+  ['projects-list'],
+  { revalidate: 30, tags: ['projects-list'] },
+)
 
 export async function getProjectById(id: string) {
   const [project] = await db
