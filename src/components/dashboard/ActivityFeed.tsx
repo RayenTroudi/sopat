@@ -49,7 +49,7 @@ export function ActivityFeed({ entries }: { entries: ActivityEntry[] }) {
   }
 
   return (
-    <div className="divide-y" style={{ borderColor: 'var(--admin-border)' }}>
+    <div className="divide-y divide-[#C2D5C9]">
       {entries.map((entry) => {
         const Icon = ACTION_ICONS[entry.action] ?? Activity
         return (
@@ -58,7 +58,7 @@ export function ActivityFeed({ entries }: { entries: ActivityEntry[] }) {
               className="w-6 h-6 rounded flex items-center justify-center shrink-0 mt-0.5"
               style={{ background: 'var(--admin-bg)' }}
             >
-              <Icon className="w-3 h-3" style={{ color: 'var(--admin-text-muted)' }} />
+              <Icon className="w-3 h-3" style={{ color: '#000000' }} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] leading-tight" style={{ color: 'var(--admin-text)' }}>

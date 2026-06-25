@@ -102,10 +102,10 @@ export function Step1Basic({
             value={watch('projectType') ? (watch('projectType') as string) : '__none__'}
             onValueChange={(v) => setValue('projectType', (v === '__none__' ? undefined : v) as WizardFormValues['projectType'])}
           >
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="— Sélectionner —" />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="__none__">— Sélectionner —</SelectItem>
               {PROJECT_TYPE_OPTIONS.map((t) => (
                 <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>
@@ -123,10 +123,10 @@ export function Step1Basic({
             value={watch('currency') ?? 'TND'}
             onValueChange={(v) => setValue('currency', v as WizardFormValues['currency'])}
           >
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               {CURRENCY_OPTIONS.map((c) => (
                 <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
               ))}
@@ -139,10 +139,10 @@ export function Step1Basic({
             value={watch('clientSector') ? (watch('clientSector') as string) : '__none__'}
             onValueChange={(v) => setValue('clientSector', (v === '__none__' ? undefined : v) as WizardFormValues['clientSector'])}
           >
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="— Sélectionner —" />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="__none__">— Sélectionner —</SelectItem>
               {SECTOR_OPTIONS.map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>

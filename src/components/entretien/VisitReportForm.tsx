@@ -150,10 +150,10 @@ export function VisitReportForm({
             </FF>
             <FF label="Type de visite *">
               <Select value={visitType} onValueChange={(v) => setVisitType(v)}>
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   {VISIT_TYPE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -166,10 +166,10 @@ export function VisitReportForm({
             </FF>
             <FF label="Équipe présente">
               <Select value={teamMemberId} onValueChange={(v) => setTeamMemberId(v)}>
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -267,10 +267,10 @@ export function VisitReportForm({
                 <input value={p.name} onChange={(e) => setProducts((ps) => ps.map((pp,j) => j===i ? {...pp, name:e.target.value} : pp))} placeholder="Produit" className="px-2 py-1.5 rounded-lg border text-xs" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
                 <input type="number" value={p.quantity} onChange={(e) => setProducts((ps) => ps.map((pp,j) => j===i ? {...pp, quantity:e.target.value} : pp))} placeholder="Qté" className="px-2 py-1.5 rounded-lg border text-xs" style={{ borderColor:'var(--admin-border)', background:'var(--admin-bg)', color:'var(--admin-text)' }} />
                 <Select value={p.unit} onValueChange={(v) => setProducts((ps) => ps.map((pp,j) => j===i ? {...pp, unit: v} : pp))}>
-                  <SelectTrigger className="h-8 text-xs bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectTrigger className="h-8 text-xs bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                     {['L','mL','kg','g','unité'].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
                   </SelectContent>
                 </Select>

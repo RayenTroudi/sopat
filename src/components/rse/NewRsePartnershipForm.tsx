@@ -197,10 +197,10 @@ export function NewRsePartnershipForm({
             value={(watch('sopatReferentId') ?? '') === '' ? '__none__' : watch('sopatReferentId')}
             onValueChange={(v) => setValue('sopatReferentId', v === '__none__' ? '' : v)}
           >
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="Sélectionner un référent..." />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="__none__">Sélectionner un référent...</SelectItem>
               {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
@@ -211,10 +211,10 @@ export function NewRsePartnershipForm({
 
         <Field label="Statut initial" error={errors.status?.message}>
           <Select value={watch('status') ?? 'en_cours_de_negociation'} onValueChange={(v) => setValue('status', v as FormValues['status'])}>
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               {STATUS_OPTIONS.map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
               ))}
@@ -257,10 +257,10 @@ export function NewRsePartnershipForm({
             value={watch('teamName') ? (watch('teamName') as string) : '__none__'}
             onValueChange={(v) => setValue('teamName', (v === '__none__' ? undefined : v) as FormValues['teamName'])}
           >
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="Sélectionner une équipe..." />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="__none__">Sélectionner une équipe...</SelectItem>
               {TEAM_OPTIONS.map((t) => (
                 <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>

@@ -56,7 +56,7 @@ export default async function ClientsPage({
       </div>
 
       <Suspense>
-        <ClientsFilterBar canCreate={canCreate} />
+        <ClientsFilterBar />
       </Suspense>
 
       {clientsList.length === 0 ? (

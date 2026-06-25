@@ -88,10 +88,10 @@ function CreateDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: 
           </FF>
           <FF label="Rôle *">
             <Select value={form.role} onValueChange={(v) => set('role')(v)}>
-              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 {ROLES.map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -156,10 +156,10 @@ function EditDrawer({ user, onClose, onUpdated }: { user: TeamMemberRow; onClose
           <FF label="Nom complet"><Input value={form.name} onChange={(v) => set('name')(v)} placeholder="Prénom Nom" /></FF>
           <FF label="Rôle">
             <Select value={form.role} onValueChange={(v) => set('role')(v)}>
-              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 {ROLES.map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -259,10 +259,10 @@ export function TeamClient({ initialUsers }: { initialUsers: TeamMemberRow[] }) 
           style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
         />
         <Select value={filterRole === '' ? '__all__' : filterRole} onValueChange={(v) => setFilterRole(v === '__all__' ? '' : v)}>
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectItem value="__all__">Tous les rôles</SelectItem>
             {ROLES.map(([v, label]) => <SelectItem key={v} value={v}>{label}</SelectItem>)}
           </SelectContent>

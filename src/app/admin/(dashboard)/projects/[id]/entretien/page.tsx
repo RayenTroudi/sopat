@@ -113,10 +113,10 @@ export default function EntretienPage() {
               value={frequencyType === '' ? '__none__' : frequencyType}
               onValueChange={(v) => setFrequencyType((v === '__none__' ? '' : v) as FrequencyType | '')}
             >
-              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectValue placeholder="-- Sélectionner --" />
               </SelectTrigger>
-              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectItem value="__none__">-- Sélectionner --</SelectItem>
                 {FREQUENCY_OPTIONS.map(o => (
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>

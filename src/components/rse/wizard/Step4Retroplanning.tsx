@@ -128,10 +128,10 @@ export function Step4Retroplanning({
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>Statut</label>
               <Select value={task.status} onValueChange={(v) => updateTask(idx, { status: v })}>
-                <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="h-9 text-sm bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectItem value="a_faire">À faire</SelectItem>
                   <SelectItem value="en_cours">En cours</SelectItem>
                   <SelectItem value="termine">Terminé</SelectItem>

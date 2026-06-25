@@ -131,10 +131,10 @@ function BudgetVarianceReport({ rows, countryFilter }: { rows: BudgetVarianceRow
       action={
         <div className="flex items-center gap-2">
           <Select value={sort} onValueChange={(v) => setSort(v as typeof sort)}>
-            <SelectTrigger className="text-xs h-8 px-2 py-1 bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="text-xs h-8 px-2 py-1 bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="variance">Tri : variance</SelectItem>
               <SelectItem value="spend">Tri : dépenses</SelectItem>
               <SelectItem value="ref">Tri : référence</SelectItem>
@@ -1046,10 +1046,10 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
               value={countryFilter === '' ? ALL_COUNTRIES : countryFilter}
               onValueChange={(v) => setCountryFilter(v === ALL_COUNTRIES ? '' : v)}
             >
-              <SelectTrigger className="text-xs h-8 px-2 py-1.5 bg-white flex-1 sm:flex-none sm:w-44" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectTrigger className="text-xs h-8 px-2 py-1.5 bg-[#F4F8F5] flex-1 sm:flex-none sm:w-44" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 {countries.map((c) => (
                   <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                 ))}
@@ -1063,13 +1063,13 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
       <div className="md:hidden">
         <Select value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
           <SelectTrigger
-            className="w-full font-medium bg-white"
+            className="w-full font-medium bg-[#F4F8F5]"
             style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
             aria-label="Section du rapport"
           >
             <SelectValue placeholder="Sélectionner une section" />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             {TABS.map((tab) => (
               <SelectItem key={tab.key} value={tab.key}>{tab.label}</SelectItem>
             ))}

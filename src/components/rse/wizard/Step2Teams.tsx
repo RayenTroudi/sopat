@@ -97,10 +97,10 @@ export function Step2Teams({
             <div>
               <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>Nom de l&apos;équipe</label>
               <Select value={team.teamName} onValueChange={(v) => updateTeam(idx, { teamName: v })}>
-                <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="h-9 text-sm bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   {TEAM_NAMES.map((t) => (
                     <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                   ))}
@@ -113,10 +113,10 @@ export function Step2Teams({
                 value={team.teamLeaderId ?? '__none__'}
                 onValueChange={(v) => updateTeam(idx, { teamLeaderId: v === '__none__' ? null : v })}
               >
-                <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="h-9 text-sm bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue placeholder="Aucun" />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectItem value="__none__">Aucun</SelectItem>
                   {teamMembers.map((m) => (
                     <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>

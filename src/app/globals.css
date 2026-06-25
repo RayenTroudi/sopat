@@ -16,8 +16,8 @@
   --color-admin-border:  #C2D5C9;
   --color-admin-text:    #1A2E24;
   --color-admin-muted:   #4A6A5A;
-  --color-admin-accent:  #C9A84C;
-  --color-admin-accent-dim: #FDF6E8;
+  --color-admin-accent:  #2F6F4F;
+  --color-admin-accent-dim: rgba(47, 111, 79, 0.10);
 
   --font-display: var(--font-cormorant);
   --font-playfair: var(--font-playfair);
@@ -50,9 +50,9 @@
   --admin-text:        #1A2E24;   /* near-black green */
   --admin-text-muted:  #4A6A5A;   /* green mid-tone */
   --admin-text-dim:    #7A9A8A;   /* green light-tone */
-  --admin-accent:      #C9A84C;
-  --admin-accent-dim:  #FDF6E8;
-  --admin-accent-glow: rgba(201, 168, 76, 0.15);
+  --admin-accent:      #2F6F4F;
+  --admin-accent-dim:  rgba(47, 111, 79, 0.10);
+  --admin-accent-glow: rgba(47, 111, 79, 0.15);
   --admin-green-dim:   rgba(28, 61, 46, 0.10);
 
   --admin-red: #D94F4F;

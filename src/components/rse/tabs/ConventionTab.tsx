@@ -270,10 +270,10 @@ export function ConventionTab({
           {changingStatus ? (
             <div className="flex items-center gap-3">
               <Select value={newStatus} onValueChange={(v) => setNewStatus(v as typeof newStatus)}>
-                <SelectTrigger className="text-sm h-9 bg-white w-44" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-44" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   {STATUS_OPTIONS.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}

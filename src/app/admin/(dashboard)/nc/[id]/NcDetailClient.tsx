@@ -227,10 +227,10 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
               value={status === '' ? '__none__' : status}
               onValueChange={(v) => setStatus(v === '__none__' ? '' : v)}
             >
-              <SelectTrigger className="text-sm bg-white flex-1" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectTrigger className="text-sm bg-[#F4F8F5] flex-1" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectValue placeholder="— Sélectionner un statut —" />
               </SelectTrigger>
-              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectItem value="__none__">— Sélectionner un statut —</SelectItem>
                 <SelectItem value="in_progress">En cours</SelectItem>
                 <SelectItem value="closed">Clôturer</SelectItem>
@@ -309,10 +309,10 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
                     value={capaForm.responsibleId === '' ? '__none__' : capaForm.responsibleId}
                     onValueChange={(v) => setCapaForm((f) => ({ ...f, responsibleId: v === '__none__' ? '' : v }))}
                   >
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue placeholder="— Sélectionner —" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectItem value="__none__">— Sélectionner —</SelectItem>
                       {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                     </SelectContent>

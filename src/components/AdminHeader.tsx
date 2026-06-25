@@ -39,7 +39,7 @@ export function AdminHeader({ name, role }: Props) {
           variant="ghost"
           size="icon"
           className="lg:hidden shrink-0"
-          style={{ color: '#2F6F4F' }}
+          style={{ color: '#000000' }}
           onClick={() => setSidebarOpen(true)}
         >
           <Menu className="w-5 h-5" />
@@ -51,7 +51,7 @@ export function AdminHeader({ name, role }: Props) {
         >
           <Search
             className="absolute left-3 pointer-events-none"
-            style={{ width: '14px', height: '14px', color: 'rgba(47,111,79,0.5)' }}
+            style={{ width: '14px', height: '14px', color: 'rgba(0,0,0,0.4)' }}
           />
           <input
             type="search"
@@ -62,12 +62,12 @@ export function AdminHeader({ name, role }: Props) {
               paddingLeft:  '34px',
               paddingRight: '12px',
               borderRadius: '10px',
-              border:       '1.5px solid rgba(47,111,79,0.2)',
-              color:        '#2F6F4F',
+              border:       '1.5px solid rgba(0,0,0,0.15)',
+              color:        '#000000',
               background:   '#F4F8F5',
             }}
-            onFocus={e => e.currentTarget.style.borderColor = 'rgba(47,111,79,0.5)'}
-            onBlur={e => e.currentTarget.style.borderColor = 'rgba(47,111,79,0.2)'}
+            onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,0,0,0.4)'}
+            onBlur={e => e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)'}
           />
         </div>
       </div>
@@ -79,45 +79,45 @@ export function AdminHeader({ name, role }: Props) {
           size="icon"
           className="relative"
           aria-label="Notifications"
-          style={{ color: '#2F6F4F' }}
+          style={{ color: 'rgba(0,0,0,0.5)' }}
         >
           <Bell className="w-4 h-4" />
         </Button>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-2 h-9" style={{ color: '#2F6F4F' }}>
+            <Button variant="ghost" className="flex items-center gap-2 px-2 h-9" style={{ color: 'rgba(0,0,0,0.5)' }}>
               <Avatar className="w-7 h-7">
                 <AvatarFallback
                   className="text-xs font-semibold"
-                  style={{ background: 'rgba(47,111,79,0.12)', color: '#2F6F4F', border: '1px solid rgba(47,111,79,0.25)' }}
+                  style={{ background: 'rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.5)', border: '1px solid rgba(0,0,0,0.15)' }}
                 >
                   {initials(name)}
                 </AvatarFallback>
               </Avatar>
-              <span className="hidden sm:block text-sm font-medium" style={{ color: '#2F6F4F' }}>
+              <span className="hidden sm:block text-sm font-medium" style={{ color: 'rgba(0,0,0,0.5)' }}>
                 {name}
               </span>
-              <ChevronDown className="w-3.5 h-3.5" style={{ color: 'rgba(47,111,79,0.6)' }} />
+              <ChevronDown className="w-3.5 h-3.5" style={{ color: 'rgba(0,0,0,0.4)' }} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52" style={{ background: '#F4F8F5', border: '1px solid rgba(47,111,79,0.15)' }}>
+          <DropdownMenuContent align="end" className="w-52" style={{ background: '#F4F8F5', border: '1px solid rgba(0,0,0,0.12)' }}>
             <DropdownMenuLabel>
-              <p className="text-sm font-medium" style={{ color: '#2F6F4F' }}>{name}</p>
-              <p className="text-xs font-normal mt-0.5" style={{ color: 'rgba(47,111,79,0.6)' }}>
+              <p className="text-sm font-medium" style={{ color: 'rgba(0,0,0,0.7)' }}>{name}</p>
+              <p className="text-xs font-normal mt-0.5" style={{ color: 'rgba(0,0,0,0.4)' }}>
                 {ROLE_LABELS[role]}
               </p>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator style={{ background: 'rgba(47,111,79,0.1)' }} />
+            <DropdownMenuSeparator style={{ background: 'rgba(0,0,0,0.08)' }} />
             {role === 'admin' && (
               <DropdownMenuItem asChild>
-                <a href="/admin/settings" className="cursor-pointer text-sm" style={{ color: '#2F6F4F' }}>Paramètres</a>
+                <a href="/admin/settings" className="cursor-pointer text-sm" style={{ color: 'rgba(0,0,0,0.6)' }}>Paramètres</a>
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator style={{ background: 'rgba(47,111,79,0.1)' }} />
+            <DropdownMenuSeparator style={{ background: 'rgba(0,0,0,0.08)' }} />
             <DropdownMenuItem asChild>
               <div className="cursor-pointer">
-                <LogoutButton className="w-full text-left text-sm" style={{ color: '#2F6F4F' }} />
+                <LogoutButton className="w-full text-left text-sm" style={{ color: 'rgba(0,0,0,0.6)' }} />
               </div>
             </DropdownMenuItem>
           </DropdownMenuContent>

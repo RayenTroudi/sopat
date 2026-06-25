@@ -213,10 +213,10 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
           value={filterStatus === '' ? '__all__' : filterStatus}
           onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterStatus(next); setTimeout(() => void loadDocs(), 0) }}
         >
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectItem value="__all__">Tous statuts</SelectItem>
             {Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
           </SelectContent>
@@ -226,10 +226,10 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
           value={filterType === '' ? '__all__' : filterType}
           onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterType(next); setTimeout(() => void loadDocs(), 0) }}
         >
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectItem value="__all__">Tous types</SelectItem>
             {TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
           </SelectContent>
@@ -239,10 +239,10 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
           value={filterProcess === '' ? '__all__' : filterProcess}
           onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterProcess(next); setTimeout(() => void loadDocs(), 0) }}
         >
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectItem value="__all__">Tous processus</SelectItem>
             {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
           </SelectContent>
@@ -403,10 +403,10 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
                       if (t) void handleTypeProcessChange(t, form.processCode)
                     }}
                   >
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue placeholder="— Choisir —" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectItem value="__none__">— Choisir —</SelectItem>
                       {TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
                     </SelectContent>
@@ -421,10 +421,10 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
                       if (p) void handleTypeProcessChange(form.typeCode, p)
                     }}
                   >
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue placeholder="— Choisir —" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectItem value="__none__">— Choisir —</SelectItem>
                       {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
                     </SelectContent>
@@ -455,20 +455,20 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Catégorie DMS">
                   <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       {Object.entries(CATEGORY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </FF>
                 <FF label="Département">
                   <Select value={form.department} onValueChange={(v) => setForm(f => ({ ...f, department: v }))}>
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       {Object.entries(DEPARTMENT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -478,10 +478,10 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Confidentialité">
                   <Select value={form.confidentiality} onValueChange={(v) => setForm(f => ({ ...f, confidentiality: v }))}>
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectItem value="public">Public</SelectItem>
                       <SelectItem value="internal">Interne</SelectItem>
                       <SelectItem value="confidential">Confidentiel</SelectItem>

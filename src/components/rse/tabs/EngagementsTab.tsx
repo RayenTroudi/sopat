@@ -146,10 +146,10 @@ export function EngagementsTab({
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type</label>
               <Select value={watch('commitmentType') ?? 'autre'} onValueChange={(v) => setValue('commitmentType', v as AddValues['commitmentType'])}>
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectItem value="autre">Autre</SelectItem>
                   <SelectItem value="action_annuelle">Action annuelle</SelectItem>
                   <SelectItem value="sensibilisation">Sensibilisation</SelectItem>
@@ -166,10 +166,10 @@ export function EngagementsTab({
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Fréquence</label>
               <Select value={watch('frequency') ?? 'annuel'} onValueChange={(v) => setValue('frequency', v as AddValues['frequency'])}>
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectItem value="annuel">Annuel</SelectItem>
                   <SelectItem value="unique">Unique</SelectItem>
                   <SelectItem value="semestriel">Semestriel</SelectItem>
@@ -181,10 +181,10 @@ export function EngagementsTab({
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Responsable</label>
               <Select value={watch('responsibleParty') ?? 'sopat'} onValueChange={(v) => setValue('responsibleParty', v as AddValues['responsibleParty'])}>
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectItem value="sopat">SOPAT</SelectItem>
                   <SelectItem value="partenaire">Partenaire</SelectItem>
                   <SelectItem value="conjoint">Conjoint</SelectItem>

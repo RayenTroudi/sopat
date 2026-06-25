@@ -146,10 +146,10 @@ export function Step2TypeFields({ form }: { form: UseFormReturn<WizardFormValues
                 value={(watch('municipalityClient') ?? '') === '' ? '__none__' : (watch('municipalityClient') as string)}
                 onValueChange={(v) => setValue('municipalityClient', v === '__none__' ? '' : v)}
               >
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue placeholder="—" />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectItem value="__none__">—</SelectItem>
                   {['Siège social', 'Hôtel', 'Résidence', 'Commerce', 'Autre'].map((b) => (
                     <SelectItem key={b} value={b}>{b}</SelectItem>

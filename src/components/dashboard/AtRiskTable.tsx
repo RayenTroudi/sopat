@@ -14,7 +14,7 @@ const FMT = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFr
 
 export function AtRiskTable({ projects }: { projects: AtRiskProject[] }) {
   if (projects.length === 0) {
-    return <EmptyState icon={ShieldCheck} title="Aucun projet à risque" description="Tous les projets sont dans les délais et dans le budget." />
+    return <EmptyState icon={ShieldCheck} title="Aucun projet à risque" description="Tous les projets sont dans les délais et dans le budget." iconColor="#000000" />
   }
 
   return (

@@ -233,10 +233,10 @@ export function EquipmentDrawer({ projectId, plantItems, open, onClose, onCreate
               value={equipmentTypeId === '' ? '__none__' : equipmentTypeId}
               onValueChange={(v) => setEquipmentTypeId(v === '__none__' ? '' : v)}
             >
-              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectValue placeholder="— Sélectionner —" />
               </SelectTrigger>
-              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectItem value="__none__">— Sélectionner —</SelectItem>
                 {equipmentTypes.map((t) => (
                   <SelectItem key={t.id} value={t.id}>{getIcon(t.iconName, t.name)} {t.displayNameFr}</SelectItem>
@@ -330,10 +330,10 @@ export function EquipmentDrawer({ projectId, plantItems, open, onClose, onCreate
             </Field>
             <Field label="Devise">
               <Select value={currency} onValueChange={(v) => setCurrency(v as typeof CURRENCIES[number])}>
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   {CURRENCIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>

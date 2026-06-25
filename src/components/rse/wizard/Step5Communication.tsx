@@ -127,10 +127,10 @@ export function Step5Communication({
 
                   <div className="grid grid-cols-2 gap-2">
                     <Select value={action.channel} onValueChange={(v) => updateAction(absIdx, { channel: v })}>
-                      <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectTrigger className="h-9 text-sm bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         {CHANNELS.map((c) => (
                           <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                         ))}
@@ -140,10 +140,10 @@ export function Step5Communication({
                       value={action.responsibleId ?? '__none__'}
                       onValueChange={(v) => updateAction(absIdx, { responsibleId: v === '__none__' ? null : v })}
                     >
-                      <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectTrigger className="h-9 text-sm bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         <SelectValue placeholder="Responsable (optionnel)" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         <SelectItem value="__none__">Responsable (optionnel)</SelectItem>
                         {teamMembers.map((m) => (
                           <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>

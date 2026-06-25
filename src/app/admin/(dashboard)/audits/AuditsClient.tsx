@@ -142,10 +142,10 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
           value={filterStatus === '' ? '__all__' : filterStatus}
           onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterStatus(next); setTimeout(() => void loadAudits(), 0) }}
         >
-          <SelectTrigger className="text-sm h-9 bg-white w-full sm:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full sm:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectItem value="__all__">Tous statuts</SelectItem>
             {Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
           </SelectContent>
@@ -216,10 +216,10 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
                 </FF>
                 <FF label="Statut">
                   <Select value={editStatus} onValueChange={(v) => setEditStatus(v)}>
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectItem value="scheduled">Planifié</SelectItem>
                       <SelectItem value="in_progress">En cours</SelectItem>
                       <SelectItem value="completed">Clôturé</SelectItem>
@@ -254,10 +254,10 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
               <FF label="Auditeur *">
                 <Select value={form.auditorId} onValueChange={(v) => setForm(f => ({ ...f, auditorId: v }))}>
-                  <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                     {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -268,10 +268,10 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
                 </FF>
                 <FF label="Statut">
                   <Select value={form.status} onValueChange={(v) => setForm(f => ({ ...f, status: v }))}>
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectItem value="scheduled">Planifié</SelectItem>
                       <SelectItem value="in_progress">En cours</SelectItem>
                       <SelectItem value="completed">Clôturé</SelectItem>
@@ -281,10 +281,10 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
               </div>
               <FF label="Processus audité *">
                 <Select value={form.processAudited} onValueChange={(v) => setForm(f => ({ ...f, processAudited: v }))}>
-                  <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                     {PROCESS_OPTIONS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
                   </SelectContent>
                 </Select>

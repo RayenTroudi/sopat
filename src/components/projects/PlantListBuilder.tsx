@@ -264,10 +264,10 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
                   </td>
                   <td className="py-1.5 pr-2 w-36">
                     <Select value={row.category} onValueChange={(v) => updateRow(row._key, { category: v })}>
-                      <SelectTrigger className="h-8 text-xs bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectTrigger className="h-8 text-xs bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -277,10 +277,10 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
                   </td>
                   <td className="py-1.5 pr-2 w-24">
                     <Select value={row.unit} onValueChange={(v) => updateRow(row._key, { unit: v })}>
-                      <SelectTrigger className="h-8 text-xs bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectTrigger className="h-8 text-xs bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         {UNITS.map((u) => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -296,10 +296,10 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
                       value={row.supplierId === '' ? '__none__' : row.supplierId}
                       onValueChange={(v) => updateRow(row._key, { supplierId: v === '__none__' ? '' : v })}
                     >
-                      <SelectTrigger className="h-8 text-xs bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectTrigger className="h-8 text-xs bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         <SelectValue placeholder="— Fournisseur —" />
                       </SelectTrigger>
-                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         <SelectItem value="__none__">— Fournisseur —</SelectItem>
                         {suppliers.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                       </SelectContent>

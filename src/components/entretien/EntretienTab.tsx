@@ -233,10 +233,10 @@ export function EntretienTab({ projectId, phaseStatus, plantZones, users, curren
               </FF>
               <FF label="Type de visite">
                 <Select value={planForm.visitType} onValueChange={(v) => setPlanForm((f) => ({ ...f, visitType: v }))}>
-                  <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                     {VISIT_TYPE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -247,10 +247,10 @@ export function EntretienTab({ projectId, phaseStatus, plantZones, users, curren
                 </FF>
                 <FF label="Équipe assignée">
                   <Select value={planForm.teamMemberId} onValueChange={(v) => setPlanForm((f) => ({ ...f, teamMemberId: v }))}>
-                    <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                       {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                     </SelectContent>
                   </Select>

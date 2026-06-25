@@ -186,10 +186,10 @@ export function CommunicationTab({
                 value={watch('communicationType') ? (watch('communicationType') as string) : '__none__'}
                 onValueChange={(v) => setValue('communicationType', (v === '__none__' ? undefined : v) as SubmitValues['communicationType'])}
               >
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue placeholder="Sélectionner..." />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectItem value="__none__">Sélectionner...</SelectItem>
                   <SelectItem value="logo_sopat">Logo SOPAT</SelectItem>
                   <SelectItem value="logo_partenaire">Logo partenaire</SelectItem>

@@ -109,10 +109,10 @@ export function ExportWizard({ projects }: { projects: PickerProject[] }) {
       <label className="block">
         <span className="text-sm">Type d&apos;export</span>
         <Select value={exportType} onValueChange={(v) => setExportType(v as ExportConfig['exportType'])}>
-          <SelectTrigger className="bg-white">
+          <SelectTrigger className="bg-[#F4F8F5]">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white">
+          <SelectContent className="bg-[#F4F8F5]">
             <SelectItem value="full">Complet</SelectItem>
             <SelectItem value="by_type">Par type</SelectItem>
             <SelectItem value="by_country">Par pays</SelectItem>

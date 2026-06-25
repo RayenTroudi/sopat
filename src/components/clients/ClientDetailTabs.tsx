@@ -415,10 +415,10 @@ export function ClientDetailTabs({
                       value={intForm.interactionType}
                       onValueChange={(v) => setIntForm({ ...intForm, interactionType: v })}
                     >
-                      <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                         {Object.entries(INTERACTION_CONFIG).map(([k, v]) => (
                           <SelectItem key={k} value={k}>{v.icon} {v.label}</SelectItem>
                         ))}

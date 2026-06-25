@@ -22,7 +22,7 @@ const selectStyle = {
   color: 'var(--admin-text)',
 }
 
-export function ClientsFilterBar({ canCreate }: { canCreate: boolean }) {
+export function ClientsFilterBar() {
   const router = useRouter()
   const pathname = usePathname()
   const sp = useSearchParams()
@@ -43,10 +43,10 @@ export function ClientsFilterBar({ canCreate }: { canCreate: boolean }) {
         value={(sp.get('type') ?? '') === '' ? '__all__' : (sp.get('type') ?? '')}
         onValueChange={(v) => push('type', v === '__all__' ? '' : v)}
       >
-        <SelectTrigger className="text-sm h-9 bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectTrigger className="text-sm h-9 bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           {TYPE_OPTIONS.map((o) => (
             <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>
           ))}
@@ -57,10 +57,10 @@ export function ClientsFilterBar({ canCreate }: { canCreate: boolean }) {
         value={(sp.get('country') ?? '') === '' ? '__all__' : (sp.get('country') ?? '')}
         onValueChange={(v) => push('country', v === '__all__' ? '' : v)}
       >
-        <SelectTrigger className="text-sm h-9 bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectTrigger className="text-sm h-9 bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectItem value="__all__">Tous les pays</SelectItem>
           <SelectItem value="TN">🇹🇳 Tunisie</SelectItem>
           <SelectItem value="FR">🇫🇷 France</SelectItem>
@@ -74,16 +74,6 @@ export function ClientsFilterBar({ canCreate }: { canCreate: boolean }) {
       </Select>
 
       <div className="flex-1" />
-
-      {canCreate && (
-        <a
-          href="/admin/clients/new"
-          className="text-sm font-medium px-4 py-2 rounded-lg text-white"
-          style={{ background: 'var(--admin-emerald)' }}
-        >
-          + Nouveau client
-        </a>
-      )}
     </div>
   )
 }

@@ -8,7 +8,7 @@ type Props = {
 export function BudgetBadge({ approved, spent }: Props) {
   if (!approved) {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--admin-blue-dim)] text-[var(--admin-blue)]">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap bg-[var(--admin-blue-dim)] text-[var(--admin-blue)]">
         Non défini
       </span>
     )

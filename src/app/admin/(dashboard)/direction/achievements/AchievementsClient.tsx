@@ -446,19 +446,19 @@ function YearRange({ yearFrom, yearTo, onChange }: { yearFrom: number; yearTo: n
     <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
       <span>De</span>
       <Select value={String(yearFrom)} onValueChange={(v) => onChange(parseInt(v, 10), yearTo)}>
-        <SelectTrigger className="h-8 text-xs bg-white w-20" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectTrigger className="h-8 text-xs bg-[#F4F8F5] w-20" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
         </SelectContent>
       </Select>
       <span>à</span>
       <Select value={String(yearTo)} onValueChange={(v) => onChange(yearFrom, parseInt(v, 10))}>
-        <SelectTrigger className="h-8 text-xs bg-white w-20" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectTrigger className="h-8 text-xs bg-[#F4F8F5] w-20" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           {years.map((y) => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
         </SelectContent>
       </Select>

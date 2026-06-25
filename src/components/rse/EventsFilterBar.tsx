@@ -41,10 +41,10 @@ export function EventsFilterBar({ canCreate }: { canCreate: boolean }) {
         value={(sp.get('type') ?? '') === '' ? '__all__' : (sp.get('type') ?? '')}
         onValueChange={(v) => set('type', v === '__all__' ? '' : v)}
       >
-        <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           {EVENT_TYPES.map((t) => (
             <SelectItem key={t.value} value={t.value === '' ? '__all__' : t.value}>{t.label}</SelectItem>
           ))}
@@ -55,10 +55,10 @@ export function EventsFilterBar({ canCreate }: { canCreate: boolean }) {
         value={(sp.get('status') ?? '') === '' ? '__all__' : (sp.get('status') ?? '')}
         onValueChange={(v) => set('status', v === '__all__' ? '' : v)}
       >
-        <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           {EVENT_STATUSES.map((s) => (
             <SelectItem key={s.value} value={s.value === '' ? '__all__' : s.value}>{s.label}</SelectItem>
           ))}
@@ -69,10 +69,10 @@ export function EventsFilterBar({ canCreate }: { canCreate: boolean }) {
         value={(sp.get('year') ?? '') === '' ? '__all__' : (sp.get('year') ?? '')}
         onValueChange={(v) => set('year', v === '__all__' ? '' : v)}
       >
-        <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
           <SelectItem value="__all__">Toutes les années</SelectItem>
           {years.map((y) => (
             <SelectItem key={y} value={String(y)}>{y}</SelectItem>

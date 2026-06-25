@@ -63,10 +63,10 @@ export function ZoneBuilder({ value, onChange, showFloor = false }: Props) {
             onChange={(e) => updateZone(i, { zoneName: e.target.value })}
           />
           <Select value={zone.zoneType} onValueChange={(v) => updateZone(i, { zoneType: v })}>
-            <SelectTrigger className="text-sm h-9 bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)', minWidth: 130 }}>
+            <SelectTrigger className="text-sm h-9 bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)', minWidth: 130 }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               {ZONE_TYPE_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
               ))}

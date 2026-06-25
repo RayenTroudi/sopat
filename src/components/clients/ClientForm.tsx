@@ -165,10 +165,10 @@ export function ClientForm({ initialValues, clientId, canToggleFeatured }: Clien
             value={watch('clientPotential') ?? '__none__'}
             onValueChange={(v) => setValue('clientPotential', v === '__none__' ? undefined : v as 'fort_potentiel' | 'faible_potentiel' | 'neutre')}
           >
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="-- Sélectionner --" />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="__none__">-- Sélectionner --</SelectItem>
               <SelectItem value="fort_potentiel">À fort potentiel</SelectItem>
               <SelectItem value="faible_potentiel">À faible potentiel</SelectItem>

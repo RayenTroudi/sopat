@@ -220,10 +220,10 @@ export function PurchaseDrawer({ projectId, plantItems, suppliers, open, onClose
                 value={(watch('plantListItemId') ?? '') === '' ? '__none__' : (watch('plantListItemId') as string)}
                 onValueChange={(v) => setValue('plantListItemId', v === '__none__' ? '' : v)}
               >
-                <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue placeholder="— Aucun lien / Article libre —" />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectItem value="__none__">— Aucun lien / Article libre —</SelectItem>
                   {plantItems.map((p) => (
                     <SelectItem key={p.id} value={p.id}>{p.botanicalName}{p.commonName ? ` (${p.commonName})` : ''}</SelectItem>
@@ -286,10 +286,10 @@ export function PurchaseDrawer({ projectId, plantItems, suppliers, open, onClose
               value={(watch('supplierId') ?? '') === '' ? '__none__' : (watch('supplierId') as string)}
               onValueChange={(v) => setValue('supplierId', v === '__none__' ? '' : v)}
             >
-              <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectValue placeholder="— Sélectionner un fournisseur —" />
               </SelectTrigger>
-              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectItem value="__none__">— Sélectionner un fournisseur —</SelectItem>
                 {suppliers.map((s) => (
                   <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>

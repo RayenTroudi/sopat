@@ -78,10 +78,10 @@ export function RsePartnershipsClient({
           value={(searchParams.get('status') ?? '') === '' ? '__all__' : (searchParams.get('status') ?? '')}
           onValueChange={(v) => updateParam('status', v === '__all__' ? '' : v)}
         >
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             {STATUS_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>
             ))}
@@ -92,10 +92,10 @@ export function RsePartnershipsClient({
           value={(searchParams.get('partnerType') ?? '') === '' ? '__all__' : (searchParams.get('partnerType') ?? '')}
           onValueChange={(v) => updateParam('partnerType', v === '__all__' ? '' : v)}
         >
-          <SelectTrigger className="text-sm h-9 bg-white w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             {TYPE_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value === '' ? '__all__' : o.value}>{o.label}</SelectItem>
             ))}

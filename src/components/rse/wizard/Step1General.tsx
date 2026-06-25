@@ -79,10 +79,10 @@ export function Step1General({
         <div>
           <label className="block text-sm font-medium mb-1" style={{ color: 'var(--admin-text)' }}>Type *</label>
           <Select value={watch('eventType')} onValueChange={(v) => setValue('eventType', v as FormValues['eventType'])}>
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="nettoyage_plage">Nettoyage plage</SelectItem>
               <SelectItem value="plantation">Plantation</SelectItem>
               <SelectItem value="sensibilisation">Sensibilisation</SelectItem>
@@ -124,10 +124,10 @@ export function Step1General({
             value={(watch('sopatCoordinatorId') ?? '') === '' ? '__none__' : watch('sopatCoordinatorId')}
             onValueChange={(v) => setValue('sopatCoordinatorId', v === '__none__' ? '' : v)}
           >
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="Sélectionner…" />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="__none__">Sélectionner…</SelectItem>
               {teamMembers.map((m) => (
                 <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
@@ -143,10 +143,10 @@ export function Step1General({
             value={(watch('partnerId') ?? '') === '' ? '__none__' : (watch('partnerId') as string)}
             onValueChange={(v) => setValue('partnerId', v === '__none__' ? '' : v)}
           >
-            <SelectTrigger className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectValue placeholder="Aucun" />
             </SelectTrigger>
-            <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
               <SelectItem value="__none__">Aucun</SelectItem>
               {partnerships.map((p) => (
                 <SelectItem key={p.id} value={p.id}>{p.partnerName}</SelectItem>

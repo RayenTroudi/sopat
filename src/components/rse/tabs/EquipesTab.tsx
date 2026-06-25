@@ -112,10 +112,10 @@ export function EquipesTab({
           <div key={idx} className="rounded-lg border p-3 space-y-3" style={{ borderColor: 'var(--admin-border)' }}>
             <div className="flex items-center justify-between">
               <Select value={team.teamName} onValueChange={(v) => updateTeam(idx, { teamName: v })}>
-                <SelectTrigger className="h-9 text-sm bg-white w-52" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectTrigger className="h-9 text-sm bg-[#F4F8F5] w-52" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   {Object.entries(TEAM_LABELS).map(([v, l]) => (
                     <SelectItem key={v} value={v}>{l}</SelectItem>
                   ))}
@@ -129,10 +129,10 @@ export function EquipesTab({
               value={team.teamLeaderId ?? '__none__'}
               onValueChange={(v) => updateTeam(idx, { teamLeaderId: v === '__none__' ? null : v })}
             >
-              <SelectTrigger className="h-9 text-sm bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectTrigger className="h-9 text-sm bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectValue placeholder="Aucun chef" />
               </SelectTrigger>
-              <SelectContent className="bg-white" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+              <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                 <SelectItem value="__none__">Aucun chef</SelectItem>
                 {teamMembers.map((m) => (
                   <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>

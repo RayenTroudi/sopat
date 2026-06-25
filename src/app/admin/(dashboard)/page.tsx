@@ -103,6 +103,7 @@ export default async function AdminDashboard() {
           subtitle={`Études: ${activeProjects.byPhase.etudes} · Réalisation: ${activeProjects.byPhase.realisation} · Entretien: ${activeProjects.byPhase.entretien}`}
           trend={{ value: activeProjects.trendVsLastMonth, suffix: ' vs mois préc.' }}
           accent="green"
+          highlight
         >
           <MiniPie data={phasePieData} size={56} />
         </MetricCard>
@@ -130,7 +131,6 @@ export default async function AdminDashboard() {
           title="Non-conformités ouvertes"
           value={openNcs.count}
           subtitle={openNcs.overdue > 0 ? `⚠ ${openNcs.overdue} en retard sur délai` : 'Toutes dans les délais'}
-          trend={{ value: openNcs.trendVsLastMonth, suffix: ' vs mois préc.' }}
           accent={openNcs.count === 0 ? 'green' : openNcs.overdue > 0 ? 'red' : 'amber'}
           isoClause="8.7"
         />
@@ -261,7 +261,7 @@ export default async function AdminDashboard() {
             }
           >
             {upcomingVisits.length === 0 ? (
-              <EmptyState icon={CalendarX} title="Aucune visite planifiée" description="Pas de visite dans les 7 prochains jours." />
+              <EmptyState icon={CalendarX} title="Aucune visite planifiée" description="Pas de visite dans les 7 prochains jours." iconColor="#000000" />
             ) : (
               <div className="divide-y" style={{ borderColor: 'var(--admin-border)' }}>
                 {upcomingVisits.map((v) => {
