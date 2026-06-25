@@ -107,15 +107,20 @@ type Props = {
 // ── Form state ───────────────────────────────────────────────────────────────
 
 const EMPTY_FORM = {
-  typeCode:    '' as TypeCode | '',
-  processCode: '' as ProcessCode | '',
-  documentNumber: '',
-  title:       '',
-  category:    'procedure',
-  department:  'qualite',
-  ownerId:     '',
-  confidentiality: 'internal',
-  isoClauses:  '',
+  typeCode:          '' as TypeCode | '',
+  processCode:       '' as ProcessCode | '',
+  documentNumber:    '',
+  title:             '',
+  category:          'procedure',
+  department:        'qualite',
+  ownerId:           '',
+  confidentiality:   'internal',
+  isoClauses:        '',
+  versionLabel:      '',
+  effectiveDate:     '',
+  storageType:       'Numérique',
+  managedByPassword: false,
+  observations:      '',
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -131,10 +136,43 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
   const [search,        setSearch]        = useState('')
 
   const [form, setForm]             = useState({ ...EMPTY_FORM, ownerId: currentUserId })
+  const [editingDoc, setEditingDoc] = useState<DmsDocRow | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [codePreview, setCodePreview] = useState('')
   const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  function openCreate() {
+    setEditingDoc(null)
+    setForm({ ...EMPTY_FORM, ownerId: currentUserId })
+    setCodePreview('')
+    setFormError('')
+    setShowForm(true)
+  }
+
+  function openEdit(doc: DmsDocRow) {
+    const parts = doc.documentNumber.split('-')
+    setEditingDoc(doc)
+    setForm({
+      typeCode:          (parts[0] ?? '') as TypeCode | '',
+      processCode:       (parts[1] ?? '') as ProcessCode | '',
+      documentNumber:    doc.documentNumber,
+      title:             doc.title,
+      category:          doc.category,
+      department:        doc.department,
+      ownerId:           doc.ownerId,
+      confidentiality:   doc.confidentiality,
+      isoClauses:        doc.isoClauses.join(', '),
+      versionLabel:      doc.versionLabel ?? '',
+      effectiveDate:     doc.effectiveDate ? new Date(doc.effectiveDate).toISOString().split('T')[0] : '',
+      storageType:       doc.storageType ?? 'Numérique',
+      managedByPassword: doc.managedByPassword,
+      observations:      doc.observations ?? '',
+    })
+    setCodePreview(doc.documentNumber)
+    setFormError('')
+    setShowForm(true)
+  }
 
   useEffect(() => { loadDocs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -163,28 +201,57 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
     }
   }
 
-  async function handleCreate() {
-    if (!form.documentNumber) { setFormError('Le code est obligatoire'); return }
-    if (!form.title.trim())   { setFormError('Le titre est obligatoire'); return }
-    if (!form.typeCode || !form.processCode) {
-      setFormError('Sélectionnez un type et un processus'); return
-    }
+  async function handleSave() {
+    if (!form.title.trim()) { setFormError('La désignation est obligatoire'); return }
+    const isoClauses = form.isoClauses ? form.isoClauses.split(',').map(s => s.trim()).filter(Boolean) : []
     setSubmitting(true); setFormError('')
-    const res = await fetch('/api/dms', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        documentNumber:  form.documentNumber,
-        title:           form.title,
-        category:        form.category,
-        department:      form.department,
-        ownerId:         form.ownerId,
-        confidentiality: form.confidentiality,
-        isoClauses:      form.isoClauses ? form.isoClauses.split(',').map(s => s.trim()).filter(Boolean) : [],
-      }),
-    })
-    const data = await res.json() as { error?: string }
-    if (!res.ok) { setFormError(data.error ?? 'Erreur'); setSubmitting(false); return }
+
+    if (editingDoc) {
+      // Update existing
+      const res = await fetch(`/api/dms/${editingDoc.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title:             form.title,
+          category:          form.category,
+          department:        form.department,
+          confidentiality:   form.confidentiality,
+          isoClauses,
+          versionLabel:      form.versionLabel || undefined,
+          effectiveDate:     form.effectiveDate || undefined,
+          storageType:       form.storageType || undefined,
+          managedByPassword: form.managedByPassword,
+          observations:      form.observations || undefined,
+        }),
+      })
+      const data = await res.json() as { error?: string }
+      if (!res.ok) { setFormError(data.error ?? 'Erreur'); setSubmitting(false); return }
+    } else {
+      // Create new
+      if (!form.documentNumber) { setFormError('Le code est obligatoire'); setSubmitting(false); return }
+      if (!form.typeCode || !form.processCode) { setFormError('Sélectionnez un type et un processus'); setSubmitting(false); return }
+      const res = await fetch('/api/dms', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          documentNumber:    form.documentNumber,
+          title:             form.title,
+          category:          form.category,
+          department:        form.department,
+          ownerId:           form.ownerId,
+          confidentiality:   form.confidentiality,
+          isoClauses,
+          versionLabel:      form.versionLabel || undefined,
+          effectiveDate:     form.effectiveDate || undefined,
+          storageType:       form.storageType || undefined,
+          managedByPassword: form.managedByPassword,
+          observations:      form.observations || undefined,
+        }),
+      })
+      const data = await res.json() as { error?: string }
+      if (!res.ok) { setFormError(data.error ?? 'Erreur'); setSubmitting(false); return }
+    }
+
     setShowForm(false)
+    setEditingDoc(null)
     setForm({ ...EMPTY_FORM, ownerId: currentUserId })
     setCodePreview('')
     await loadDocs()
@@ -220,7 +287,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
         </div>
         {canEdit && (
           <button
-            onClick={() => setShowForm(true)}
+            onClick={openCreate}
             className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-white w-full sm:w-auto"
             style={{ background: 'var(--admin-emerald)' }}
           >
@@ -352,19 +419,28 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                           <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs underline" style={{ color: 'var(--admin-blue)' }}>Ouvrir PDF</a>
                         )}
                         {canEdit && (
-                          <div className="flex gap-1.5 mt-2">
-                            <HighlightBtn
-                              active={doc.rowHighlight === 'green'}
-                              color="green"
-                              disabled={togglingId === doc.id}
-                              onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'green' ? 'none' : 'green')}
-                            />
-                            <HighlightBtn
-                              active={doc.rowHighlight === 'red'}
-                              color="red"
-                              disabled={togglingId === doc.id}
-                              onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'red' ? 'none' : 'red')}
-                            />
+                          <div className="flex items-center gap-2 mt-2">
+                            <button
+                              onClick={() => openEdit(doc)}
+                              className="text-xs px-2 py-1 rounded border"
+                              style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
+                            >
+                              Modifier
+                            </button>
+                            <div className="flex gap-1">
+                              <HighlightBtn
+                                active={doc.rowHighlight === 'green'}
+                                color="green"
+                                disabled={togglingId === doc.id}
+                                onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'green' ? 'none' : 'green')}
+                              />
+                              <HighlightBtn
+                                active={doc.rowHighlight === 'red'}
+                                color="red"
+                                disabled={togglingId === doc.id}
+                                onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'red' ? 'none' : 'red')}
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -431,7 +507,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                       <td className="px-3 py-2.5 text-center">
                         {doc.managedByPassword
                           ? <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--admin-amber-dim)', color: 'var(--admin-amber)' }}>Oui</span>
-                          : <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>—</span>
+                          : <span className="text-[10px]" style={{ color: 'var(--admin-text-muted)' }}>Non</span>
                         }
                       </td>
                       {/* Statut */}
@@ -448,25 +524,35 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                       </td>
                       {/* Actions */}
                       <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
                           {doc.assetUrl && (
-                            <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline whitespace-nowrap" style={{ color: 'var(--admin-blue)' }}>PDF</a>
+                            <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>PDF</a>
                           )}
                           {canEdit && (
-                            <div className="flex gap-1">
-                              <HighlightBtn
-                                active={doc.rowHighlight === 'green'}
-                                color="green"
-                                disabled={togglingId === doc.id}
-                                onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'green' ? 'none' : 'green')}
-                              />
-                              <HighlightBtn
-                                active={doc.rowHighlight === 'red'}
-                                color="red"
-                                disabled={togglingId === doc.id}
-                                onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'red' ? 'none' : 'red')}
-                              />
-                            </div>
+                            <>
+                              <button
+                                title="Modifier"
+                                onClick={() => openEdit(doc)}
+                                className="text-[11px] px-1.5 py-0.5 rounded border transition-colors hover:opacity-80"
+                                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
+                              >
+                                ✎
+                              </button>
+                              <div className="flex gap-1">
+                                <HighlightBtn
+                                  active={doc.rowHighlight === 'green'}
+                                  color="green"
+                                  disabled={togglingId === doc.id}
+                                  onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'green' ? 'none' : 'green')}
+                                />
+                                <HighlightBtn
+                                  active={doc.rowHighlight === 'red'}
+                                  color="red"
+                                  disabled={togglingId === doc.id}
+                                  onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'red' ? 'none' : 'red')}
+                                />
+                              </div>
+                            </>
                           )}
                         </div>
                       </td>
@@ -480,67 +566,75 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
         )}
       </div>
 
-      {/* Create drawer */}
+      {/* Create / Edit drawer */}
       {showForm && canEdit && (
         <>
-          <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => setShowForm(false)} />
+          <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => { setShowForm(false); setEditingDoc(null) }} />
           <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl overflow-y-auto" style={{ background: 'var(--admin-surface)', borderLeft: '1px solid var(--admin-border)' }}>
             <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
-              <h2 className="text-base font-semibold" style={{ color: 'var(--admin-text)' }}>Nouveau document</h2>
-              <button onClick={() => setShowForm(false)} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color: 'var(--admin-text-muted)' }}>✕</button>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--admin-text)' }}>
+                {editingDoc ? `Modifier — ${editingDoc.documentNumber}` : 'Nouveau document'}
+              </h2>
+              <button onClick={() => { setShowForm(false); setEditingDoc(null) }} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color: 'var(--admin-text-muted)' }}>✕</button>
             </div>
             <div className="flex-1 px-6 py-5 space-y-4">
 
-              {/* Type + Process selectors — drive code generation */}
-              <div className="grid grid-cols-2 gap-3">
-                <FF label="Type *">
-                  <Select
-                    value={form.typeCode === '' ? '__none__' : form.typeCode}
-                    onValueChange={(v) => {
-                      const t = (v === '__none__' ? '' : v) as TypeCode | ''
-                      setForm(f => ({ ...f, typeCode: t }))
-                      if (t) void handleTypeProcessChange(t, form.processCode)
-                    }}
-                  >
-                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectValue placeholder="— Choisir —" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectItem value="__none__">— Choisir —</SelectItem>
-                      {TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              {/* Code section — read-only when editing, auto-generated when creating */}
+              {editingDoc ? (
+                <FF label="Code">
+                  <div className="px-3 py-2 rounded-lg border font-mono text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}>
+                    {editingDoc.documentNumber}
+                  </div>
                 </FF>
-                <FF label="Processus *">
-                  <Select
-                    value={form.processCode === '' ? '__none__' : form.processCode}
-                    onValueChange={(v) => {
-                      const p = (v === '__none__' ? '' : v) as ProcessCode | ''
-                      setForm(f => ({ ...f, processCode: p }))
-                      if (p) void handleTypeProcessChange(form.typeCode, p)
-                    }}
-                  >
-                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectValue placeholder="— Choisir —" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectItem value="__none__">— Choisir —</SelectItem>
-                      {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </FF>
-              </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FF label="Type *">
+                      <Select
+                        value={form.typeCode === '' ? '__none__' : form.typeCode}
+                        onValueChange={(v) => {
+                          const t = (v === '__none__' ? '' : v) as TypeCode | ''
+                          setForm(f => ({ ...f, typeCode: t }))
+                          if (t && form.processCode) void handleTypeProcessChange(t, form.processCode)
+                        }}
+                      >
+                        <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          <SelectValue placeholder="— Choisir —" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          <SelectItem value="__none__">— Choisir —</SelectItem>
+                          {TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </FF>
+                    <FF label="Processus *">
+                      <Select
+                        value={form.processCode === '' ? '__none__' : form.processCode}
+                        onValueChange={(v) => {
+                          const p = (v === '__none__' ? '' : v) as ProcessCode | ''
+                          setForm(f => ({ ...f, processCode: p }))
+                          if (p && form.typeCode) void handleTypeProcessChange(form.typeCode, p)
+                        }}
+                      >
+                        <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          <SelectValue placeholder="— Choisir —" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          <SelectItem value="__none__">— Choisir —</SelectItem>
+                          {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </FF>
+                  </div>
+                  <FF label="Code généré">
+                    <div className="px-3 py-2 rounded-lg border font-mono text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: codePreview ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }}>
+                      {codePreview || 'Sélectionner type + processus'}
+                    </div>
+                  </FF>
+                </>
+              )}
 
-              {/* Auto-generated code — readonly display */}
-              <FF label="Code généré">
-                <div
-                  className="px-3 py-2 rounded-lg border font-mono text-sm"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: codePreview ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }}
-                >
-                  {codePreview || 'Sélectionner type + processus'}
-                </div>
-              </FF>
-
+              {/* Désignation */}
               <FF label="Désignation *">
                 <input
                   value={form.title}
@@ -551,6 +645,59 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                 />
               </FF>
 
+              {/* Version + Date */}
+              <div className="grid grid-cols-2 gap-3">
+                <FF label="Version">
+                  <input
+                    value={form.versionLabel}
+                    onChange={(e) => setForm(f => ({ ...f, versionLabel: e.target.value }))}
+                    placeholder="ex: 3"
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                  />
+                </FF>
+                <FF label="Date">
+                  <input
+                    type="date"
+                    value={form.effectiveDate}
+                    onChange={(e) => setForm(f => ({ ...f, effectiveDate: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                  />
+                </FF>
+              </div>
+
+              {/* Type de classement + Géré par MDP */}
+              <div className="grid grid-cols-2 gap-3">
+                <FF label="Type de classement">
+                  <Select value={form.storageType} onValueChange={(v) => setForm(f => ({ ...f, storageType: v }))}>
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectItem value="Numérique">Numérique</SelectItem>
+                      <SelectItem value="Papier">Papier</SelectItem>
+                      <SelectItem value="Les deux">Les deux</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FF>
+                <FF label="Géré par MDP">
+                  <Select
+                    value={form.managedByPassword ? 'oui' : 'non'}
+                    onValueChange={(v) => setForm(f => ({ ...f, managedByPassword: v === 'oui' }))}
+                  >
+                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                      <SelectItem value="non">Non</SelectItem>
+                      <SelectItem value="oui">Oui</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FF>
+              </div>
+
+              {/* Category + Department */}
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Catégorie DMS">
                   <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
@@ -574,6 +721,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                 </FF>
               </div>
 
+              {/* Confidentiality + ISO */}
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Confidentialité">
                   <Select value={form.confidentiality} onValueChange={(v) => setForm(f => ({ ...f, confidentiality: v }))}>
@@ -599,6 +747,17 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                 </FF>
               </div>
 
+              {/* Observations */}
+              <FF label="Observations">
+                <textarea
+                  value={form.observations}
+                  onChange={(e) => setForm(f => ({ ...f, observations: e.target.value }))}
+                  placeholder="Historique des révisions, remarques…"
+                  rows={4}
+                  className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                />
+              </FF>
 
               {formError && (
                 <p className="text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
@@ -607,9 +766,20 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
               )}
 
               <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowForm(false)} className="flex-1 px-4 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>Annuler</button>
-                <button onClick={() => void handleCreate()} disabled={submitting} className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--admin-emerald)' }}>
-                  {submitting ? 'Enregistrement…' : 'Enregistrer'}
+                <button
+                  onClick={() => { setShowForm(false); setEditingDoc(null) }}
+                  className="flex-1 px-4 py-2.5 rounded-lg border text-sm"
+                  style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={() => void handleSave()}
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60"
+                  style={{ background: 'var(--admin-emerald)' }}
+                >
+                  {submitting ? 'Enregistrement…' : editingDoc ? 'Mettre à jour' : 'Enregistrer'}
                 </button>
               </div>
             </div>

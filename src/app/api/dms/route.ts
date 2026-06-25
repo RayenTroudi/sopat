@@ -7,21 +7,24 @@ import { listDmsDocuments, createDmsDocument } from '@/lib/dms/queries'
 import { isValidCode } from '@/lib/dms/codes'
 
 const createSchema = z.object({
-  documentNumber:  z.string().min(1).max(50).toUpperCase().refine(isValidCode, {
+  documentNumber:    z.string().min(1).max(50).toUpperCase().refine(isValidCode, {
     message: 'Le code doit suivre le format TYPE-PROCESS-NN (ex: PRC-MI-01)',
   }),
-  title:           z.string().min(1).max(255),
-  category:        z.enum(['manuel_qualite','politique','procedure','instruction','formulaire',
+  title:             z.string().min(1).max(255),
+  category:          z.enum(['manuel_qualite','politique','procedure','instruction','formulaire',
     'enregistrement','plan_qualite','cartographie_processus','etude_technique','devis','contrat',
     'bon_commande','facture','rapport_inspection','rapport_audit','ncr','capa',
     'document_fournisseur','document_client','externe'] as const),
-  department:      z.enum(['direction','etudes','realisation','entretien','qualite','finance','rh','rse','transverse'] as const),
-  ownerId:         z.string().uuid().optional(),
-  isoClauses:      z.array(z.string()).optional(),
-  confidentiality: z.enum(['public','internal','confidential','restricted'] as const).optional(),
-  effectiveDate:   z.string().datetime().optional(),
-  nextReviewDate:  z.string().datetime().optional(),
-  legacyReference: z.string().optional(),
+  department:        z.enum(['direction','etudes','realisation','entretien','qualite','finance','rh','rse','transverse'] as const),
+  ownerId:           z.string().uuid().optional(),
+  isoClauses:        z.array(z.string()).optional(),
+  confidentiality:   z.enum(['public','internal','confidential','restricted'] as const).optional(),
+  effectiveDate:     z.string().optional(),
+  nextReviewDate:    z.string().optional(),
+  versionLabel:      z.string().max(20).optional(),
+  storageType:       z.string().max(50).optional(),
+  managedByPassword: z.boolean().optional(),
+  observations:      z.string().optional(),
 })
 
 export async function GET(req: NextRequest) {
@@ -57,18 +60,21 @@ export async function POST(req: NextRequest) {
 
   const d = parsed.data
   const doc = await createDmsDocument({
-    documentNumber:  d.documentNumber,
-    title:           d.title,
-    category:        d.category,
-    department:      d.department,
-    ownerId:         d.ownerId ?? session.user.userId,
-    authorId:        session.user.userId,
-    isoClauses:      d.isoClauses,
-    confidentiality: d.confidentiality,
-    effectiveDate:   d.effectiveDate  ? new Date(d.effectiveDate)  : undefined,
-    nextReviewDate:  d.nextReviewDate ? new Date(d.nextReviewDate) : undefined,
-    legacyReference: d.legacyReference,
-    createdBy:       session.user.userId,
+    documentNumber:    d.documentNumber,
+    title:             d.title,
+    category:          d.category,
+    department:        d.department,
+    ownerId:           d.ownerId ?? session.user.userId,
+    authorId:          session.user.userId,
+    isoClauses:        d.isoClauses,
+    confidentiality:   d.confidentiality,
+    effectiveDate:     d.effectiveDate  ? new Date(d.effectiveDate)  : undefined,
+    nextReviewDate:    d.nextReviewDate ? new Date(d.nextReviewDate) : undefined,
+    versionLabel:      d.versionLabel,
+    storageType:       d.storageType,
+    managedByPassword: d.managedByPassword,
+    observations:      d.observations,
+    createdBy:         session.user.userId,
   })
   revalidateTag('dms-documents-list', 'default')
   return NextResponse.json(doc, { status: 201 })

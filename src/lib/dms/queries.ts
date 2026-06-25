@@ -53,19 +53,23 @@ export type DmsListFilters = {
 }
 
 export type DmsCreateInput = {
-  documentNumber:   string
-  title:            string
-  category:         typeof dmsCategoryEnum.enumValues[number]
-  department:       typeof dmsDepartmentEnum.enumValues[number]
-  isoClauses?:      string[]
-  confidentiality?: typeof dmsConfidentialityEnum.enumValues[number]
-  tags?:            string[]
-  ownerId:          string
-  authorId:         string
-  effectiveDate?:   Date
-  nextReviewDate?:  Date
-  legacyReference?: string
-  createdBy:        string
+  documentNumber:     string
+  title:              string
+  category:           typeof dmsCategoryEnum.enumValues[number]
+  department:         typeof dmsDepartmentEnum.enumValues[number]
+  isoClauses?:        string[]
+  confidentiality?:   typeof dmsConfidentialityEnum.enumValues[number]
+  tags?:              string[]
+  ownerId:            string
+  authorId:           string
+  effectiveDate?:     Date
+  nextReviewDate?:    Date
+  versionLabel?:      string
+  storageType?:       string
+  managedByPassword?: boolean
+  observations?:      string
+  legacyReference?:   string
+  createdBy:          string
 }
 
 async function _listDmsDocuments(
@@ -165,6 +169,10 @@ export async function createDmsDocument(
       departmentManagerId: null,
       status:              'draft',
       rowHighlight:        'green',
+      versionLabel:        input.versionLabel ?? null,
+      storageType:         input.storageType ?? null,
+      managedByPassword:   input.managedByPassword ?? false,
+      observations:        input.observations ?? null,
       legacyReference:     input.legacyReference ?? null,
       effectiveDate:       input.effectiveDate ?? null,
       nextReviewDate:      input.nextReviewDate ?? null,
