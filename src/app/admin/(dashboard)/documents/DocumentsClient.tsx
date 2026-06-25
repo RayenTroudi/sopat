@@ -532,7 +532,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                                 className="text-[11px] px-1.5 py-0.5 rounded border transition-colors hover:opacity-80"
                                 style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
                               >
-                                ✎
+                                ✏️
                               </button>
                               <div className="flex gap-1">
                                 <HighlightBtn
