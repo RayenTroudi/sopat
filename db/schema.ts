@@ -366,6 +366,7 @@ export const projects = pgTable('projects', {
   residentialSubtype: residentialSubtypeEnum('residential_subtype'),
   actualRevenue: decimal('actual_revenue', { precision: 14, scale: 3 }),
   clientId: uuid('client_id'),
+  dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by').notNull(),
@@ -621,6 +622,7 @@ export const purchaseOrders = pgTable('purchase_orders', {
   nurserySource: nurserySourceEnum('nursery_source').default('fournisseur_externe'),
   nurseryStockId: uuid('nursery_stock_id'),
   notes: text('notes'),
+  dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
@@ -730,6 +732,7 @@ export const nonConformances = pgTable('non_conformances', {
   closedBy: uuid('closed_by'),
   beforePhotoAssetId: uuid('before_photo_asset_id'),
   afterPhotoAssetId: uuid('after_photo_asset_id'),
+  dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by').notNull(),
@@ -759,6 +762,7 @@ export const correctiveActions = pgTable('corrective_actions', {
   verifiedBy: uuid('verified_by'),
   closedAt: timestamp('closed_at'),
   notes: text('notes'),
+  dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
