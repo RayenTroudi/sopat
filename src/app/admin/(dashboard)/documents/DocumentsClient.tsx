@@ -322,18 +322,32 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                             <dd className="font-mono truncate" style={{ color: 'var(--admin-text)' }}>{typeCode} · {processCode}</dd>
                           </div>
                           <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Version</dt>
+                            <dd style={{ color: 'var(--admin-text)' }}>{doc.versionLabel ? `v${doc.versionLabel}` : '—'}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Date</dt>
+                            <dd style={{ color: 'var(--admin-text)' }}>{fmt(doc.effectiveDate)}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Classement</dt>
+                            <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{doc.storageType || '—'}</dd>
+                          </div>
+                          <div className="min-w-0">
+                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Géré par MDP</dt>
+                            <dd style={{ color: 'var(--admin-text)' }}>{doc.managedByPassword ? 'Oui' : 'Non'}</dd>
+                          </div>
+                          <div className="min-w-0">
                             <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Département</dt>
                             <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{DEPARTMENT_LABELS[doc.department] ?? doc.department}</dd>
                           </div>
-                          <div className="min-w-0">
-                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Responsable</dt>
-                            <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{doc.ownerName ?? '—'}</dd>
-                          </div>
-                          <div className="min-w-0">
-                            <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>En vigueur</dt>
-                            <dd style={{ color: 'var(--admin-text)' }}>{fmt(doc.effectiveDate)}</dd>
-                          </div>
                         </dl>
+                        {doc.observations && (
+                          <p className="mt-2 text-[11px] leading-snug" style={{ color: 'var(--admin-text-muted)' }}>
+                            <span className="uppercase tracking-wide font-medium" style={{ color: 'var(--admin-text-muted)' }}>Observations : </span>
+                            {doc.observations}
+                          </p>
+                        )}
                         {doc.assetUrl && (
                           <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs underline" style={{ color: 'var(--admin-blue)' }}>Ouvrir PDF</a>
                         )}
@@ -365,49 +379,78 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
-                  {['Code', 'Désignation', 'Type', 'Processus', 'Département', 'Statut', 'Responsable', 'En vigueur', ''].map(h => (
-                    <th key={h} className="text-left px-4 py-2.5 text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+                  {[
+                    'Type', 'Processus', 'Code', 'Désignation',
+                    'Version', 'Date', 'Classement', 'MDP',
+                    'Statut', 'Observations', '',
+                  ].map(h => (
+                    <th key={h} className="text-left px-3 py-2.5 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {rows.map((doc) => {
-                  const codeParts = doc.documentNumber.split('-')
+                  const codeParts   = doc.documentNumber.split('-')
                   const typeCode    = codeParts[0] ?? ''
                   const processCode = codeParts[1] ?? ''
+                  const s = simplifiedStatus(doc.status)
                   return (
-                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)]" style={{ borderBottom: '1px solid var(--admin-border)', ...rowHighlight(doc.rowHighlight) }}>
-                      <td className="px-4 py-3 font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>
-                        {doc.documentNumber}
-                      </td>
-                      <td className="px-4 py-3 max-w-[220px]">
-                        <p className="truncate text-sm font-medium" style={{ color: 'var(--admin-text)' }}>{doc.title}</p>
-                        {doc.isoClauses.length > 0 && (
-                          <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>ISO {doc.isoClauses.join(', ')}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--admin-text-muted)' }}>
+                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)] group" style={{ borderBottom: '1px solid var(--admin-border)', ...rowHighlight(doc.rowHighlight) }}>
+                      {/* Type */}
+                      <td className="px-3 py-2.5 font-mono text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--admin-text)' }}>
                         {typeCode}
                       </td>
-                      <td className="px-4 py-3 text-xs font-mono" style={{ color: 'var(--admin-text-muted)' }}>
+                      {/* Processus */}
+                      <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
                         {processCode}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                        {DEPARTMENT_LABELS[doc.department] ?? doc.department}
+                      {/* Code */}
+                      <td className="px-3 py-2.5 font-mono text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--admin-text)' }}>
+                        {doc.documentNumber}
                       </td>
-                      <td className="px-4 py-3">
-                        {(() => { const s = simplifiedStatus(doc.status); return <span className={cn('text-xs px-2 py-0.5 rounded font-medium', s.className)}>{s.label}</span> })()}
+                      {/* Désignation */}
+                      <td className="px-3 py-2.5 max-w-[200px]">
+                        <p className="truncate text-xs font-medium" style={{ color: 'var(--admin-text)' }} title={doc.title}>{doc.title}</p>
+                        {doc.isoClauses.length > 0 && (
+                          <p className="text-[10px]" style={{ color: 'var(--admin-text-muted)' }}>ISO {doc.isoClauses.join(', ')}</p>
+                        )}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                        {doc.ownerName ?? '—'}
+                      {/* Version */}
+                      <td className="px-3 py-2.5 text-xs text-center whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
+                        {doc.versionLabel ? `v${doc.versionLabel}` : '—'}
                       </td>
-                      <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                      {/* Date */}
+                      <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
                         {fmt(doc.effectiveDate)}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                      {/* Type de classement */}
+                      <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
+                        {doc.storageType || '—'}
+                      </td>
+                      {/* Géré par MDP */}
+                      <td className="px-3 py-2.5 text-center">
+                        {doc.managedByPassword
+                          ? <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ background: 'var(--admin-amber-dim)', color: 'var(--admin-amber)' }}>Oui</span>
+                          : <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>—</span>
+                        }
+                      </td>
+                      {/* Statut */}
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className={cn('text-[10px] px-2 py-0.5 rounded font-medium', s.className)}>{s.label}</span>
+                      </td>
+                      {/* Observations */}
+                      <td className="px-3 py-2.5 max-w-[200px]">
+                        {doc.observations ? (
+                          <p className="text-[11px] line-clamp-2 leading-snug" style={{ color: 'var(--admin-text-muted)' }} title={doc.observations}>
+                            {doc.observations}
+                          </p>
+                        ) : <span className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>—</span>}
+                      </td>
+                      {/* Actions */}
+                      <td className="px-3 py-2.5">
+                        <div className="flex items-center gap-1.5">
                           {doc.assetUrl && (
-                            <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>PDF</a>
+                            <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline whitespace-nowrap" style={{ color: 'var(--admin-blue)' }}>PDF</a>
                           )}
                           {canEdit && (
                             <div className="flex gap-1">

@@ -33,6 +33,10 @@ export type DmsDocRow = {
   assetUrl: string | null
   legacyReference: string | null
   rowHighlight: 'none' | 'green' | 'red'
+  versionLabel: string | null
+  storageType: string | null
+  managedByPassword: boolean
+  observations: string | null
   createdAt: Date
   updatedAt: Date
 }
@@ -105,11 +109,15 @@ async function _listDmsDocuments(
         authorId:         dmsDocuments.authorId,
         authorName:       authorUsers.name,
         currentVersionId: dmsDocuments.currentVersionId,
-        assetUrl:         cloudinaryAssets.secureUrl,
-        legacyReference:  dmsDocuments.legacyReference,
-        rowHighlight:     dmsDocuments.rowHighlight,
-        createdAt:        dmsDocuments.createdAt,
-        updatedAt:        dmsDocuments.updatedAt,
+        assetUrl:          cloudinaryAssets.secureUrl,
+        legacyReference:   dmsDocuments.legacyReference,
+        rowHighlight:      dmsDocuments.rowHighlight,
+        versionLabel:      dmsDocuments.versionLabel,
+        storageType:       dmsDocuments.storageType,
+        managedByPassword: dmsDocuments.managedByPassword,
+        observations:      dmsDocuments.observations,
+        createdAt:         dmsDocuments.createdAt,
+        updatedAt:         dmsDocuments.updatedAt,
       })
       .from(dmsDocuments)
       .leftJoin(ownerUsers,  eq(ownerUsers.id,  dmsDocuments.ownerId))
