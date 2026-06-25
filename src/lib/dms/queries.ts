@@ -32,6 +32,7 @@ export type DmsDocRow = {
   currentVersionId: string | null
   assetUrl: string | null
   legacyReference: string | null
+  rowHighlight: 'none' | 'green' | 'red'
   createdAt: Date
   updatedAt: Date
 }
@@ -106,6 +107,7 @@ async function _listDmsDocuments(
         currentVersionId: dmsDocuments.currentVersionId,
         assetUrl:         cloudinaryAssets.secureUrl,
         legacyReference:  dmsDocuments.legacyReference,
+        rowHighlight:     dmsDocuments.rowHighlight,
         createdAt:        dmsDocuments.createdAt,
         updatedAt:        dmsDocuments.updatedAt,
       })
@@ -154,6 +156,7 @@ export async function createDmsDocument(
       authorId:            input.authorId,
       departmentManagerId: null,
       status:              'draft',
+      rowHighlight:        'green',
       legacyReference:     input.legacyReference ?? null,
       effectiveDate:       input.effectiveDate ?? null,
       nextReviewDate:      input.nextReviewDate ?? null,
@@ -189,6 +192,7 @@ export async function getDmsDocumentByCode(
       currentVersionId: dmsDocuments.currentVersionId,
       assetUrl:         cloudinaryAssets.secureUrl,
       legacyReference:  dmsDocuments.legacyReference,
+      rowHighlight:     dmsDocuments.rowHighlight,
       createdAt:        dmsDocuments.createdAt,
       updatedAt:        dmsDocuments.updatedAt,
     })

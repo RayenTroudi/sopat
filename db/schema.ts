@@ -1602,6 +1602,8 @@ export const dmsPermissionSubjectEnum = pgEnum('dms_permission_subject', [
   'role',
 ])
 
+export const dmsRowHighlightEnum = pgEnum('dms_row_highlight', ['none', 'green', 'red'])
+
 export const dmsDocuments = pgTable('dms_documents', {
   id:                   uuid('id').primaryKey().defaultRandom(),
   documentNumber:       varchar('document_number', { length: 50 }).notNull().unique(),
@@ -1612,6 +1614,7 @@ export const dmsDocuments = pgTable('dms_documents', {
   isoClauses:           text('iso_clauses').array().notNull().default(sql`'{}'::text[]`),
   confidentiality:      dmsConfidentialityEnum('confidentiality').notNull().default('internal'),
   tags:                 text('tags').array().notNull().default(sql`'{}'::text[]`),
+  rowHighlight:         dmsRowHighlightEnum('row_highlight').notNull().default('none'),
   currentVersionId:     uuid('current_version_id'),
   status:               dmsLifecycleStatusEnum('status').notNull().default('draft'),
   ownerId:              uuid('owner_id').notNull(),

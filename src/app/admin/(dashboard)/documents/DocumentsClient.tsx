@@ -81,15 +81,9 @@ const DEPARTMENT_LABELS: Record<string, string> = {
 
 // ── Row highlight ────────────────────────────────────────────────────────────
 
-const CURRENT_YEAR = new Date().getFullYear()
-
-function rowHighlight(doc: DmsDocRow): React.CSSProperties {
-  const isEliminated = doc.status === 'obsolete' || doc.status === 'archived'
-  if (isEliminated) return { background: 'rgba(239,68,68,0.07)' }
-
-  const isAddedThisYear = new Date(doc.createdAt).getFullYear() === CURRENT_YEAR
-  if (isAddedThisYear) return { background: 'rgba(16,185,129,0.07)' }
-
+function rowHighlight(h: 'none' | 'green' | 'red'): React.CSSProperties {
+  if (h === 'red')   return { background: 'rgba(239,68,68,0.10)' }
+  if (h === 'green') return { background: 'rgba(16,185,129,0.10)' }
   return {}
 }
 
@@ -140,6 +134,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [codePreview, setCodePreview] = useState('')
+  const [togglingId, setTogglingId] = useState<string | null>(null)
 
   useEffect(() => { loadDocs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -194,6 +189,19 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
     setCodePreview('')
     await loadDocs()
     setSubmitting(false)
+  }
+
+  async function handleToggleHighlight(doc: DmsDocRow, next: 'none' | 'green' | 'red') {
+    setTogglingId(doc.id)
+    const res = await fetch(`/api/dms/${doc.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rowHighlight: next }),
+    })
+    if (res.ok) {
+      setRows(prev => prev.map(r => r.id === doc.id ? { ...r, rowHighlight: next } : r))
+    }
+    setTogglingId(null)
   }
 
   const activeCount = rows.filter(r => r.status === 'effective').length
@@ -297,7 +305,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                 const processCode = codeParts[1] ?? ''
                 const s = simplifiedStatus(doc.status)
                 return (
-                  <li key={doc.id} className="px-4 py-3" style={{ borderColor: 'var(--admin-border)', ...rowHighlight(doc) }}>
+                  <li key={doc.id} className="px-4 py-3" style={{ borderColor: 'var(--admin-border)', ...rowHighlight(doc.rowHighlight) }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -329,6 +337,22 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                         {doc.assetUrl && (
                           <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs underline" style={{ color: 'var(--admin-blue)' }}>Ouvrir PDF</a>
                         )}
+                        {canEdit && (
+                          <div className="flex gap-1.5 mt-2">
+                            <HighlightBtn
+                              active={doc.rowHighlight === 'green'}
+                              color="green"
+                              disabled={togglingId === doc.id}
+                              onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'green' ? 'none' : 'green')}
+                            />
+                            <HighlightBtn
+                              active={doc.rowHighlight === 'red'}
+                              color="red"
+                              disabled={togglingId === doc.id}
+                              onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'red' ? 'none' : 'red')}
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
                   </li>
@@ -352,7 +376,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                   const typeCode    = codeParts[0] ?? ''
                   const processCode = codeParts[1] ?? ''
                   return (
-                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)]" style={{ borderBottom: '1px solid var(--admin-border)', ...rowHighlight(doc) }}>
+                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)]" style={{ borderBottom: '1px solid var(--admin-border)', ...rowHighlight(doc.rowHighlight) }}>
                       <td className="px-4 py-3 font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>
                         {doc.documentNumber}
                       </td>
@@ -381,9 +405,27 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                         {fmt(doc.effectiveDate)}
                       </td>
                       <td className="px-4 py-3">
-                        {doc.assetUrl && (
-                          <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>PDF</a>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {doc.assetUrl && (
+                            <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>PDF</a>
+                          )}
+                          {canEdit && (
+                            <div className="flex gap-1">
+                              <HighlightBtn
+                                active={doc.rowHighlight === 'green'}
+                                color="green"
+                                disabled={togglingId === doc.id}
+                                onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'green' ? 'none' : 'green')}
+                              />
+                              <HighlightBtn
+                                active={doc.rowHighlight === 'red'}
+                                color="red"
+                                disabled={togglingId === doc.id}
+                                onClick={() => void handleToggleHighlight(doc, doc.rowHighlight === 'red' ? 'none' : 'red')}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )
@@ -541,5 +583,35 @@ function FF({ label, children }: { label: string; children: React.ReactNode }) {
       <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{label}</label>
       {children}
     </div>
+  )
+}
+
+function HighlightBtn({
+  active, color, disabled, onClick,
+}: {
+  active: boolean
+  color: 'green' | 'red'
+  disabled: boolean
+  onClick: () => void
+}) {
+  const base = color === 'green'
+    ? { bg: 'rgba(16,185,129,0.15)', border: '#10b981', dot: '#10b981', activeBg: 'rgba(16,185,129,0.35)' }
+    : { bg: 'rgba(239,68,68,0.12)', border: '#ef4444', dot: '#ef4444', activeBg: 'rgba(239,68,68,0.30)' }
+  const title = color === 'green'
+    ? (active ? 'Retirer couleur verte' : 'Marquer comme ajout (vert)')
+    : (active ? 'Retirer couleur rouge' : 'Marquer comme éliminé (rouge)')
+  return (
+    <button
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+      className="w-5 h-5 rounded-full border transition-all disabled:opacity-40 flex items-center justify-center"
+      style={{
+        background: active ? base.activeBg : base.bg,
+        borderColor: base.border,
+      }}
+    >
+      <span className="w-2 h-2 rounded-full" style={{ background: base.dot }} />
+    </button>
   )
 }
