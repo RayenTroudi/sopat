@@ -187,6 +187,7 @@ export async function getAllProjects(filters?: {
       createdBy: projects.createdBy,
       clientId: projects.clientId,
       clientDisplayName: clients.displayName,
+      dmsDocumentCode: projects.dmsDocumentCode,
     })
     .from(projects)
     .leftJoin(clients, eq(projects.clientId, clients.id))

@@ -25,6 +25,7 @@ type ProjectRow = {
   assignedEtudesChefId: string | null
   estimatedDeliveryDate: Date | null
   createdAt: Date
+  dmsDocumentCode?: string | null
 }
 
 type Props = {
@@ -210,6 +211,11 @@ export function ProjectsTable({ rows, total, page, pageSize }: Props) {
                       <div className="md:hidden mt-0.5 text-[11px] font-mono" style={{ color: 'var(--admin-text-muted)' }}>
                         {row.reference}
                       </div>
+                      {row.dmsDocumentCode && (
+                        <div className="mt-0.5 text-[10px] font-mono" style={{ color: 'var(--admin-text-muted)' }}>
+                          {row.dmsDocumentCode}
+                        </div>
+                      )}
                       <div className="lg:hidden mt-0.5 text-[11px] truncate max-w-[12rem]" style={{ color: 'var(--admin-text-muted)' }}>
                         {row.clientName}
                       </div>
