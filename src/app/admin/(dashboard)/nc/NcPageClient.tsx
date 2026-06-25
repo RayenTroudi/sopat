@@ -47,11 +47,13 @@ function fmt(d: Date | string) {
 }
 
 type User = { id: string; name: string; email: string; role: string }
+type Project = { id: string; name: string; reference: string }
 
 type Props = {
   initialRows:     NcListItem[]
   total:           number
   users:           User[]
+  projects:        Project[]
   currentUserId:   string
   currentUserName: string
 }
@@ -61,7 +63,7 @@ const selectStyle = { borderColor: 'var(--admin-border)', background: 'var(--adm
 const inputClass = 'w-full px-3 py-2 rounded-lg border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
 const inputStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }
 
-export function NcPageClient({ initialRows, total, users, currentUserId, currentUserName }: Props) {
+export function NcPageClient({ initialRows, total, users, projects, currentUserId, currentUserName }: Props) {
   const [rows, setRows]           = useState(initialRows)
   const [showForm, setShowForm]   = useState(false)
   const [filterStatus, setFilterStatus] = useState('')
@@ -70,6 +72,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
   const [loading, setLoading]     = useState(false)
 
   const [form, setForm] = useState({
+    projectId:   '',
     ncType:      '',
     ownerType:   '',
     auditorName: '',
@@ -106,6 +109,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        projectId:   form.projectId || undefined,
         ncType:      form.ncType || undefined,
         ownerType:   form.ownerType || undefined,
         auditorName: form.auditorName || undefined,
@@ -118,7 +122,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
     const data = await res.json() as { id?: string; error?: string }
     if (!res.ok) { setFormError(data.error ?? 'Erreur'); setSubmitting(false); return }
     setShowForm(false)
-    setForm({ ncType: '', ownerType: '', auditorName: '', description: '', rootCause: '', assignedTo: '', deadline: '' })
+    setForm({ projectId: '', ncType: '', ownerType: '', auditorName: '', description: '', rootCause: '', assignedTo: '', deadline: '' })
     await loadNcs()
     setSubmitting(false)
   }
@@ -184,7 +188,13 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
             style={selectStyle}
           />
         </div>
-        <Button variant="outline" size="sm" onClick={() => void loadNcs()} className="sm:col-span-2 lg:col-span-1 w-full lg:w-auto">Filtrer</Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void loadNcs()}
+          className="sm:col-span-2 lg:col-span-1 w-full lg:w-auto"
+          style={{ borderColor: 'var(--admin-border-light)', color: 'var(--admin-text-muted)' }}
+        >Filtrer</Button>
       </div>
 
       {/* List */}
@@ -220,7 +230,7 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
                           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
                             <div className="min-w-0">
                               <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Projet</dt>
-                              <dd className="truncate" style={{ color: 'var(--admin-text)' }}>{nc.projectName ?? '—'}</dd>
+                              <dd className="truncate" style={{ color: nc.projectName ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>{nc.projectName ?? '—'}</dd>
                             </div>
                             <div className="min-w-0">
                               <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Assigné à</dt>
@@ -271,7 +281,9 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
                       <TableCell className="max-w-[280px]">
                         <p className="truncate text-sm" style={{ color: 'var(--admin-text)' }}>{nc.description}</p>
                       </TableCell>
-                      <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{nc.projectName ?? '—'}</TableCell>
+                      <TableCell className="text-xs max-w-[140px]">
+                        <p className="truncate" style={{ color: nc.projectName ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>{nc.projectName ?? '—'}</p>
+                      </TableCell>
                       <TableCell className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{nc.assignedToName ?? '—'}</TableCell>
                       <TableCell className="text-xs" style={{ color: nc.deadline && new Date(nc.deadline) < new Date() ? 'var(--admin-red)' : 'var(--admin-text-muted)' }}>
                         {nc.deadline ? fmt(nc.deadline) : '—'}
@@ -298,6 +310,22 @@ export function NcPageClient({ initialRows, total, users, currentUserId, current
             <SheetDescription style={{ color: 'var(--admin-text-muted)' }}>ISO 9001:2015 · clause 10.2</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+            <FormField label="Projet lié (optionnel)">
+              <Select
+                value={form.projectId === '' ? '__none__' : form.projectId}
+                onValueChange={(v) => setForm((f) => ({ ...f, projectId: v === '__none__' ? '' : v }))}
+              >
+                <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectValue placeholder="— Aucun projet —" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  <SelectItem value="__none__">— Aucun projet —</SelectItem>
+                  {projects.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.reference} · {p.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
             <FormField label="Type de NC">
               <Select
                 value={form.ncType === '' ? '__none__' : form.ncType}

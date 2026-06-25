@@ -72,7 +72,7 @@ export function Step1General({
           style={fieldStyle}
           placeholder="Ex: Journée nettoyage plage Hammamet"
         />
-        {errors.title && <p className="text-xs text-red-500 mt-1">{errors.title.message}</p>}
+        {errors.title && <p className="text-xs text-[#2F6F4F] mt-1">{errors.title.message}</p>}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -91,7 +91,7 @@ export function Step1General({
               <SelectItem value="autre">Autre</SelectItem>
             </SelectContent>
           </Select>
-          {errors.eventType && <p className="text-xs text-red-500 mt-1">{errors.eventType.message}</p>}
+          {errors.eventType && <p className="text-xs text-[#2F6F4F] mt-1">{errors.eventType.message}</p>}
         </div>
 
         <div>
@@ -102,7 +102,7 @@ export function Step1General({
             className="w-full px-3 py-2 rounded-lg border text-sm"
             style={fieldStyle}
           />
-          {errors.date && <p className="text-xs text-red-500 mt-1">{errors.date.message}</p>}
+          {errors.date && <p className="text-xs text-[#2F6F4F] mt-1">{errors.date.message}</p>}
         </div>
       </div>
 
@@ -114,7 +114,7 @@ export function Step1General({
           style={fieldStyle}
           placeholder="Ex: Plage de Hammamet"
         />
-        {errors.location && <p className="text-xs text-red-500 mt-1">{errors.location.message}</p>}
+        {errors.location && <p className="text-xs text-[#2F6F4F] mt-1">{errors.location.message}</p>}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -134,7 +134,7 @@ export function Step1General({
               ))}
             </SelectContent>
           </Select>
-          {errors.sopatCoordinatorId && <p className="text-xs text-red-500 mt-1">{errors.sopatCoordinatorId.message}</p>}
+          {errors.sopatCoordinatorId && <p className="text-xs text-[#2F6F4F] mt-1">{errors.sopatCoordinatorId.message}</p>}
         </div>
 
         <div>

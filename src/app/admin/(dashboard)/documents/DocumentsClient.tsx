@@ -253,7 +253,7 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && void loadDocs()}
           placeholder="Code ou titre…"
-          className="text-sm px-3 py-1.5 rounded-lg border w-full sm:col-span-2 lg:flex-1 lg:col-span-1 lg:min-w-[160px]"
+          className="text-sm px-3 py-1.5 rounded-lg border w-full sm:col-span-2 lg:flex-1 lg:col-span-1 lg:min-w-[160px] outline-none focus:ring-2 focus:ring-[var(--admin-border-light)] focus:border-[var(--admin-border-light)]"
           style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
         />
         <button

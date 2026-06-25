@@ -181,7 +181,7 @@ export function CommunicationTab({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type <span className="text-red-500">*</span></label>
+              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Type <span className="text-[#2F6F4F]">*</span></label>
               <Select
                 value={watch('communicationType') ? (watch('communicationType') as string) : '__none__'}
                 onValueChange={(v) => setValue('communicationType', (v === '__none__' ? undefined : v) as SubmitValues['communicationType'])}
@@ -196,7 +196,7 @@ export function CommunicationTab({
                   <SelectItem value="publication_commune">Publication commune</SelectItem>
                 </SelectContent>
               </Select>
-              {errors.communicationType && <p className="text-xs text-red-500">{errors.communicationType.message}</p>}
+              {errors.communicationType && <p className="text-xs text-[#2F6F4F]">{errors.communicationType.message}</p>}
             </div>
 
             <div className="space-y-1">
@@ -205,9 +205,9 @@ export function CommunicationTab({
             </div>
 
             <div className="col-span-2 space-y-1">
-              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Description <span className="text-red-500">*</span></label>
+              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Description <span className="text-[#2F6F4F]">*</span></label>
               <textarea {...register('description')} rows={2} className={inputClass} style={inputStyle} placeholder="Décrivez l'usage prévu..." />
-              {errors.description && <p className="text-xs text-red-500">{errors.description.message}</p>}
+              {errors.description && <p className="text-xs text-[#2F6F4F]">{errors.description.message}</p>}
             </div>
 
             <div className="col-span-2 space-y-1">
@@ -227,7 +227,7 @@ export function CommunicationTab({
             </div>
           </div>
 
-          {errors.root && <p className="text-xs text-red-500">{errors.root.message}</p>}
+          {errors.root && <p className="text-xs text-[#2F6F4F]">{errors.root.message}</p>}
 
           <div className="flex gap-3">
             <button

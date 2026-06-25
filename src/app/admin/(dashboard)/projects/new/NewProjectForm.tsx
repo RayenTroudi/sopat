@@ -170,7 +170,7 @@ export function NewProjectForm({ clientOptions = [] }: { clientOptions?: ClientO
       </div>
 
       {errors.root && (
-        <p className="text-sm text-red-500 px-1">{errors.root.message}</p>
+        <p className="text-sm text-[#2F6F4F] px-1">{errors.root.message}</p>
       )}
 
       {/* Navigation */}

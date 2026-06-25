@@ -12,10 +12,10 @@ function Field({ label, error, required, children }: { label: string; error?: st
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        {label}{required && <span className="text-[#2F6F4F] ml-0.5">*</span>}
       </label>
       {children}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-[#2F6F4F]">{error}</p>}
     </div>
   )
 }
@@ -154,7 +154,7 @@ export function Step1Basic({
         {/* CRM client selector */}
         <div className="sm:col-span-2 space-y-2">
           <label className="block text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>
-            Client <span className="text-red-500">*</span>
+            Client <span className="text-[#2F6F4F]">*</span>
           </label>
 
           {clientOptions.length > 0 && !showFreeText && (
@@ -235,7 +235,7 @@ export function Step1Basic({
                 style={inputStyle}
                 placeholder="M. Ahmed Ben Salah"
               />
-              {errors.clientName && <p className="text-xs text-red-500">{errors.clientName.message}</p>}
+              {errors.clientName && <p className="text-xs text-[#2F6F4F]">{errors.clientName.message}</p>}
               {clientOptions.length > 0 && (
                 <button
                   type="button"

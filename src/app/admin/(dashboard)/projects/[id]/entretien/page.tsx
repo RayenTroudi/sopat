@@ -191,7 +191,7 @@ export default function EntretienPage() {
             {saving ? 'Enregistrement...' : 'Enregistrer'}
           </button>
           {saved && <span className="text-sm" style={{ color: 'var(--admin-emerald)' }}>Enregistré ✓</span>}
-          {error && <span className="text-sm text-red-500">{error}</span>}
+          {error && <span className="text-sm text-[#2F6F4F]">{error}</span>}
         </div>
       </div>
     </div>

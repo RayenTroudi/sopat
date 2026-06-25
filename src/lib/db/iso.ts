@@ -9,6 +9,7 @@ import {
   projects,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql, ilike, or } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -71,8 +72,8 @@ export async function listNcs(filters?: {
   const pageSize = filters?.pageSize ?? 25
   const offset = (page - 1) * pageSize
 
-  const detectedByUser  = db.$with('db_user').as(db.select({ id: users.id, name: users.name }).from(users))
-  const assignedToUser  = db.$with('at_user').as(db.select({ id: users.id, name: users.name }).from(users))
+  const detUser  = alias(users, 'det')
+  const asgnUser = alias(users, 'asgn')
 
   const rows = await db
     .select({
@@ -86,14 +87,14 @@ export async function listNcs(filters?: {
       deadline:        nonConformances.deadline,
       projectId:       nonConformances.projectId,
       projectName:     projects.name,
-      detectedByName:  sql<string | null>`det.name`,
-      assignedToName:  sql<string | null>`asgn.name`,
+      detectedByName:  detUser.name,
+      assignedToName:  asgnUser.name,
       createdAt:       nonConformances.createdAt,
     })
     .from(nonConformances)
     .leftJoin(projects, eq(nonConformances.projectId, projects.id))
-    .leftJoin(sql`users det`, sql`det.id = ${nonConformances.detectedBy}`)
-    .leftJoin(sql`users asgn`, sql`asgn.id = ${nonConformances.assignedTo}`)
+    .leftJoin(detUser,  eq(detUser.id,  nonConformances.detectedBy))
+    .leftJoin(asgnUser, eq(asgnUser.id, nonConformances.assignedTo))
     .where(
       and(
         isNull(nonConformances.deletedAt),
@@ -156,6 +157,10 @@ export type CapaDetail = {
 }
 
 export async function getNcById(id: string): Promise<NcDetail | null> {
+  const detUser  = alias(users, 'det')
+  const asgnUser = alias(users, 'asgn')
+  const clsUser  = alias(users, 'cls')
+
   const [nc] = await db
     .select({
       id:              nonConformances.id,
@@ -170,18 +175,18 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       projectId:       nonConformances.projectId,
       projectName:     projects.name,
       detectedById:    nonConformances.detectedBy,
-      detectedByName:  sql<string | null>`det.name`,
+      detectedByName:  detUser.name,
       assignedToId:    nonConformances.assignedTo,
-      assignedToName:  sql<string | null>`asgn.name`,
+      assignedToName:  asgnUser.name,
       closedById:      nonConformances.closedBy,
-      closedByName:    sql<string | null>`cls.name`,
+      closedByName:    clsUser.name,
       createdAt:       nonConformances.createdAt,
     })
     .from(nonConformances)
     .leftJoin(projects, eq(nonConformances.projectId, projects.id))
-    .leftJoin(sql`users det`,  sql`det.id = ${nonConformances.detectedBy}`)
-    .leftJoin(sql`users asgn`, sql`asgn.id = ${nonConformances.assignedTo}`)
-    .leftJoin(sql`users cls`,  sql`cls.id = ${nonConformances.closedBy}`)
+    .leftJoin(detUser,  eq(detUser.id,  nonConformances.detectedBy))
+    .leftJoin(asgnUser, eq(asgnUser.id, nonConformances.assignedTo))
+    .leftJoin(clsUser,  eq(clsUser.id,  nonConformances.closedBy))
     .where(and(eq(nonConformances.id, id), isNull(nonConformances.deletedAt)))
     .limit(1)
 

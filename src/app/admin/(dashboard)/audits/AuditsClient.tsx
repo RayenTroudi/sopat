@@ -178,7 +178,7 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
                 <span>Auditeur : <strong>{audit.auditorName ?? '—'}</strong></span>
                 <span>Date : {fmt(audit.auditDate)}</span>
                 {audit.status !== 'completed' && isAdmin && (
-                  <Button variant="ghost" size="sm" onClick={() => startEdit(audit)} className="text-xs h-7 px-2" style={{ color: 'var(--admin-blue)' }}>
+                  <Button variant="ghost" size="sm" onClick={() => startEdit(audit)} className="text-xs h-7 px-2" style={{ color: 'var(--admin-emerald)' }}>
                     {editingId === audit.id ? 'Annuler' : 'Modifier'}
                   </Button>
                 )}

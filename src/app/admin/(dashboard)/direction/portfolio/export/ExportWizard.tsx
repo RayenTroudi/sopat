@@ -161,7 +161,7 @@ export function ExportWizard({ projects }: { projects: PickerProject[] }) {
           Télécharger le PDF
         </a>
       )}
-      {errorMsg && <p className="text-red-700 text-sm">{errorMsg}</p>}
+      {errorMsg && <p className="text-[#1C3D2E] text-sm">{errorMsg}</p>}
     </div>
   )
 }

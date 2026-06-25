@@ -69,7 +69,7 @@ export function HistoryTable({ rows: initial }: { rows: Row[] }) {
               )}
             </td>
             <td className="text-center">
-              <button className="text-red-700" onClick={() => del(r.e.id)}>
+              <button className="text-[#1C3D2E]" onClick={() => del(r.e.id)}>
                 Supprimer
               </button>
             </td>

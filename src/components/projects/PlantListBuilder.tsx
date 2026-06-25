@@ -359,7 +359,7 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
                 Enregistré à {savedAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
               </p>
             )}
-            {saveError && <p className="text-xs text-red-500">{saveError}</p>}
+            {saveError && <p className="text-xs text-[#2F6F4F]">{saveError}</p>}
           </div>
         </div>
       </div>

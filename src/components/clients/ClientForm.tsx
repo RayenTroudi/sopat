@@ -40,10 +40,10 @@ function Field({ label, error, required, children }: { label: string; error?: st
   return (
     <div className="space-y-1.5">
       <label className="block text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>
-        {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+        {label}{required && <span className="text-[#2F6F4F] ml-0.5">*</span>}
       </label>
       {children}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-[#2F6F4F]">{error}</p>}
     </div>
   )
 }

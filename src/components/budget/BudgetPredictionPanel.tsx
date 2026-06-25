@@ -212,7 +212,7 @@ function ModifyForm({
 
       <div>
         <label className="block text-xs mb-1" style={{ color: 'var(--admin-text-muted)' }}>
-          Raison de la modification <span className="text-red-500">*</span>
+          Raison de la modification <span className="text-[#2F6F4F]">*</span>
         </label>
         <textarea
           value={reason}
@@ -224,7 +224,7 @@ function ModifyForm({
         />
       </div>
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-[#2F6F4F]">{error}</p>}
 
       <div className="flex items-center gap-3">
         <button
@@ -419,7 +419,7 @@ export function BudgetPredictionPanel({
             >
               Modifier le budget
             </button>
-            {acceptError && <p className="text-xs text-red-500">{acceptError}</p>}
+            {acceptError && <p className="text-xs text-[#2F6F4F]">{acceptError}</p>}
           </div>
         )}
       </div>

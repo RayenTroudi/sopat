@@ -1,5 +1,6 @@
 import { auth } from '@/lib/auth'
 import { listNcs, getActiveUsers, type NcStatus, type NcProcess } from '@/lib/db/iso'
+import { getAllProjects } from '@/lib/db/projects'
 import { NcPageClient } from './NcPageClient'
 
 export const dynamic = 'force-dynamic'
@@ -16,16 +17,20 @@ export default async function NCPage({ searchParams }: { searchParams: SearchPar
   const projectId = typeof sp.projectId === 'string' ? sp.projectId : undefined
   const search    = typeof sp.search    === 'string' ? sp.search    : undefined
 
-  const [{ rows, total }, users] = await Promise.all([
+  const [{ rows, total }, users, { rows: allProjects }] = await Promise.all([
     listNcs({ status, process, projectId, search }),
     getActiveUsers(),
+    getAllProjects({ pageSize: 200 }),
   ])
+
+  const projects = allProjects.map((p) => ({ id: p.id, name: p.name, reference: p.reference }))
 
   return (
     <NcPageClient
       initialRows={rows}
       total={total}
       users={users}
+      projects={projects}
       currentUserId={session.user.userId}
       currentUserName={session.user.name ?? session.user.email ?? 'Inconnu'}
     />

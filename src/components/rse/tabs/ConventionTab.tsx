@@ -234,7 +234,7 @@ export function ConventionTab({
           )}
         </div>
         <div className="p-5">
-          {pdfError && <p className="text-xs text-red-500 mb-3">{pdfError}</p>}
+          {pdfError && <p className="text-xs text-[#2F6F4F] mb-3">{pdfError}</p>}
           {partnership.conventionPdfUrl ? (
             <div className="space-y-3">
               <a

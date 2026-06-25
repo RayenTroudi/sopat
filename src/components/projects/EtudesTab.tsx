@@ -387,7 +387,7 @@ function PredictionSection({
               Enregistrez la liste vegetale avant de lancer la prediction.
             </p>
           )}
-          {runError && <p className="text-xs text-red-500">{runError}</p>}
+          {runError && <p className="text-xs text-[#2F6F4F]">{runError}</p>}
         </div>
       )}
 

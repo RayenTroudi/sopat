@@ -55,8 +55,8 @@
   --admin-accent-glow: rgba(47, 111, 79, 0.15);
   --admin-green-dim:   rgba(28, 61, 46, 0.10);
 
-  --admin-red: #D94F4F;
-  --admin-red-dim: rgba(217, 79, 79, 0.08);
+  --admin-red: #1C3D2E;
+  --admin-red-dim: rgba(28, 61, 46, 0.08);
   --admin-amber: #B8870A;
   --admin-amber-dim: rgba(184, 135, 10, 0.08);
   --admin-emerald: #1C7A48;
@@ -65,7 +65,7 @@
   --admin-blue: #2563EB;
   --admin-blue-dim: rgba(37, 99, 235, 0.08);
   --admin-blue-ring: rgba(37, 99, 235, 0.22);
-  --admin-red-ring: rgba(217, 79, 79, 0.22);
+  --admin-red-ring: rgba(28, 61, 46, 0.22);
   --admin-amber-ring: rgba(184, 135, 10, 0.22);
   --admin-slate: #475569;
   --admin-slate-dim: rgba(71, 85, 105, 0.08);
@@ -415,7 +415,7 @@ body {
 /* ─── Admin logout button ─── */
 .admin-logout-btn:hover {
   color: var(--admin-red) !important;
-  border-color: rgba(224, 93, 93, 0.4) !important;
+  border-color: rgba(28, 61, 46, 0.4) !important;
 }
 
 /* ─── Admin form inputs ─── */

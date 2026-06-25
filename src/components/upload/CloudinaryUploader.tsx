@@ -177,7 +177,7 @@ export function CloudinaryUploader({
       </div>
 
       {state === 'error' && (
-        <p className="text-xs text-red-500">{errorMsg}</p>
+        <p className="text-xs text-[#2F6F4F]">{errorMsg}</p>
       )}
 
       {/* Previews */}

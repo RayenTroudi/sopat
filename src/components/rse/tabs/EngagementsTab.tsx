@@ -159,9 +159,9 @@ export function EngagementsTab({
               </Select>
             </div>
             <div className="col-span-2 space-y-1">
-              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Description <span className="text-red-500">*</span></label>
+              <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Description <span className="text-[#2F6F4F]">*</span></label>
               <textarea {...register('commitmentDescription')} rows={2} className={inputClass} style={inputStyle} />
-              {errors.commitmentDescription && <p className="text-xs text-red-500">{errors.commitmentDescription.message}</p>}
+              {errors.commitmentDescription && <p className="text-xs text-[#2F6F4F]">{errors.commitmentDescription.message}</p>}
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Fréquence</label>
@@ -200,7 +200,7 @@ export function EngagementsTab({
               <input {...register('notes')} className={inputClass} style={inputStyle} />
             </div>
           </div>
-          {errors.root && <p className="text-xs text-red-500">{errors.root.message}</p>}
+          {errors.root && <p className="text-xs text-[#2F6F4F]">{errors.root.message}</p>}
           <div className="flex gap-3">
             <button type="submit" disabled={isSubmitting} className="px-3 py-2 text-sm font-medium rounded-lg disabled:opacity-50" style={{ background: 'var(--admin-emerald)', color: '#fff' }}>
               {isSubmitting ? 'Ajout...' : 'Ajouter'}
