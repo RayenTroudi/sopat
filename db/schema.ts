@@ -317,6 +317,7 @@ export const clients = pgTable('clients', {
   notes:                text('notes'),
   sectorFreeText:       text('sector_free_text'),
   clientPotential:      text('client_potential'),
+  dmsDocumentCode:      varchar('dms_document_code', { length: 20 }),
   ...timestamps,
   deletedAt:            timestamp('deleted_at'),
   createdBy:            uuid('created_by').notNull(),
@@ -493,6 +494,7 @@ export const suppliers = pgTable('suppliers', {
   isoApproved: boolean('iso_approved').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
   notes: text('notes'),
+  dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
@@ -910,6 +912,7 @@ export const auditLogs = pgTable('audit_logs', {
   findings: text('findings'),
   status: auditStatusEnum('status').notNull().default('scheduled'),
   completedAt: timestamp('completed_at'),
+  dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [

@@ -279,10 +279,10 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
         <div className="min-w-0">
           <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>
-            Informations Documentées
+            LIS-MI-01
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            ISO 9001:2015 · §7.5 · {activeCount} document{activeCount !== 1 ? 's' : ''} en vigueur
+            Liste des Informations Documentées Internes · ISO 9001:2015 §7.5 · {activeCount} document{activeCount !== 1 ? 's' : ''} en vigueur
           </p>
         </div>
         {canEdit && (

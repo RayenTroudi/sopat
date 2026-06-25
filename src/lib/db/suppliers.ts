@@ -7,6 +7,8 @@ import {
   users,
 } from '../../../db/schema'
 import { eq, and, asc, desc, ilike, or, isNull, sql } from 'drizzle-orm'
+import { attachDmsCode } from '../dms/attach'
+import { obsoleteDmsDocument } from '../dms/obsolete'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +39,7 @@ export type SupplierRow = {
   contractAssetUrl: string | null
   isActive:        boolean
   notes:           string | null
+  dmsDocumentCode: string | null
   createdAt:       Date
 }
 
@@ -70,6 +73,7 @@ async function _listSuppliers(opts?: { search?: string; category?: string; statu
       contractAssetUrl: cloudinaryAssets.secureUrl,
       isActive:        suppliers.isActive,
       notes:           suppliers.notes,
+      dmsDocumentCode: suppliers.dmsDocumentCode,
       createdAt:       suppliers.createdAt,
     })
     .from(suppliers)
@@ -110,6 +114,7 @@ export async function getSupplierById(id: string): Promise<SupplierRow | null> {
       contractAssetUrl: cloudinaryAssets.secureUrl,
       isActive:        suppliers.isActive,
       notes:           suppliers.notes,
+      dmsDocumentCode: suppliers.dmsDocumentCode,
       createdAt:       suppliers.createdAt,
     })
     .from(suppliers)
@@ -118,6 +123,23 @@ export async function getSupplierById(id: string): Promise<SupplierRow | null> {
     .limit(1)
 
   return (row as SupplierRow | undefined) ?? null
+}
+
+export async function softDeleteSupplier(id: string): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const result = await tx
+      .update(suppliers)
+      .set({ isActive: false })
+      .where(eq(suppliers.id, id))
+      .returning({ id: suppliers.id, dmsDocumentCode: suppliers.dmsDocumentCode })
+
+    if (result.length === 0) return false
+
+    const code = result[0].dmsDocumentCode
+    if (code) await obsoleteDmsDocument(tx, code)
+
+    return true
+  })
 }
 
 // ─── Create / Update ──────────────────────────────────────────────────────────
@@ -137,14 +159,34 @@ export async function createSupplier(input: {
   notes?:          string
   createdBy:       string
 }) {
-  const [row] = await db
-    .insert(suppliers)
-    .values({
-      ...input,
-      isoApproved: input.isoStatus === 'approuve',
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(suppliers)
+      .values({
+        ...input,
+        isoApproved: input.isoStatus === 'approuve',
+      })
+      .returning()
+
+    const dmsCode = await attachDmsCode(tx, {
+      typeCode:    'LIS',
+      processCode: 'AC',
+      designation: input.name,
+      department:  'finance',
+      category:    'enregistrement',
+      entityType:  'supplier',
+      entityId:    row.id,
+      authorId:    input.createdBy,
     })
-    .returning()
-  return row
+
+    const [updated] = await tx
+      .update(suppliers)
+      .set({ dmsDocumentCode: dmsCode })
+      .where(eq(suppliers.id, row.id))
+      .returning()
+
+    return updated
+  })
 }
 
 export async function updateSupplier(id: string, input: {

@@ -581,6 +581,7 @@ export type AuditRow = {
   findings: string | null
   status: string
   completedAt: Date | null
+  dmsDocumentCode: string | null
   createdAt: Date
 }
 
@@ -596,17 +597,18 @@ export async function listAudits(filters?: {
 
   const rows = await db
     .select({
-      id:             auditLogs.id,
-      reference:      auditLogs.reference,
-      auditorId:      auditLogs.auditorId,
-      auditorName:    users.name,
-      auditDate:      auditLogs.auditDate,
-      processAudited: auditLogs.processAudited,
-      scope:          auditLogs.scope,
-      findings:       auditLogs.findings,
-      status:         auditLogs.status,
-      completedAt:    auditLogs.completedAt,
-      createdAt:      auditLogs.createdAt,
+      id:              auditLogs.id,
+      reference:       auditLogs.reference,
+      auditorId:       auditLogs.auditorId,
+      auditorName:     users.name,
+      auditDate:       auditLogs.auditDate,
+      processAudited:  auditLogs.processAudited,
+      scope:           auditLogs.scope,
+      findings:        auditLogs.findings,
+      status:          auditLogs.status,
+      completedAt:     auditLogs.completedAt,
+      dmsDocumentCode: auditLogs.dmsDocumentCode,
+      createdAt:       auditLogs.createdAt,
     })
     .from(auditLogs)
     .leftJoin(users, eq(auditLogs.auditorId, users.id))
@@ -637,20 +639,40 @@ export async function createAudit(input: {
   status:         AuditStatus
   createdBy:      string
 }) {
-  const [audit] = await db
-    .insert(auditLogs)
-    .values({
-      reference:      input.reference,
-      auditorId:      input.auditorId,
-      auditDate:      input.auditDate,
-      processAudited: input.processAudited,
-      scope:          input.scope,
-      findings:       input.findings,
-      status:         input.status,
-      createdBy:      input.createdBy,
+  return db.transaction(async (tx) => {
+    const [audit] = await tx
+      .insert(auditLogs)
+      .values({
+        reference:      input.reference,
+        auditorId:      input.auditorId,
+        auditDate:      input.auditDate,
+        processAudited: input.processAudited,
+        scope:          input.scope,
+        findings:       input.findings,
+        status:         input.status,
+        createdBy:      input.createdBy,
+      })
+      .returning()
+
+    const dmsCode = await attachDmsCode(tx, {
+      typeCode:    'FOR',
+      processCode: 'MI',
+      designation: `Audit interne — ${input.processAudited}`,
+      department:  'qualite',
+      category:    'rapport_audit',
+      entityType:  'audit_log',
+      entityId:    audit.id,
+      authorId:    input.createdBy,
     })
-    .returning()
-  return audit
+
+    const [updated] = await tx
+      .update(auditLogs)
+      .set({ dmsDocumentCode: dmsCode })
+      .where(eq(auditLogs.id, audit.id))
+      .returning()
+
+    return updated
+  })
 }
 
 export async function updateAudit(

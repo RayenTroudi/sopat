@@ -2,6 +2,8 @@ import { unstable_cache } from 'next/cache'
 import { db } from '../../../db/index'
 import { clients, clientInteractions, projects, users, cloudinaryAssets } from '../../../db/schema'
 import { eq, and, isNull, desc, ilike, or, sql } from 'drizzle-orm'
+import { attachDmsCode } from '../dms/attach'
+import { obsoleteDmsDocument } from '../dms/obsolete'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +24,7 @@ export type ClientRow = {
   logoUrl: string | null
   isFeatured: boolean
   notes: string | null
+  dmsDocumentCode: string | null
   projectCount: number
   lastProjectDate: Date | null
   totalRevenueTND: number
@@ -137,6 +140,7 @@ async function _listClients(filters?: {
       logoUrl: cloudinaryAssets.secureUrl,
       isFeatured: clients.isFeatured,
       notes: clients.notes,
+      dmsDocumentCode: clients.dmsDocumentCode,
       createdAt: clients.createdAt,
     })
     .from(clients)
@@ -176,6 +180,7 @@ export async function getClientById(id: string): Promise<ClientRow | null> {
       logoUrl: cloudinaryAssets.secureUrl,
       isFeatured: clients.isFeatured,
       notes: clients.notes,
+      dmsDocumentCode: clients.dmsDocumentCode,
       createdAt: clients.createdAt,
     })
     .from(clients)
@@ -236,30 +241,49 @@ export async function getClientInteractions(clientId: string): Promise<ClientInt
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
 export async function createClient(input: CreateClientInput): Promise<string> {
-  const [row] = await db
-    .insert(clients)
-    .values({
-      companyName: input.companyName,
-      displayName: input.displayName,
-      clientType: input.clientType,
-      country: input.country ?? 'TN',
-      city: input.city ?? null,
-      address: input.address ?? null,
-      primaryContactName: input.primaryContactName ?? null,
-      primaryContactTitle: input.primaryContactTitle ?? null,
-      primaryContactEmail: input.primaryContactEmail ?? null,
-      primaryContactPhone: input.primaryContactPhone ?? null,
-      secondaryContactName: input.secondaryContactName ?? null,
-      secondaryContactEmail: input.secondaryContactEmail ?? null,
-      logoCloudinaryId: input.logoCloudinaryId ?? null,
-      isFeatured: input.isFeatured ?? false,
-      notes: input.notes ?? null,
-      sectorFreeText: input.sectorFreeText ?? null,
-      clientPotential: input.clientPotential ?? null,
-      createdBy: input.createdBy,
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(clients)
+      .values({
+        companyName: input.companyName,
+        displayName: input.displayName,
+        clientType: input.clientType,
+        country: input.country ?? 'TN',
+        city: input.city ?? null,
+        address: input.address ?? null,
+        primaryContactName: input.primaryContactName ?? null,
+        primaryContactTitle: input.primaryContactTitle ?? null,
+        primaryContactEmail: input.primaryContactEmail ?? null,
+        primaryContactPhone: input.primaryContactPhone ?? null,
+        secondaryContactName: input.secondaryContactName ?? null,
+        secondaryContactEmail: input.secondaryContactEmail ?? null,
+        logoCloudinaryId: input.logoCloudinaryId ?? null,
+        isFeatured: input.isFeatured ?? false,
+        notes: input.notes ?? null,
+        sectorFreeText: input.sectorFreeText ?? null,
+        clientPotential: input.clientPotential ?? null,
+        createdBy: input.createdBy,
+      })
+      .returning({ id: clients.id })
+
+    const dmsCode = await attachDmsCode(tx, {
+      typeCode:    'LIS',
+      processCode: 'CO',
+      designation: input.displayName,
+      department:  'direction',
+      category:    'enregistrement',
+      entityType:  'client',
+      entityId:    row.id,
+      authorId:    input.createdBy,
     })
-    .returning({ id: clients.id })
-  return row.id
+
+    await tx
+      .update(clients)
+      .set({ dmsDocumentCode: dmsCode })
+      .where(eq(clients.id, row.id))
+
+    return row.id
+  })
 }
 
 export async function updateClient(id: string, input: UpdateClientInput): Promise<boolean> {
@@ -291,12 +315,20 @@ export async function updateClient(id: string, input: UpdateClientInput): Promis
 }
 
 export async function softDeleteClient(id: string): Promise<boolean> {
-  const result = await db
-    .update(clients)
-    .set({ deletedAt: new Date() })
-    .where(and(eq(clients.id, id), isNull(clients.deletedAt)))
-    .returning({ id: clients.id })
-  return result.length > 0
+  return db.transaction(async (tx) => {
+    const result = await tx
+      .update(clients)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(clients.id, id), isNull(clients.deletedAt)))
+      .returning({ id: clients.id, dmsDocumentCode: clients.dmsDocumentCode })
+
+    if (result.length === 0) return false
+
+    const code = result[0].dmsDocumentCode
+    if (code) await obsoleteDmsDocument(tx, code)
+
+    return true
+  })
 }
 
 export async function createInteraction(input: CreateInteractionInput): Promise<string> {
