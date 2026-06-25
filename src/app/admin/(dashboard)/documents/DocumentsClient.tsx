@@ -79,6 +79,20 @@ const DEPARTMENT_LABELS: Record<string, string> = {
   transverse:  'Transverse',
 }
 
+// ── Row highlight ────────────────────────────────────────────────────────────
+
+const CURRENT_YEAR = new Date().getFullYear()
+
+function rowHighlight(doc: DmsDocRow): React.CSSProperties {
+  const isEliminated = doc.status === 'obsolete' || doc.status === 'archived'
+  if (isEliminated) return { background: 'rgba(239,68,68,0.07)' }
+
+  const isAddedThisYear = new Date(doc.createdAt).getFullYear() === CURRENT_YEAR
+  if (isAddedThisYear) return { background: 'rgba(16,185,129,0.07)' }
+
+  return {}
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function fmt(d: Date | string | null) {
@@ -283,7 +297,7 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
                 const processCode = codeParts[1] ?? ''
                 const s = simplifiedStatus(doc.status)
                 return (
-                  <li key={doc.id} className="px-4 py-3" style={{ borderColor: 'var(--admin-border)' }}>
+                  <li key={doc.id} className="px-4 py-3" style={{ borderColor: 'var(--admin-border)', ...rowHighlight(doc) }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -338,7 +352,7 @@ export function DmsDocumentsClient({ initialRows, total, users, canEdit, current
                   const typeCode    = codeParts[0] ?? ''
                   const processCode = codeParts[1] ?? ''
                   return (
-                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)]" style={{ borderBottom: '1px solid var(--admin-border)' }}>
+                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)]" style={{ borderBottom: '1px solid var(--admin-border)', ...rowHighlight(doc) }}>
                       <td className="px-4 py-3 font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>
                         {doc.documentNumber}
                       </td>
