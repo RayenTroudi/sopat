@@ -158,6 +158,7 @@ export type CapaDetail = {
   evidenceUrl: string | null
   evidenceAssetId: string | null
   createdAt: Date
+  dmsDocumentCode: string | null
 }
 
 export async function getNcById(id: string): Promise<NcDetail | null> {
@@ -214,6 +215,7 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       evidenceAssetId:      correctiveActions.evidenceAssetId,
       evidenceUrl:          cloudinaryAssets.secureUrl,
       createdAt:            correctiveActions.createdAt,
+      dmsDocumentCode:      correctiveActions.dmsDocumentCode,
     })
     .from(correctiveActions)
     .leftJoin(sql`users resp`, sql`resp.id = ${correctiveActions.responsibleId}`)
@@ -326,19 +328,38 @@ export async function createCapa(input: {
   notes?:            string
   createdBy:         string
 }) {
-  const [capa] = await db
-    .insert(correctiveActions)
-    .values({
-      ncId:              input.ncId,
-      actionDescription: input.actionDescription,
-      responsibleId:     input.responsibleId,
-      deadline:          input.deadline,
-      notes:             input.notes,
-      status:            'open',
-      createdBy:         input.createdBy,
+  return db.transaction(async (tx) => {
+    const [capa] = await tx
+      .insert(correctiveActions)
+      .values({
+        ncId:              input.ncId,
+        actionDescription: input.actionDescription,
+        responsibleId:     input.responsibleId,
+        deadline:          input.deadline,
+        notes:             input.notes,
+        status:            'open',
+        createdBy:         input.createdBy,
+      })
+      .returning()
+
+    const dmsCode = await attachDmsCode(tx, {
+      typeCode:    'PRC',
+      processCode: 'MI',
+      designation: input.actionDescription,
+      department:  'qualite',
+      category:    'capa',
+      entityType:  'corrective_action',
+      entityId:    capa.id,
+      authorId:    input.createdBy,
     })
-    .returning()
-  return capa
+
+    await tx
+      .update(correctiveActions)
+      .set({ dmsDocumentCode: dmsCode })
+      .where(eq(correctiveActions.id, capa.id))
+
+    return { ...capa, dmsDocumentCode: dmsCode }
+  })
 }
 
 export async function updateCapa(
