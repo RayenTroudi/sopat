@@ -167,6 +167,11 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
             <div className="flex items-center justify-between px-5 py-3 border-b flex-wrap gap-3" style={{ borderColor: 'var(--admin-border)' }}>
               <div className="flex items-center gap-3 flex-wrap">
                 <span className="font-mono text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{audit.reference}</span>
+                {audit.dmsDocumentCode && (
+                  <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}>
+                    {audit.dmsDocumentCode}
+                  </span>
+                )}
                 <Badge className={cn('text-xs font-medium rounded-full', STATUS_COLORS[audit.status] ?? STATUS_COLORS.scheduled)}>
                   {STATUS_LABELS[audit.status] ?? audit.status}
                 </Badge>

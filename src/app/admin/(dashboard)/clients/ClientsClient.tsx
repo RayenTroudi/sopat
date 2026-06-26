@@ -103,6 +103,7 @@ function ClientsContent({ canCreate, canSeeFullPrivate }: Props) {
               projectCount={c.projectCount}
               lastProjectDate={c.lastProjectDate}
               totalRevenueTND={c.totalRevenueTND}
+              dmsDocumentCode={c.dmsDocumentCode}
               isMasked={c.clientType === 'residentiel_prive' && !canSeeFullPrivate}
             />
           ))}

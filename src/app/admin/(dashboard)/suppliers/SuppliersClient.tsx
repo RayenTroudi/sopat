@@ -479,6 +479,11 @@ export function SuppliersClient({ canEdit }: Props) {
                           <span className="text-[10px] px-2 py-0.5 rounded font-medium" style={{ background: ss.bg, color: ss.text }}>
                             {STATUS_OPTIONS.find((o) => o.value === s.isoStatus)?.label ?? s.isoStatus}
                           </span>
+                          {s.dmsDocumentCode && (
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}>
+                              {s.dmsDocumentCode}
+                            </span>
+                          )}
                         </div>
                         <p className="mt-0.5 text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{catLabel}</p>
                         {(s.contactName || s.phone || s.email) && (
@@ -547,7 +552,12 @@ export function SuppliersClient({ canEdit }: Props) {
                     <tr key={s.id} className={cn('hover:bg-[var(--admin-bg)] transition-colors', s.isoStatus === 'suspendu' ? 'opacity-60' : '')} style={{ borderBottom: '1px solid var(--admin-border)' }}>
                       <td className="px-4 py-3">
                         <p className="font-medium" style={{ color: 'var(--admin-text)' }}>{s.name}</p>
-                        {s.notes && <p className="text-xs truncate max-w-[180px]" style={{ color: 'var(--admin-text-muted)' }}>{s.notes}</p>}
+                        {s.dmsDocumentCode && (
+                          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}>
+                            {s.dmsDocumentCode}
+                          </span>
+                        )}
+                        {s.notes && <p className="text-xs truncate max-w-[180px] mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>{s.notes}</p>}
                       </td>
                       <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{catLabel}</td>
                       <td className="px-4 py-3">

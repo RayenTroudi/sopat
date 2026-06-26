@@ -12,6 +12,7 @@ type ClientCardProps = {
   projectCount: number
   lastProjectDate?: Date | null
   totalRevenueTND: number
+  dmsDocumentCode?: string | null
   isMasked?: boolean
 }
 
@@ -54,6 +55,7 @@ export function ClientCard({
   logoUrl,
   projectCount,
   totalRevenueTND,
+  dmsDocumentCode,
   isMasked,
 }: ClientCardProps) {
   const typeConf = TYPE_CONFIG[clientType] ?? TYPE_CONFIG.autre
@@ -109,6 +111,12 @@ export function ClientCard({
           <span>{projectCount} projet{projectCount !== 1 ? 's' : ''}</span>
           <span>{fmtRevenue(totalRevenueTND)}</span>
         </div>
+
+        {dmsDocumentCode && (
+          <span className="font-mono text-[10px] px-1.5 py-0.5 rounded border" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}>
+            {dmsDocumentCode}
+          </span>
+        )}
       </div>
     </Link>
   )
