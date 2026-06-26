@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/sheet'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DeleteModal } from '@/components/ui/DeleteModal'
+import { DeleteButton } from '@/components/ui/DeleteButton'
 
 const STATUS_LABELS: Record<string, string> = {
   scheduled:   'Planifié',
@@ -198,9 +200,7 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
                   </Button>
                 )}
                 {isAdmin && (
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(audit)} className="text-xs h-7 px-2" style={{ color: 'var(--admin-red)' }}>
-                    Supprimer
-                  </Button>
+                  <DeleteButton variant="icon" onClick={() => setConfirmDelete(audit)} />
                 )}
               </div>
             </div>
@@ -264,24 +264,14 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
       </div>
 
       {/* Create audit Sheet */}
-      {/* Delete confirmation */}
-      {confirmDelete && (
-        <>
-          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setConfirmDelete(null)} />
-          <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-xl p-6 shadow-xl space-y-4" style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)' }}>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>Supprimer l'audit ?</h3>
-            <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>
-              <strong>{confirmDelete.reference}</strong> sera marqué clôturé et son code DMS sera rendu obsolète. Cette action est irréversible.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>Annuler</button>
-              <button onClick={() => void handleDelete(confirmDelete)} disabled={deletingId === confirmDelete.id} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--admin-red)' }}>
-                {deletingId === confirmDelete.id ? 'Suppression…' : 'Supprimer'}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <DeleteModal
+        open={!!confirmDelete}
+        title="Supprimer l'audit ?"
+        description={confirmDelete ? <><strong>{confirmDelete.reference}</strong> — {PROCESS_MAP[confirmDelete.processAudited] ?? confirmDelete.processAudited} sera archivé.</> : null}
+        loading={!!deletingId}
+        onConfirm={() => confirmDelete && void handleDelete(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+      />
 
       {isAdmin && (
         <Sheet open={showForm} onOpenChange={setShowForm}>

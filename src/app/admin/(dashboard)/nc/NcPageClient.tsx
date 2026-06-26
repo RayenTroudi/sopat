@@ -16,6 +16,8 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
+import { DeleteModal } from '@/components/ui/DeleteModal'
+import { DeleteButton } from '@/components/ui/DeleteButton'
 
 const STATUS_LABELS: Record<string, string> = {
   open:        'Ouvert',
@@ -267,9 +269,9 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                       </div>
                     </Link>
                     {isAdmin && (
-                      <button onClick={(e) => { e.stopPropagation(); setConfirmDelete(nc) }} className="mt-1.5 text-[11px] underline" style={{ color: 'var(--admin-red)' }}>
-                        Supprimer
-                      </button>
+                      <div className="px-4 pb-2" onClick={(e) => e.stopPropagation()}>
+                        <DeleteButton variant="text" onClick={() => setConfirmDelete(nc)} />
+                      </div>
                     )}
                   </li>
                 )
@@ -330,9 +332,7 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                             <Link href={`/admin/nc/${nc.id}`}><ArrowRight className="w-3.5 h-3.5" /></Link>
                           </Button>
                           {isAdmin && (
-                            <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(nc)} className="text-xs h-7 px-2" style={{ color: 'var(--admin-red)' }}>
-                              ×
-                            </Button>
+                            <DeleteButton variant="icon" onClick={() => setConfirmDelete(nc)} />
                           )}
                         </div>
                       </TableCell>
@@ -345,24 +345,14 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
         )}
       </div>
 
-      {/* Delete confirmation */}
-      {confirmDelete && (
-        <>
-          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setConfirmDelete(null)} />
-          <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-xl p-6 shadow-xl space-y-4" style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)' }}>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>Supprimer la non-conformité ?</h3>
-            <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>
-              <strong>{confirmDelete.reference}</strong> sera archivée et son code DMS sera rendu obsolète. Cette action est irréversible.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>Annuler</button>
-              <button onClick={() => void handleDelete(confirmDelete)} disabled={deletingId === confirmDelete.id} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--admin-red)' }}>
-                {deletingId === confirmDelete.id ? 'Suppression…' : 'Supprimer'}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <DeleteModal
+        open={!!confirmDelete}
+        title="Supprimer la non-conformité ?"
+        description={confirmDelete ? <><strong>{confirmDelete.reference}</strong> sera archivée. Toutes ses CAPA associées seront également clôturées.</> : null}
+        loading={!!deletingId}
+        onConfirm={() => confirmDelete && void handleDelete(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+      />
 
       {/* Create NC Sheet */}
       <Sheet open={showForm} onOpenChange={setShowForm}>

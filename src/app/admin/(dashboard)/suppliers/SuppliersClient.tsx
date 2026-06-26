@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import type { SupplierRow, SupplierEvaluationRow, SupplierCategory, SupplierStatus } from '@/lib/db/suppliers'
 import { Select as ShadSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DeleteModal } from '@/components/ui/DeleteModal'
+import { DeleteButton } from '@/components/ui/DeleteButton'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -534,10 +536,10 @@ export function SuppliersClient({ canEdit }: Props) {
                           </div>
                         </dl>
                         {canEdit && (
-                          <div className="mt-2 flex gap-3 text-xs">
+                          <div className="mt-2 flex items-center gap-3 text-xs">
                             <button onClick={() => openEdit(s)} className="underline" style={{ color: 'var(--admin-text-muted)' }}>Modifier</button>
                             <button onClick={() => setEvalTarget(s)} className="underline" style={{ color: 'var(--admin-blue)' }}>Évaluer</button>
-                            <button onClick={() => setConfirmDelete(s)} className="underline" style={{ color: 'var(--admin-red)' }}>Supprimer</button>
+                            <DeleteButton variant="text" onClick={() => setConfirmDelete(s)} />
                           </div>
                         )}
                       </div>
@@ -599,10 +601,10 @@ export function SuppliersClient({ canEdit }: Props) {
                       </td>
                       <td className="px-4 py-3">
                         {canEdit && (
-                          <div className="flex gap-2">
+                          <div className="flex items-center gap-2">
                             <button onClick={() => openEdit(s)} className="text-xs underline" style={{ color: 'var(--admin-text-muted)' }}>Modifier</button>
                             <button onClick={() => setEvalTarget(s)} className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>Évaluer</button>
-                            <button onClick={() => setConfirmDelete(s)} className="text-xs underline" style={{ color: 'var(--admin-red)' }}>Supprimer</button>
+                            <DeleteButton variant="icon" onClick={() => setConfirmDelete(s)} />
                           </div>
                         )}
                       </td>
@@ -633,24 +635,14 @@ export function SuppliersClient({ canEdit }: Props) {
         />
       )}
 
-      {/* Delete confirmation */}
-      {confirmDelete && (
-        <>
-          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setConfirmDelete(null)} />
-          <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-xl p-6 shadow-xl space-y-4" style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)' }}>
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>Supprimer le fournisseur ?</h3>
-            <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>
-              <strong>{confirmDelete.name}</strong> sera marqué inactif et son code DMS sera rendu obsolète. Cette action est irréversible.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>Annuler</button>
-              <button onClick={() => void handleDelete(confirmDelete)} disabled={deletingId === confirmDelete.id} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--admin-red)' }}>
-                {deletingId === confirmDelete.id ? 'Suppression…' : 'Supprimer'}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      <DeleteModal
+        open={!!confirmDelete}
+        title="Supprimer le fournisseur ?"
+        description={confirmDelete ? <><strong>{confirmDelete.name}</strong> sera marqué inactif et retiré du registre des fournisseurs agréés.</> : null}
+        loading={!!deletingId}
+        onConfirm={() => confirmDelete && void handleDelete(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+      />
     </div>
   )
 }
