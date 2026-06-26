@@ -181,6 +181,52 @@ export async function createPurchaseOrder(input: PurchaseOrderInput) {
   })
 }
 
+export async function updatePurchaseOrder(
+  orderId: string,
+  projectId: string,
+  input: {
+    itemDescription?:       string
+    quantityPurchased?:     string
+    unitPricePaid?:         string
+    supplierId?:            string | null
+    supplierInvoiceNumber?: string | null
+    purchaseDate?:          Date
+    notes?:                 string | null
+    status?:                'pending' | 'ordered' | 'received' | 'invoiced'
+  }
+) {
+  const updates: Record<string, unknown> = { updatedAt: new Date() }
+  if (input.itemDescription       !== undefined) updates.itemDescription       = input.itemDescription
+  if (input.quantityPurchased     !== undefined) updates.quantityPurchased     = input.quantityPurchased
+  if (input.unitPricePaid         !== undefined) updates.unitPricePaid         = input.unitPricePaid
+  if (input.supplierId            !== undefined) updates.supplierId            = input.supplierId
+  if (input.supplierInvoiceNumber !== undefined) updates.supplierInvoiceNumber = input.supplierInvoiceNumber
+  if (input.purchaseDate          !== undefined) updates.purchaseDate          = input.purchaseDate
+  if (input.notes                 !== undefined) updates.notes                 = input.notes
+  if (input.status                !== undefined) updates.status                = input.status
+
+  // Recalculate total if qty or price changed
+  if (input.quantityPurchased !== undefined || input.unitPricePaid !== undefined) {
+    const existing = await db
+      .select({ qty: purchaseOrders.quantityPurchased, price: purchaseOrders.unitPricePaid })
+      .from(purchaseOrders)
+      .where(and(eq(purchaseOrders.id, orderId), eq(purchaseOrders.projectId, projectId)))
+      .limit(1)
+    if (existing[0]) {
+      const qty   = parseFloat(input.quantityPurchased ?? existing[0].qty)
+      const price = parseFloat(input.unitPricePaid     ?? existing[0].price)
+      updates.totalCost = (qty * price).toFixed(3)
+    }
+  }
+
+  const [row] = await db
+    .update(purchaseOrders)
+    .set(updates)
+    .where(and(eq(purchaseOrders.id, orderId), eq(purchaseOrders.projectId, projectId)))
+    .returning()
+  return row ?? null
+}
+
 export async function deletePurchaseOrder(orderId: string, projectId: string) {
   await db
     .delete(purchaseOrders)

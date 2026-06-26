@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import {
   createCapa,
   updateCapa,
+  softDeleteCapa,
   assertNcWriteAccess,
   getCapaById,
 } from '@/lib/db/iso'
@@ -102,4 +103,34 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   })
 
   return NextResponse.json(capa, { status: 201 })
+}
+
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
+  const { id } = await params
+  const { searchParams } = new URL(req.url)
+  const capaId = searchParams.get('capaId')
+  if (!capaId) return NextResponse.json({ error: 'capaId requis' }, { status: 400 })
+
+  // Verify NC + access
+  const access = await assertNcWriteAccess(id, session.user)
+  if ('error' in access) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: access.error === 'NOT_FOUND' ? 404 : 403 })
+  }
+
+  // Verify ownership (admin/direction only)
+  if (session.user.role !== 'admin' && session.user.role !== 'direction') {
+    return NextResponse.json({ error: 'Seuls les administrateurs peuvent supprimer une CAPA' }, { status: 403 })
+  }
+
+  const capa = await getCapaById(capaId)
+  if (!capa || capa.ncId !== id) {
+    return NextResponse.json({ error: 'Action corrective introuvable' }, { status: 404 })
+  }
+
+  const ok = await softDeleteCapa(capaId, id)
+  if (!ok) return NextResponse.json({ error: 'Introuvable' }, { status: 404 })
+  return NextResponse.json({ ok: true })
 }

@@ -55,13 +55,23 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
   const [rows, setRows]         = useState(initialRows)
   const [loading, setLoading]   = useState(false)
   const [showForm, setShowForm] = useState(false)
-  const [filterStatus, setFilterStatus] = useState('')
-  const [editingId, setEditingId]       = useState<string | null>(null)
-  const [editFindings, setEditFindings] = useState('')
-  const [editScope, setEditScope]       = useState('')
-  const [editStatus, setEditStatus]     = useState('')
-  const [editLoading, setEditLoading]   = useState(false)
-  const [editError, setEditError]       = useState('')
+  const [filterStatus, setFilterStatus]     = useState('')
+  const [editingId, setEditingId]           = useState<string | null>(null)
+  const [editFindings, setEditFindings]     = useState('')
+  const [editScope, setEditScope]           = useState('')
+  const [editStatus, setEditStatus]         = useState('')
+  const [editLoading, setEditLoading]       = useState(false)
+  const [editError, setEditError]           = useState('')
+  const [confirmDelete, setConfirmDelete]   = useState<AuditRow | null>(null)
+  const [deletingId, setDeletingId]         = useState<string | null>(null)
+
+  async function handleDelete(audit: AuditRow) {
+    setDeletingId(audit.id)
+    const res = await fetch(`/api/audits/${audit.id}`, { method: 'DELETE' })
+    if (res.ok) setRows((prev) => prev.filter((r) => r.id !== audit.id))
+    setDeletingId(null)
+    setConfirmDelete(null)
+  }
 
   const [form, setForm] = useState({
     auditorId: currentUserId, auditDate: '', processAudited: 'etudes', scope: '', findings: '', status: 'scheduled',
@@ -187,6 +197,11 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
                     {editingId === audit.id ? 'Annuler' : 'Modifier'}
                   </Button>
                 )}
+                {isAdmin && (
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(audit)} className="text-xs h-7 px-2" style={{ color: 'var(--admin-red)' }}>
+                    Supprimer
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -249,6 +264,25 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
       </div>
 
       {/* Create audit Sheet */}
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <>
+          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setConfirmDelete(null)} />
+          <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-xl p-6 shadow-xl space-y-4" style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)' }}>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>Supprimer l'audit ?</h3>
+            <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+              <strong>{confirmDelete.reference}</strong> sera marqué clôturé et son code DMS sera rendu obsolète. Cette action est irréversible.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>Annuler</button>
+              <button onClick={() => void handleDelete(confirmDelete)} disabled={deletingId === confirmDelete.id} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--admin-red)' }}>
+                {deletingId === confirmDelete.id ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {isAdmin && (
         <Sheet open={showForm} onOpenChange={setShowForm}>
           <SheetContent side="right" className="w-full max-w-lg flex flex-col p-0" style={{ background: 'var(--admin-surface)' }}>

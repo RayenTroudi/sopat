@@ -11,6 +11,7 @@ import {
 import { eq, and, isNull, desc, asc, sql, ilike, or } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import { attachDmsCode } from '../dms/attach'
+import { obsoleteDmsDocument } from '../dms/obsolete'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -302,6 +303,71 @@ export async function updateNcStatus(
       updatedAt:  now,
     })
     .where(eq(nonConformances.id, id))
+}
+
+export async function updateNcFields(
+  id: string,
+  fields: {
+    description?:    string
+    ncType?:         string | null
+    ownerType?:      string | null
+    processAffected?: string | null
+    auditorName?:    string | null
+    assignedTo?:     string | null
+    deadline?:       Date | null
+    rootCause?:      string | null
+  }
+) {
+  await db
+    .update(nonConformances)
+    .set({
+      ...(fields.description     !== undefined && { description: fields.description }),
+      ...(fields.ncType          !== undefined && { ncType: fields.ncType as typeof nonConformances.$inferInsert['ncType'] }),
+      ...(fields.ownerType       !== undefined && { ownerType: fields.ownerType as typeof nonConformances.$inferInsert['ownerType'] }),
+      ...(fields.processAffected !== undefined && { processAffected: fields.processAffected as typeof nonConformances.$inferInsert['processAffected'] }),
+      ...(fields.auditorName     !== undefined && { auditorName: fields.auditorName }),
+      ...(fields.assignedTo      !== undefined && { assignedTo: fields.assignedTo }),
+      ...(fields.deadline        !== undefined && { deadline: fields.deadline }),
+      ...(fields.rootCause       !== undefined && { rootCause: fields.rootCause }),
+      updatedAt: new Date(),
+    })
+    .where(eq(nonConformances.id, id))
+}
+
+export async function softDeleteNc(id: string): Promise<boolean> {
+  const result = await db
+    .update(nonConformances)
+    .set({ deletedAt: new Date() })
+    .where(and(eq(nonConformances.id, id), isNull(nonConformances.deletedAt)))
+    .returning({ id: nonConformances.id, dmsDocumentCode: nonConformances.dmsDocumentCode })
+  if (result.length === 0) return false
+  const code = result[0].dmsDocumentCode
+  if (code) await obsoleteDmsDocument(db, code)
+  return true
+}
+
+export async function softDeleteCapa(id: string, ncId: string): Promise<boolean> {
+  const result = await db
+    .update(correctiveActions)
+    .set({ status: 'closed' })
+    .where(and(eq(correctiveActions.id, id), eq(correctiveActions.ncId, ncId)))
+    .returning({ id: correctiveActions.id, dmsDocumentCode: correctiveActions.dmsDocumentCode })
+  if (result.length === 0) return false
+  const code = result[0].dmsDocumentCode
+  if (code) await obsoleteDmsDocument(db, code)
+  return true
+}
+
+export async function softDeleteAudit(id: string): Promise<boolean> {
+  const result = await db
+    .update(auditLogs)
+    .set({ status: 'completed' })
+    .where(eq(auditLogs.id, id))
+    .returning({ id: auditLogs.id, dmsDocumentCode: auditLogs.dmsDocumentCode })
+  if (result.length === 0) return false
+  const code = result[0].dmsDocumentCode
+  if (code) await obsoleteDmsDocument(db, code)
+  return true
 }
 
 export async function updateNcPhotos(

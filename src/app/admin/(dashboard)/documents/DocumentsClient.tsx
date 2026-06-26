@@ -140,7 +140,17 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [codePreview, setCodePreview] = useState('')
-  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [togglingId, setTogglingId]   = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<DmsDocRow | null>(null)
+  const [deletingId, setDeletingId]       = useState<string | null>(null)
+
+  async function handleDeleteDoc(doc: DmsDocRow) {
+    setDeletingId(doc.id)
+    const res = await fetch(`/api/dms/${doc.id}`, { method: 'DELETE' })
+    if (res.ok) setRows((prev) => prev.filter((r) => r.id !== doc.id))
+    setDeletingId(null)
+    setConfirmDelete(null)
+  }
 
   function openCreate() {
     setEditingDoc(null)
@@ -419,13 +429,20 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                           <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs underline" style={{ color: 'var(--admin-blue)' }}>Ouvrir PDF</a>
                         )}
                         {canEdit && (
-                          <div className="flex items-center gap-2 mt-2">
+                          <div className="flex items-center gap-2 mt-2 flex-wrap">
                             <button
                               onClick={() => openEdit(doc)}
                               className="text-xs px-2 py-1 rounded border"
                               style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
                             >
                               Modifier
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete(doc)}
+                              className="text-xs px-2 py-1 rounded border"
+                              style={{ borderColor: 'var(--admin-red)', color: 'var(--admin-red)', background: 'var(--admin-bg)' }}
+                            >
+                              Supprimer
                             </button>
                             <div className="flex gap-1">
                               <HighlightBtn
@@ -533,6 +550,14 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                                 style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
                               >
                                 ✏️
+                              </button>
+                              <button
+                                title="Supprimer"
+                                onClick={() => setConfirmDelete(doc)}
+                                className="text-[11px] px-1.5 py-0.5 rounded border transition-colors hover:opacity-80"
+                                style={{ borderColor: 'var(--admin-red)', color: 'var(--admin-red)', background: 'var(--admin-bg)' }}
+                              >
+                                ×
                               </button>
                               <div className="flex gap-1">
                                 <HighlightBtn
@@ -778,6 +803,26 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                   {submitting ? 'Enregistrement…' : editingDoc ? 'Mettre à jour' : 'Enregistrer'}
                 </button>
               </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Delete confirmation */}
+      {confirmDelete && (
+        <>
+          <div className="fixed inset-0 z-50" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setConfirmDelete(null)} />
+          <div className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-full max-w-sm rounded-xl p-6 shadow-xl space-y-4" style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)' }}>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>Supprimer le document ?</h3>
+            <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+              <strong className="font-mono">{confirmDelete.documentNumber}</strong> — {confirmDelete.title}
+              <br />Ce document sera rendu obsolète et ne sera plus visible dans le registre.
+            </p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDelete(null)} className="flex-1 px-4 py-2 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>Annuler</button>
+              <button onClick={() => void handleDeleteDoc(confirmDelete)} disabled={deletingId === confirmDelete.id} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-60" style={{ background: 'var(--admin-red)' }}>
+                {deletingId === confirmDelete.id ? 'Suppression…' : 'Supprimer'}
+              </button>
             </div>
           </div>
         </>

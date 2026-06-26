@@ -10,6 +10,7 @@ import { BudgetBadge } from '@/components/projects/BudgetBadge'
 import { ProjectTabs } from './ProjectTabs'
 import { ConceptCard } from '@/components/projects/ConceptCard'
 import { maskClientName } from '@/lib/db/projects'
+import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -101,7 +102,10 @@ export default async function ProjectDetailPage({
               {project.reference} · {TYPE_LABELS[project.projectType] ?? project.projectType} · {maskClientName(project.clientName, project.clientAnonymized ?? false, session?.user.role ?? '')}
             </p>
           </div>
-          <BudgetBadge approved={project.approvedBudget} />
+          <div className="flex items-center gap-2">
+            <BudgetBadge approved={project.approvedBudget} />
+            {isAdmin && <DeleteProjectButton projectId={id} projectName={project.name} />}
+          </div>
         </div>
 
         {/* Key info grid */}

@@ -25,6 +25,9 @@ export default async function NCPage({ searchParams }: { searchParams: SearchPar
 
   const projects = allProjects.map((p) => ({ id: p.id, name: p.name, reference: p.reference }))
 
+  const role = session.user.role
+  const isAdmin = role === 'admin' || role === 'direction'
+
   return (
     <NcPageClient
       initialRows={rows}
@@ -33,6 +36,7 @@ export default async function NCPage({ searchParams }: { searchParams: SearchPar
       projects={projects}
       currentUserId={session.user.userId}
       currentUserName={session.user.name ?? session.user.email ?? 'Inconnu'}
+      isAdmin={isAdmin}
     />
   )
 }

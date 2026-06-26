@@ -93,3 +93,25 @@ export async function PUT(
   revalidateTag('dms-documents-list', 'default')
   return NextResponse.json({ id: updated.id })
 }
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  if (session.user.role !== 'admin' && session.user.role !== 'direction') {
+    return NextResponse.json({ error: 'Accès réservé aux administrateurs' }, { status: 403 })
+  }
+
+  const { id } = await params
+  const [updated] = await db
+    .update(dmsDocuments)
+    .set({ status: 'obsolete', deletedAt: new Date() })
+    .where(and(eq(dmsDocuments.id, id), isNull(dmsDocuments.deletedAt)))
+    .returning({ id: dmsDocuments.id, documentNumber: dmsDocuments.documentNumber })
+
+  if (!updated) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+  revalidateTag('dms-documents-list', 'default')
+  return NextResponse.json({ ok: true, documentNumber: updated.documentNumber })
+}

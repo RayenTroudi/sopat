@@ -4,6 +4,8 @@ import {
   getNcById,
   updateNcStatus,
   updateNcPhotos,
+  updateNcFields,
+  softDeleteNc,
   checkNcClosePrerequisites,
   assertNcWriteAccess,
   type NcStatus,
@@ -14,9 +16,17 @@ type RouteParams = { params: Promise<{ id: string }> }
 
 const updateSchema = z.object({
   status:             z.enum(['open', 'in_progress', 'closed', 'verified'] as const).optional(),
-  rootCause:          z.string().optional(),
+  rootCause:          z.string().optional().nullable(),
   beforePhotoAssetId: z.string().uuid().optional(),
   afterPhotoAssetId:  z.string().uuid().optional(),
+  // Field edits (non-status)
+  description:        z.string().min(5).optional(),
+  ncType:             z.string().optional().nullable(),
+  ownerType:          z.string().optional().nullable(),
+  processAffected:    z.string().optional().nullable(),
+  auditorName:        z.string().optional().nullable(),
+  assignedTo:         z.string().uuid().optional().nullable(),
+  deadline:           z.string().datetime().optional().nullable(),
 })
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
@@ -76,13 +86,48 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     })
   }
 
-  await updateNcStatus(
-    id,
-    (newStatus ?? nc.status) as NcStatus,
-    session.user.userId,
-    { rootCause: parsed.data.rootCause }
-  )
+  // Editable fields (admin/direction only)
+  const d = parsed.data
+  if (d.description !== undefined || d.ncType !== undefined || d.ownerType !== undefined ||
+      d.processAffected !== undefined || d.auditorName !== undefined || d.assignedTo !== undefined ||
+      d.deadline !== undefined) {
+    const isAdminOrDirection = session.user.role === 'admin' || session.user.role === 'direction'
+    if (!isAdminOrDirection) {
+      return NextResponse.json({ error: 'Seuls les administrateurs peuvent modifier les champs de la NC' }, { status: 403 })
+    }
+    await updateNcFields(id, {
+      ...(d.description     !== undefined && { description: d.description }),
+      ...(d.ncType          !== undefined && { ncType: d.ncType }),
+      ...(d.ownerType       !== undefined && { ownerType: d.ownerType }),
+      ...(d.processAffected !== undefined && { processAffected: d.processAffected }),
+      ...(d.auditorName     !== undefined && { auditorName: d.auditorName }),
+      ...(d.assignedTo      !== undefined && { assignedTo: d.assignedTo }),
+      ...(d.deadline        !== undefined && { deadline: d.deadline ? new Date(d.deadline) : null }),
+    })
+  }
+
+  if (newStatus !== undefined || d.rootCause !== undefined) {
+    await updateNcStatus(
+      id,
+      (newStatus ?? nc.status) as NcStatus,
+      session.user.userId,
+      { rootCause: d.rootCause ?? undefined }
+    )
+  }
 
   const updated = await getNcById(id)
   return NextResponse.json(updated)
+}
+
+export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  if (session.user.role !== 'admin' && session.user.role !== 'direction') {
+    return NextResponse.json({ error: 'Accès réservé aux administrateurs' }, { status: 403 })
+  }
+
+  const { id } = await params
+  const ok = await softDeleteNc(id)
+  if (!ok) return NextResponse.json({ error: 'NC introuvable' }, { status: 404 })
+  return NextResponse.json({ ok: true })
 }

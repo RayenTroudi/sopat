@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { updateAudit, type AuditStatus } from '@/lib/db/iso'
+import { updateAudit, softDeleteAudit, type AuditStatus } from '@/lib/db/iso'
 import { z } from 'zod'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -42,4 +42,17 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   })
 
   return NextResponse.json(updated)
+}
+
+export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  if (session.user.role !== 'admin' && session.user.role !== 'direction') {
+    return NextResponse.json({ error: 'Accès réservé aux administrateurs' }, { status: 403 })
+  }
+
+  const { id } = await params
+  const ok = await softDeleteAudit(id)
+  if (!ok) return NextResponse.json({ error: 'Audit introuvable' }, { status: 404 })
+  return NextResponse.json({ ok: true })
 }

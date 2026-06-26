@@ -9,6 +9,7 @@ import {
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 import { attachDmsCode } from '../dms/attach'
+import { obsoleteDmsDocument } from '../dms/obsolete'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -417,6 +418,10 @@ export async function softDeleteProject(
     .update(projects)
     .set({ deletedAt: new Date(), updatedAt: new Date() })
     .where(eq(projects.id, id))
+
+  if (before.dmsDocumentCode) {
+    await obsoleteDmsDocument(db, before.dmsDocumentCode)
+  }
 
   await logActivity({
     projectId: id,

@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth'
 import {
   getSupplierById,
   updateSupplier,
+  softDeleteSupplier,
   getEvaluationHistory,
   addEvaluation,
   type SupplierCategory,
@@ -102,4 +103,20 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   })
 
   return NextResponse.json(row, { status: 201 })
+}
+
+export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+  const session = await auth()
+  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
+  const role = session.user.role
+  if (role !== 'admin' && role !== 'direction') {
+    return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  }
+
+  const { id } = await params
+  const ok = await softDeleteSupplier(id)
+  if (!ok) return NextResponse.json({ error: 'Introuvable' }, { status: 404 })
+
+  return NextResponse.json({ ok: true })
 }
