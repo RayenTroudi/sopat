@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/neon-http'
-import { neon } from '@neondatabase/serverless'
+import { drizzle } from 'drizzle-orm/neon-serverless'
+import { Pool } from '@neondatabase/serverless'
 import * as schema from './schema'
 
 function createDb() {
@@ -9,7 +9,8 @@ function createDb() {
       'DATABASE_URL is not set. Check your .env file (development) or Vercel environment variables (production).'
     )
   }
-  return drizzle(neon(url), { schema })
+  const pool = new Pool({ connectionString: url })
+  return drizzle(pool, { schema })
 }
 
 let _db: ReturnType<typeof createDb> | undefined

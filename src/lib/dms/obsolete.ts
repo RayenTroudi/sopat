@@ -6,7 +6,7 @@ import { db } from '../../../db/index'
 import { dmsDocuments } from '../../../db/schema'
 import { eq } from 'drizzle-orm'
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type Tx = Parameters<Parameters<(typeof db)['transaction']>[0]>[0]
 
 export async function obsoleteDmsDocument(txOrDb: Tx | typeof db, code: string): Promise<void> {
   if (!code) return

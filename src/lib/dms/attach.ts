@@ -4,7 +4,7 @@ import { db } from '../../../db/index'
 import { dmsDocuments, dmsDocumentLinks } from '../../../db/schema'
 import { buildCode, TYPE_CODES, PROCESS_CODES, type TypeCode, type ProcessCode } from './codes'
 
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+type Tx = Parameters<Parameters<(typeof db)['transaction']>[0]>[0]
 
 type DmsDepartment = typeof dmsDocuments.$inferInsert['department']
 type DmsCategory   = typeof dmsDocuments.$inferInsert['category']
