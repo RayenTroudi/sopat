@@ -1,7 +1,10 @@
 import { auth } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import { listNcs, getActiveUsers, type NcStatus, type NcProcess } from '@/lib/db/iso'
 import { getAllProjects } from '@/lib/db/projects'
 import { NcPageClient } from './NcPageClient'
+
+const QUALITY_ROLES = ['admin', 'direction'] as const
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Non-Conformités | SOPAT Admin' }
@@ -11,6 +14,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>
 export default async function NCPage({ searchParams }: { searchParams: SearchParams }) {
   const [session, sp] = await Promise.all([auth(), searchParams])
   if (!session) return null
+  if (!(QUALITY_ROLES as readonly string[]).includes(session.user.role)) redirect('/admin')
 
   const status    = (typeof sp.status  === 'string' ? sp.status  : undefined) as NcStatus | undefined
   const process   = (typeof sp.process === 'string' ? sp.process : undefined) as NcProcess | undefined

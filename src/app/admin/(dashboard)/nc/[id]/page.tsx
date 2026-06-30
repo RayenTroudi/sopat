@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getNcById, getActiveUsers } from '@/lib/db/iso'
 import { NcDetailClient } from './NcDetailClient'
@@ -23,6 +23,7 @@ export default async function NcDetailPage({ params }: { params: Params }) {
   ])
 
   if (!nc || !session) notFound()
+  if (!['admin', 'direction'].includes(session.user.role)) redirect('/admin')
 
   return (
     <NcDetailClient

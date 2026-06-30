@@ -1,4 +1,5 @@
 import { auth } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import { listAudits, getActiveUsers, type AuditStatus } from '@/lib/db/iso'
 import { AuditsClient } from './AuditsClient'
 
@@ -10,6 +11,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>
 export default async function AuditsPage({ searchParams }: { searchParams: SearchParams }) {
   const [session, sp] = await Promise.all([auth(), searchParams])
   if (!session) return null
+  if (!['admin', 'direction'].includes(session.user.role)) redirect('/admin')
 
   const status  = (typeof sp.status  === 'string' ? sp.status  : undefined) as AuditStatus | undefined
   const process = typeof sp.process === 'string' ? sp.process : undefined

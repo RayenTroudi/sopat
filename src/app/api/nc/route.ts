@@ -49,6 +49,8 @@ const createSchema = z.object({
 export async function GET(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  if (!['admin', 'direction'].includes(session.user.role))
+    return NextResponse.json({ error: 'Accès réservé à l\'équipe qualité' }, { status: 403 })
 
   const sp = req.nextUrl.searchParams
   const result = await listNcs({
@@ -67,6 +69,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await auth()
   if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  if (!['admin', 'direction'].includes(session.user.role))
+    return NextResponse.json({ error: 'Accès réservé à l\'équipe qualité' }, { status: 403 })
 
   const body = await req.json()
   const parsed = createSchema.safeParse(body)

@@ -38,9 +38,10 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Qualité',
     items: [
-      { href: '/admin/nc',        label: 'Non-conformités',          icon: AlertTriangle,  roles: ['admin','direction','etudes_chef','realisation_chef','entretien_chef'] },
-      { href: '/admin/audits',    label: 'Audits',                   icon: ClipboardCheck, roles: ['admin','direction'] },
-      { href: '/admin/documents', label: 'Inf. Documentées',         icon: FileText,       roles: ['admin','direction','etudes_chef'] },
+      { href: '/admin/nc',              label: 'Non-conformités',      icon: AlertTriangle,  roles: ['admin','direction'] },
+      { href: '/admin/audit-programs', label: 'Programmes d\'audit', icon: ClipboardCheck, roles: ['admin','direction'] },
+      { href: '/admin/audits',         label: 'Audits',              icon: ClipboardCheck, roles: ['admin','direction'] },
+      { href: '/admin/documents',      label: 'Inf. Documentées',    icon: FileText,       roles: ['admin','direction','etudes_chef'] },
     ],
   },
   {

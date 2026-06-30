@@ -1,4 +1,5 @@
 import { auth } from '@/lib/auth'
+import { redirect } from 'next/navigation'
 import { listAuditPrograms, getActiveUsers, type NcDept, type AuditProgramStatus } from '@/lib/db/iso'
 import { AuditProgramsClient } from './AuditProgramsClient'
 
@@ -10,6 +11,7 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>
 export default async function AuditProgramsPage({ searchParams }: { searchParams: SearchParams }) {
   const [session, sp] = await Promise.all([auth(), searchParams])
   if (!session) return null
+  if (!['admin', 'direction'].includes(session.user.role)) redirect('/admin')
 
   const year   = typeof sp.year   === 'string' ? Number(sp.year)   : undefined
   const dept   = typeof sp.dept   === 'string' ? sp.dept   as NcDept           : undefined
