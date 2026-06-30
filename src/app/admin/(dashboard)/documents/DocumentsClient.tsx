@@ -9,6 +9,7 @@ import { DeleteButton } from '@/components/ui/DeleteButton'
 import type { DmsDocRow } from '@/lib/dms/queries'
 import {
   TYPE_CODES, PROCESS_CODES, TYPE_LABELS, PROCESS_LABELS,
+  CREATABLE_TYPE_CODES, TYPE_TO_CATEGORY, PROCESS_TO_DEPARTMENT, TYPE_TO_ISO_CLAUSES,
   type TypeCode, type ProcessCode,
 } from '@/lib/dms/codes'
 
@@ -227,7 +228,17 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
     if (res.ok) {
       const data = await res.json() as { code: string }
       setCodePreview(data.code)
-      setForm(f => ({ ...f, documentNumber: data.code }))
+      // Auto-derive category, department, ISO clauses from type+process
+      const autoCategory   = TYPE_TO_CATEGORY[type as TypeCode]   ?? 'procedure'
+      const autoDepartment = PROCESS_TO_DEPARTMENT[process as ProcessCode] ?? 'qualite'
+      const autoIso        = TYPE_TO_ISO_CLAUSES[type as TypeCode] ?? []
+      setForm(f => ({
+        ...f,
+        documentNumber: data.code,
+        category:       autoCategory,
+        department:     autoDepartment,
+        isoClauses:     autoIso.join(', '),
+      }))
     }
   }
 
@@ -668,7 +679,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                         </SelectTrigger>
                         <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                           <SelectItem value="__none__">— Choisir —</SelectItem>
-                          {TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
+                          {CREATABLE_TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </FF>
@@ -762,7 +773,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                 </FF>
               </div>
 
-              {/* Category + Department */}
+              {/* Category + Department — auto-filled from type+process, overridable */}
               <div className="grid grid-cols-2 gap-3">
                 <FF label="Catégorie DMS">
                   <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
