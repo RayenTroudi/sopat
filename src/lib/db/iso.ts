@@ -4,6 +4,8 @@ import {
   correctiveActions,
   documents,
   auditLogs,
+  auditPrograms,
+  auditProgramItems,
   cloudinaryAssets,
   users,
   projects,
@@ -17,10 +19,13 @@ import { obsoleteDmsDocument } from '../dms/obsolete'
 
 export type NcStatus = 'open' | 'in_progress' | 'closed' | 'verified'
 export type NcProcess = 'etudes' | 'realisation' | 'entretien'
+export type NcSource = 'interne' | 'audit' | 'reclamation_client' | 'reclamation_pi'
+export type NcDept = 'AC' | 'CO' | 'ET' | 'MI' | 'RE1' | 'RE2' | 'RH'
 export type CapaStatus = 'open' | 'in_progress' | 'closed'
 export type DocumentStatus = 'draft' | 'active' | 'obsolete'
 export type DocumentCategory = 'procedure' | 'instruction' | 'formulaire' | 'enregistrement' | 'autre'
 export type AuditStatus = 'scheduled' | 'in_progress' | 'completed'
+export type AuditProgramStatus = 'planifie' | 'en_cours' | 'realise' | 'reporte' | 'annule'
 
 // ─── NC reference generator ───────────────────────────────────────────────────
 
@@ -51,13 +56,20 @@ export type NcListItem = {
   reference: string
   status: string
   ncType: string | null
-  processAffected: string
+  ncSource: string | null
+  dept: string | null
+  processAffected: string | null
   description: string
   detectedAt: Date
   deadline: Date | null
+  correctionDeadlinePlanned: Date | null
+  correctionDeadlineActual: Date | null
+  isRisk: boolean | null
+  isOpportunity: boolean | null
   projectId: string | null
   projectName: string | null
   detectedByName: string | null
+  detectorName: string | null
   assignedToName: string | null
   createdAt: Date
   dmsDocumentCode: string | null
@@ -66,6 +78,8 @@ export type NcListItem = {
 export async function listNcs(filters?: {
   status?: NcStatus
   process?: NcProcess
+  dept?: NcDept
+  ncSource?: NcSource
   projectId?: string
   search?: string
   page?: number
@@ -80,20 +94,27 @@ export async function listNcs(filters?: {
 
   const rows = await db
     .select({
-      id:              nonConformances.id,
-      reference:       nonConformances.reference,
-      status:          nonConformances.status,
-      ncType:          nonConformances.ncType,
-      processAffected: nonConformances.processAffected,
-      description:     nonConformances.description,
-      detectedAt:      nonConformances.detectedAt,
-      deadline:        nonConformances.deadline,
-      projectId:       nonConformances.projectId,
-      projectName:     projects.name,
-      detectedByName:  detUser.name,
-      assignedToName:  asgnUser.name,
-      createdAt:       nonConformances.createdAt,
-      dmsDocumentCode: nonConformances.dmsDocumentCode,
+      id:                        nonConformances.id,
+      reference:                 nonConformances.reference,
+      status:                    nonConformances.status,
+      ncType:                    nonConformances.ncType,
+      ncSource:                  nonConformances.ncSource,
+      dept:                      nonConformances.dept,
+      processAffected:           nonConformances.processAffected,
+      description:               nonConformances.description,
+      detectedAt:                nonConformances.detectedAt,
+      deadline:                  nonConformances.deadline,
+      correctionDeadlinePlanned: nonConformances.correctionDeadlinePlanned,
+      correctionDeadlineActual:  nonConformances.correctionDeadlineActual,
+      isRisk:                    nonConformances.isRisk,
+      isOpportunity:             nonConformances.isOpportunity,
+      projectId:                 nonConformances.projectId,
+      projectName:               projects.name,
+      detectedByName:            detUser.name,
+      detectorName:              nonConformances.detectorName,
+      assignedToName:            asgnUser.name,
+      createdAt:                 nonConformances.createdAt,
+      dmsDocumentCode:           nonConformances.dmsDocumentCode,
     })
     .from(nonConformances)
     .leftJoin(projects, eq(nonConformances.projectId, projects.id))
@@ -102,10 +123,12 @@ export async function listNcs(filters?: {
     .where(
       and(
         isNull(nonConformances.deletedAt),
-        filters?.status    ? eq(nonConformances.status, filters.status)           : undefined,
-        filters?.process   ? eq(nonConformances.processAffected, filters.process) : undefined,
-        filters?.projectId ? eq(nonConformances.projectId, filters.projectId)     : undefined,
-        filters?.search    ? ilike(nonConformances.description, `%${filters.search}%`) : undefined,
+        filters?.status    ? eq(nonConformances.status,          filters.status)    : undefined,
+        filters?.process   ? eq(nonConformances.processAffected, filters.process as NcProcess) : undefined,
+        filters?.dept      ? eq(nonConformances.dept,            filters.dept as NcDept)       : undefined,
+        filters?.ncSource  ? eq(nonConformances.ncSource,        filters.ncSource as NcSource) : undefined,
+        filters?.projectId ? eq(nonConformances.projectId,       filters.projectId) : undefined,
+        filters?.search    ? ilike(nonConformances.description,  `%${filters.search}%`) : undefined,
       )
     )
     .orderBy(desc(nonConformances.detectedAt))
@@ -124,20 +147,44 @@ export type NcDetail = {
   id: string
   reference: string
   status: string
-  processAffected: string
+  ncType: string | null
+  ncSource: string | null
+  dept: string | null
+  processAffected: string | null
+  ownerType: string | null
+  auditorName: string | null
+  referenceDoc: string | null
   description: string
+  impact: string | null
   rootCause: string | null
+  immediateCorrection: string | null
+  derogationAuth: boolean | null
+  rebut: boolean | null
+  correctionResponsible: string | null
+  correctionDeadlinePlanned: Date | null
+  correctionDeadlineActual: Date | null
+  correctionStatus: string | null
+  evalDatePlanned: Date | null
+  evalDateActual: Date | null
+  clientResponse: string | null
+  isRisk: boolean | null
+  isOpportunity: boolean | null
+  needsSecondCapa: boolean | null
   detectedAt: Date
-  deadline: Date | null
-  closedAt: Date | null
-  projectId: string | null
-  projectName: string | null
   detectedById: string
   detectedByName: string | null
+  detectorName: string | null
+  detectorEmail: string | null
   assignedToId: string | null
   assignedToName: string | null
+  deadline: Date | null
+  closedAt: Date | null
   closedById: string | null
   closedByName: string | null
+  projectId: string | null
+  projectName: string | null
+  beforePhotoAssetId: string | null
+  afterPhotoAssetId: string | null
   createdAt: Date
   dmsDocumentCode: string | null
   capa: CapaDetail[]
@@ -149,6 +196,11 @@ export type CapaDetail = {
   responsibleId: string
   responsibleName: string | null
   deadline: Date | null
+  deadlinePlanned: Date | null
+  deadlineActual: Date | null
+  evalDatePlanned: Date | null
+  evalDateActual: Date | null
+  progressStatus: string | null
   status: string
   effectivenessVerified: boolean
   verifiedAt: Date | null
@@ -169,25 +221,49 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
 
   const [nc] = await db
     .select({
-      id:              nonConformances.id,
-      reference:       nonConformances.reference,
-      status:          nonConformances.status,
-      processAffected: nonConformances.processAffected,
-      description:     nonConformances.description,
-      rootCause:       nonConformances.rootCause,
-      detectedAt:      nonConformances.detectedAt,
-      deadline:        nonConformances.deadline,
-      closedAt:        nonConformances.closedAt,
-      projectId:       nonConformances.projectId,
-      projectName:     projects.name,
-      detectedById:    nonConformances.detectedBy,
-      detectedByName:  detUser.name,
-      assignedToId:    nonConformances.assignedTo,
-      assignedToName:  asgnUser.name,
-      closedById:      nonConformances.closedBy,
-      closedByName:    clsUser.name,
-      createdAt:       nonConformances.createdAt,
-      dmsDocumentCode: nonConformances.dmsDocumentCode,
+      id:                        nonConformances.id,
+      reference:                 nonConformances.reference,
+      status:                    nonConformances.status,
+      ncType:                    nonConformances.ncType,
+      ncSource:                  nonConformances.ncSource,
+      dept:                      nonConformances.dept,
+      processAffected:           nonConformances.processAffected,
+      ownerType:                 nonConformances.ownerType,
+      auditorName:               nonConformances.auditorName,
+      referenceDoc:              nonConformances.referenceDoc,
+      description:               nonConformances.description,
+      impact:                    nonConformances.impact,
+      rootCause:                 nonConformances.rootCause,
+      immediateCorrection:       nonConformances.immediateCorrection,
+      derogationAuth:            nonConformances.derogationAuth,
+      rebut:                     nonConformances.rebut,
+      correctionResponsible:     nonConformances.correctionResponsible,
+      correctionDeadlinePlanned: nonConformances.correctionDeadlinePlanned,
+      correctionDeadlineActual:  nonConformances.correctionDeadlineActual,
+      correctionStatus:          nonConformances.correctionStatus,
+      evalDatePlanned:           nonConformances.evalDatePlanned,
+      evalDateActual:            nonConformances.evalDateActual,
+      clientResponse:            nonConformances.clientResponse,
+      isRisk:                    nonConformances.isRisk,
+      isOpportunity:             nonConformances.isOpportunity,
+      needsSecondCapa:           nonConformances.needsSecondCapa,
+      detectedAt:                nonConformances.detectedAt,
+      detectedById:              nonConformances.detectedBy,
+      detectedByName:            detUser.name,
+      detectorName:              nonConformances.detectorName,
+      detectorEmail:             nonConformances.detectorEmail,
+      assignedToId:              nonConformances.assignedTo,
+      assignedToName:            asgnUser.name,
+      deadline:                  nonConformances.deadline,
+      closedAt:                  nonConformances.closedAt,
+      closedById:                nonConformances.closedBy,
+      closedByName:              clsUser.name,
+      projectId:                 nonConformances.projectId,
+      projectName:               projects.name,
+      beforePhotoAssetId:        nonConformances.beforePhotoAssetId,
+      afterPhotoAssetId:         nonConformances.afterPhotoAssetId,
+      createdAt:                 nonConformances.createdAt,
+      dmsDocumentCode:           nonConformances.dmsDocumentCode,
     })
     .from(nonConformances)
     .leftJoin(projects, eq(nonConformances.projectId, projects.id))
@@ -201,22 +277,27 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
 
   const capas = await db
     .select({
-      id:                   correctiveActions.id,
-      actionDescription:    correctiveActions.actionDescription,
-      responsibleId:        correctiveActions.responsibleId,
-      responsibleName:      sql<string | null>`resp.name`,
-      deadline:             correctiveActions.deadline,
-      status:               correctiveActions.status,
+      id:                    correctiveActions.id,
+      actionDescription:     correctiveActions.actionDescription,
+      responsibleId:         correctiveActions.responsibleId,
+      responsibleName:       sql<string | null>`resp.name`,
+      deadline:              correctiveActions.deadline,
+      deadlinePlanned:       correctiveActions.deadlinePlanned,
+      deadlineActual:        correctiveActions.deadlineActual,
+      evalDatePlanned:       correctiveActions.evalDatePlanned,
+      evalDateActual:        correctiveActions.evalDateActual,
+      progressStatus:        correctiveActions.progressStatus,
+      status:                correctiveActions.status,
       effectivenessVerified: correctiveActions.effectivenessVerified,
-      verifiedAt:           correctiveActions.verifiedAt,
-      verifiedById:         correctiveActions.verifiedBy,
-      verifiedByName:       sql<string | null>`vby.name`,
-      closedAt:             correctiveActions.closedAt,
-      notes:                correctiveActions.notes,
-      evidenceAssetId:      correctiveActions.evidenceAssetId,
-      evidenceUrl:          cloudinaryAssets.secureUrl,
-      createdAt:            correctiveActions.createdAt,
-      dmsDocumentCode:      correctiveActions.dmsDocumentCode,
+      verifiedAt:            correctiveActions.verifiedAt,
+      verifiedById:          correctiveActions.verifiedBy,
+      verifiedByName:        sql<string | null>`vby.name`,
+      closedAt:              correctiveActions.closedAt,
+      notes:                 correctiveActions.notes,
+      evidenceAssetId:       correctiveActions.evidenceAssetId,
+      evidenceUrl:           cloudinaryAssets.secureUrl,
+      createdAt:             correctiveActions.createdAt,
+      dmsDocumentCode:       correctiveActions.dmsDocumentCode,
     })
     .from(correctiveActions)
     .leftJoin(sql`users resp`, sql`resp.id = ${correctiveActions.responsibleId}`)
@@ -229,40 +310,78 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
 }
 
 export async function createNc(input: {
-  reference:           string
-  projectId?:          string
-  processAffected?:    string
-  ncType?:             string
-  ownerType?:          string
-  auditorName?:        string
-  description:         string
-  rootCause?:          string
-  assignedTo?:         string
-  deadline?:           Date
-  beforePhotoAssetId?: string
-  afterPhotoAssetId?:  string
-  detectedBy:          string
-  createdBy:           string
+  reference:                  string
+  projectId?:                 string
+  processAffected?:           string
+  dept?:                      string
+  ncType?:                    string
+  ncSource?:                  string
+  ownerType?:                 string
+  auditorName?:               string
+  detectorName?:              string
+  detectorEmail?:             string
+  referenceDoc?:              string
+  description:                string
+  impact?:                    string
+  rootCause?:                 string
+  immediateCorrection?:       string
+  derogationAuth?:            boolean
+  rebut?:                     boolean
+  correctionResponsible?:     string
+  correctionDeadlinePlanned?: Date
+  correctionDeadlineActual?:  Date
+  correctionStatus?:          string
+  evalDatePlanned?:           Date
+  evalDateActual?:            Date
+  clientResponse?:            string
+  isRisk?:                    boolean
+  isOpportunity?:             boolean
+  needsSecondCapa?:           boolean
+  assignedTo?:                string
+  deadline?:                  Date
+  beforePhotoAssetId?:        string
+  afterPhotoAssetId?:         string
+  detectedBy:                 string
+  createdBy:                  string
 }) {
   return db.transaction(async (tx) => {
     const [nc] = await tx
       .insert(nonConformances)
       .values({
-        reference:          input.reference,
-        projectId:          input.projectId || null,
-        processAffected:    (input.processAffected as NcProcess) || null,
-        ncType:             (input.ncType as typeof nonConformances.$inferInsert['ncType']) || null,
-        ownerType:          (input.ownerType as typeof nonConformances.$inferInsert['ownerType']) || null,
-        auditorName:        input.auditorName,
-        description:        input.description,
-        rootCause:          input.rootCause,
-        assignedTo:         input.assignedTo || null,
-        deadline:           input.deadline,
-        beforePhotoAssetId: input.beforePhotoAssetId || null,
-        afterPhotoAssetId:  input.afterPhotoAssetId || null,
-        detectedBy:         input.detectedBy,
-        status:             'open',
-        createdBy:          input.createdBy,
+        reference:                  input.reference,
+        projectId:                  input.projectId || null,
+        processAffected:            (input.processAffected as NcProcess) || null,
+        dept:                       (input.dept as NcDept) || null,
+        ncType:                     (input.ncType as typeof nonConformances.$inferInsert['ncType']) || null,
+        ncSource:                   (input.ncSource as NcSource) || null,
+        ownerType:                  (input.ownerType as typeof nonConformances.$inferInsert['ownerType']) || null,
+        auditorName:                input.auditorName,
+        detectorName:               input.detectorName,
+        detectorEmail:              input.detectorEmail,
+        referenceDoc:               input.referenceDoc,
+        description:                input.description,
+        impact:                     input.impact,
+        rootCause:                  input.rootCause,
+        immediateCorrection:        input.immediateCorrection,
+        derogationAuth:             input.derogationAuth ?? false,
+        rebut:                      input.rebut ?? false,
+        correctionResponsible:      input.correctionResponsible,
+        correctionDeadlinePlanned:  input.correctionDeadlinePlanned,
+        correctionDeadlineActual:   input.correctionDeadlineActual,
+        correctionStatus:           input.correctionStatus,
+        evalDatePlanned:            input.evalDatePlanned,
+        evalDateActual:             input.evalDateActual,
+        clientResponse:             input.clientResponse,
+        isRisk:                     input.isRisk ?? false,
+        isOpportunity:              input.isOpportunity ?? false,
+        needsSecondCapa:            input.needsSecondCapa ?? false,
+        assignedTo:                 input.assignedTo || null,
+        deadline:                   input.deadline,
+        beforePhotoAssetId:         input.beforePhotoAssetId || null,
+        afterPhotoAssetId:          input.afterPhotoAssetId || null,
+        detectedBy:                 input.detectedBy,
+        status:                     'open',
+        createdBy:                  input.createdBy,
       })
       .returning()
 
@@ -308,27 +427,65 @@ export async function updateNcStatus(
 export async function updateNcFields(
   id: string,
   fields: {
-    description?:    string
-    ncType?:         string | null
-    ownerType?:      string | null
-    processAffected?: string | null
-    auditorName?:    string | null
-    assignedTo?:     string | null
-    deadline?:       Date | null
-    rootCause?:      string | null
+    description?:               string
+    ncType?:                    string | null
+    ncSource?:                  string | null
+    dept?:                      string | null
+    ownerType?:                 string | null
+    processAffected?:           string | null
+    auditorName?:               string | null
+    detectorName?:              string | null
+    detectorEmail?:             string | null
+    referenceDoc?:              string | null
+    impact?:                    string | null
+    immediateCorrection?:       string | null
+    derogationAuth?:            boolean | null
+    rebut?:                     boolean | null
+    correctionResponsible?:     string | null
+    correctionDeadlinePlanned?: Date | null
+    correctionDeadlineActual?:  Date | null
+    correctionStatus?:          string | null
+    evalDatePlanned?:           Date | null
+    evalDateActual?:            Date | null
+    clientResponse?:            string | null
+    isRisk?:                    boolean | null
+    isOpportunity?:             boolean | null
+    needsSecondCapa?:           boolean | null
+    assignedTo?:                string | null
+    deadline?:                  Date | null
+    rootCause?:                 string | null
   }
 ) {
   await db
     .update(nonConformances)
     .set({
-      ...(fields.description     !== undefined && { description: fields.description }),
-      ...(fields.ncType          !== undefined && { ncType: fields.ncType as typeof nonConformances.$inferInsert['ncType'] }),
-      ...(fields.ownerType       !== undefined && { ownerType: fields.ownerType as typeof nonConformances.$inferInsert['ownerType'] }),
-      ...(fields.processAffected !== undefined && { processAffected: fields.processAffected as typeof nonConformances.$inferInsert['processAffected'] }),
-      ...(fields.auditorName     !== undefined && { auditorName: fields.auditorName }),
-      ...(fields.assignedTo      !== undefined && { assignedTo: fields.assignedTo }),
-      ...(fields.deadline        !== undefined && { deadline: fields.deadline }),
-      ...(fields.rootCause       !== undefined && { rootCause: fields.rootCause }),
+      ...(fields.description             !== undefined && { description: fields.description }),
+      ...(fields.ncType                  !== undefined && { ncType: fields.ncType as typeof nonConformances.$inferInsert['ncType'] }),
+      ...(fields.ncSource                !== undefined && { ncSource: fields.ncSource as NcSource }),
+      ...(fields.dept                    !== undefined && { dept: fields.dept as NcDept }),
+      ...(fields.ownerType               !== undefined && { ownerType: fields.ownerType as typeof nonConformances.$inferInsert['ownerType'] }),
+      ...(fields.processAffected         !== undefined && { processAffected: fields.processAffected as typeof nonConformances.$inferInsert['processAffected'] }),
+      ...(fields.auditorName             !== undefined && { auditorName: fields.auditorName }),
+      ...(fields.detectorName            !== undefined && { detectorName: fields.detectorName }),
+      ...(fields.detectorEmail           !== undefined && { detectorEmail: fields.detectorEmail }),
+      ...(fields.referenceDoc            !== undefined && { referenceDoc: fields.referenceDoc }),
+      ...(fields.impact                  !== undefined && { impact: fields.impact }),
+      ...(fields.immediateCorrection     !== undefined && { immediateCorrection: fields.immediateCorrection }),
+      ...(fields.derogationAuth          !== undefined && { derogationAuth: fields.derogationAuth }),
+      ...(fields.rebut                   !== undefined && { rebut: fields.rebut }),
+      ...(fields.correctionResponsible   !== undefined && { correctionResponsible: fields.correctionResponsible }),
+      ...(fields.correctionDeadlinePlanned !== undefined && { correctionDeadlinePlanned: fields.correctionDeadlinePlanned }),
+      ...(fields.correctionDeadlineActual  !== undefined && { correctionDeadlineActual: fields.correctionDeadlineActual }),
+      ...(fields.correctionStatus        !== undefined && { correctionStatus: fields.correctionStatus }),
+      ...(fields.evalDatePlanned         !== undefined && { evalDatePlanned: fields.evalDatePlanned }),
+      ...(fields.evalDateActual          !== undefined && { evalDateActual: fields.evalDateActual }),
+      ...(fields.clientResponse          !== undefined && { clientResponse: fields.clientResponse }),
+      ...(fields.isRisk                  !== undefined && { isRisk: fields.isRisk }),
+      ...(fields.isOpportunity           !== undefined && { isOpportunity: fields.isOpportunity }),
+      ...(fields.needsSecondCapa         !== undefined && { needsSecondCapa: fields.needsSecondCapa }),
+      ...(fields.assignedTo              !== undefined && { assignedTo: fields.assignedTo }),
+      ...(fields.deadline                !== undefined && { deadline: fields.deadline }),
+      ...(fields.rootCause               !== undefined && { rootCause: fields.rootCause }),
       updatedAt: new Date(),
     })
     .where(eq(nonConformances.id, id))
@@ -390,7 +547,13 @@ export async function createCapa(input: {
   ncId:              string
   actionDescription: string
   responsibleId:     string
+  responsibleName?:  string
+  deadlinePlanned?:  Date
+  deadlineActual?:   Date
   deadline?:         Date
+  evalDatePlanned?:  Date
+  evalDateActual?:   Date
+  progressStatus?:   string
   notes?:            string
   createdBy:         string
 }) {
@@ -401,7 +564,13 @@ export async function createCapa(input: {
         ncId:              input.ncId,
         actionDescription: input.actionDescription,
         responsibleId:     input.responsibleId,
-        deadline:          input.deadline,
+        responsibleName:   input.responsibleName,
+        deadlinePlanned:   input.deadlinePlanned,
+        deadlineActual:    input.deadlineActual,
+        deadline:          input.deadlinePlanned ?? input.deadline,
+        evalDatePlanned:   input.evalDatePlanned,
+        evalDateActual:    input.evalDateActual,
+        progressStatus:    input.progressStatus,
         notes:             input.notes,
         status:            'open',
         createdBy:         input.createdBy,
@@ -432,6 +601,12 @@ export async function updateCapa(
   capaId: string,
   input: {
     actionDescription?: string
+    responsibleName?:   string
+    deadlinePlanned?:   Date | null
+    deadlineActual?:    Date | null
+    evalDatePlanned?:   Date | null
+    evalDateActual?:    Date | null
+    progressStatus?:    string | null
     status?:            CapaStatus
     evidenceAssetId?:   string
     effectivenessVerified?: boolean
@@ -444,7 +619,17 @@ export async function updateCapa(
   const [updated] = await db
     .update(correctiveActions)
     .set({
-      ...input,
+      ...(input.actionDescription !== undefined && { actionDescription: input.actionDescription }),
+      ...(input.responsibleName   !== undefined && { responsibleName: input.responsibleName }),
+      ...(input.deadlinePlanned   !== undefined && { deadlinePlanned: input.deadlinePlanned, deadline: input.deadlinePlanned }),
+      ...(input.deadlineActual    !== undefined && { deadlineActual: input.deadlineActual }),
+      ...(input.evalDatePlanned   !== undefined && { evalDatePlanned: input.evalDatePlanned }),
+      ...(input.evalDateActual    !== undefined && { evalDateActual: input.evalDateActual }),
+      ...(input.progressStatus    !== undefined && { progressStatus: input.progressStatus }),
+      ...(input.status            !== undefined && { status: input.status }),
+      ...(input.evidenceAssetId   !== undefined && { evidenceAssetId: input.evidenceAssetId }),
+      ...(input.effectivenessVerified !== undefined && { effectivenessVerified: input.effectivenessVerified }),
+      ...(input.notes             !== undefined && { notes: input.notes }),
       verifiedAt: input.effectivenessVerified ? now : undefined,
       closedAt:   input.status === 'closed' ? (input.closedAt ?? now) : undefined,
       updatedAt:  now,
@@ -841,4 +1026,250 @@ export async function validateNcInputRefs(opts: {
   }
 
   return null
+}
+
+// ─── Audit Programs (FOR-MI-14) ───────────────────────────────────────────────
+
+export type AuditProgramRow = {
+  id: string
+  reference: string
+  year: number
+  dept: string
+  title: string | null
+  auditorName: string | null
+  auditeeResponsible: string | null
+  scheduledDate: Date | null
+  actualDate: Date | null
+  status: string
+  scope: string | null
+  objectives: string | null
+  criteria: string | null
+  findings: string | null
+  reportAssetId: string | null
+  reportUrl: string | null
+  dmsDocumentCode: string | null
+  notes: string | null
+  createdAt: Date
+}
+
+export type AuditProgramItemRow = {
+  id: string
+  auditProgramId: string
+  processCode: string | null
+  clauseRef: string | null
+  question: string
+  response: string | null
+  conformity: string | null
+  evidence: string | null
+  sortOrder: number
+}
+
+export async function generateAuditProgramReference(dept: string): Promise<string> {
+  const year = new Date().getFullYear()
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(auditPrograms)
+    .where(sql`extract(year from created_at) = ${year} AND dept = ${dept}::nc_dept`)
+  const seq = Number(count) + 1
+  return `AUD-${dept}-${year}-${String(seq).padStart(2, '0')}`
+}
+
+export async function listAuditPrograms(filters?: {
+  year?: number
+  dept?: NcDept
+  status?: AuditProgramStatus
+}): Promise<AuditProgramRow[]> {
+  const rows = await db
+    .select({
+      id:                 auditPrograms.id,
+      reference:          auditPrograms.reference,
+      year:               auditPrograms.year,
+      dept:               auditPrograms.dept,
+      title:              auditPrograms.title,
+      auditorName:        auditPrograms.auditorName,
+      auditeeResponsible: auditPrograms.auditeeResponsible,
+      scheduledDate:      auditPrograms.scheduledDate,
+      actualDate:         auditPrograms.actualDate,
+      status:             auditPrograms.status,
+      scope:              auditPrograms.scope,
+      objectives:         auditPrograms.objectives,
+      criteria:           auditPrograms.criteria,
+      findings:           auditPrograms.findings,
+      reportAssetId:      auditPrograms.reportAssetId,
+      reportUrl:          cloudinaryAssets.secureUrl,
+      dmsDocumentCode:    auditPrograms.dmsDocumentCode,
+      notes:              auditPrograms.notes,
+      createdAt:          auditPrograms.createdAt,
+    })
+    .from(auditPrograms)
+    .leftJoin(cloudinaryAssets, eq(auditPrograms.reportAssetId, cloudinaryAssets.id))
+    .where(
+      and(
+        filters?.year   ? sql`extract(year from ${auditPrograms.scheduledDate}) = ${filters.year}` : undefined,
+        filters?.dept   ? eq(auditPrograms.dept, filters.dept as NcDept) : undefined,
+        filters?.status ? eq(auditPrograms.status, filters.status as AuditProgramStatus) : undefined,
+      )
+    )
+    .orderBy(desc(auditPrograms.scheduledDate))
+
+  return rows as AuditProgramRow[]
+}
+
+export async function getAuditProgramById(id: string): Promise<(AuditProgramRow & { items: AuditProgramItemRow[] }) | null> {
+  const [program] = await db
+    .select({
+      id:                 auditPrograms.id,
+      reference:          auditPrograms.reference,
+      year:               auditPrograms.year,
+      dept:               auditPrograms.dept,
+      title:              auditPrograms.title,
+      auditorName:        auditPrograms.auditorName,
+      auditeeResponsible: auditPrograms.auditeeResponsible,
+      scheduledDate:      auditPrograms.scheduledDate,
+      actualDate:         auditPrograms.actualDate,
+      status:             auditPrograms.status,
+      scope:              auditPrograms.scope,
+      objectives:         auditPrograms.objectives,
+      criteria:           auditPrograms.criteria,
+      findings:           auditPrograms.findings,
+      reportAssetId:      auditPrograms.reportAssetId,
+      reportUrl:          cloudinaryAssets.secureUrl,
+      dmsDocumentCode:    auditPrograms.dmsDocumentCode,
+      notes:              auditPrograms.notes,
+      createdAt:          auditPrograms.createdAt,
+    })
+    .from(auditPrograms)
+    .leftJoin(cloudinaryAssets, eq(auditPrograms.reportAssetId, cloudinaryAssets.id))
+    .where(eq(auditPrograms.id, id))
+    .limit(1)
+
+  if (!program) return null
+
+  const items = await db
+    .select()
+    .from(auditProgramItems)
+    .where(eq(auditProgramItems.auditProgramId, id))
+    .orderBy(asc(auditProgramItems.sortOrder))
+
+  return { ...program, items } as AuditProgramRow & { items: AuditProgramItemRow[] }
+}
+
+export async function createAuditProgram(input: {
+  dept:               NcDept
+  title?:             string
+  auditorName?:       string
+  auditeeResponsible?: string
+  scheduledDate?:     Date
+  actualDate?:        Date
+  status?:            AuditProgramStatus
+  scope?:             string
+  objectives?:        string
+  criteria?:          string
+  findings?:          string
+  reportAssetId?:     string
+  notes?:             string
+  createdBy:          string
+}) {
+  return db.transaction(async (tx) => {
+    const reference = await generateAuditProgramReference(input.dept)
+    const year = input.scheduledDate ? input.scheduledDate.getFullYear() : new Date().getFullYear()
+
+    const [program] = await tx
+      .insert(auditPrograms)
+      .values({
+        reference,
+        year,
+        dept:               input.dept,
+        title:              input.title,
+        auditorName:        input.auditorName,
+        auditeeResponsible: input.auditeeResponsible,
+        scheduledDate:      input.scheduledDate,
+        actualDate:         input.actualDate,
+        status:             input.status ?? 'planifie',
+        scope:              input.scope,
+        objectives:         input.objectives,
+        criteria:           input.criteria,
+        findings:           input.findings,
+        reportAssetId:      input.reportAssetId || null,
+        notes:              input.notes,
+        createdBy:          input.createdBy,
+      })
+      .returning()
+
+    const dmsCode = await attachDmsCode(tx, {
+      typeCode:    'FOR',
+      processCode: 'MI',
+      designation: input.title ?? `Programme audit ${input.dept} ${year}`,
+      department:  'qualite',
+      category:    'rapport_audit',
+      entityType:  'audit_program',
+      entityId:    program.id,
+      authorId:    input.createdBy,
+    })
+
+    await tx.update(auditPrograms).set({ dmsDocumentCode: dmsCode }).where(eq(auditPrograms.id, program.id))
+
+    return { ...program, dmsDocumentCode: dmsCode }
+  })
+}
+
+export async function updateAuditProgram(id: string, input: {
+  title?:             string | null
+  auditorName?:       string | null
+  auditeeResponsible?: string | null
+  scheduledDate?:     Date | null
+  actualDate?:        Date | null
+  status?:            AuditProgramStatus
+  scope?:             string | null
+  objectives?:        string | null
+  criteria?:          string | null
+  findings?:          string | null
+  reportAssetId?:     string | null
+  notes?:             string | null
+}) {
+  const [updated] = await db
+    .update(auditPrograms)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(auditPrograms.id, id))
+    .returning()
+  return updated
+}
+
+export async function upsertAuditProgramItems(
+  auditProgramId: string,
+  items: Array<{
+    id?: string
+    processCode?: string
+    clauseRef?: string
+    question: string
+    response?: string
+    conformity?: string
+    evidence?: string
+    sortOrder?: number
+  }>,
+  createdBy: string
+) {
+  // Delete existing items and re-insert (simpler than merge for small checklists)
+  await db.delete(auditProgramItems).where(eq(auditProgramItems.auditProgramId, auditProgramId))
+
+  if (items.length === 0) return []
+
+  const rows = await db
+    .insert(auditProgramItems)
+    .values(
+      items.map((item, i) => ({
+        auditProgramId,
+        processCode: item.processCode,
+        clauseRef:   item.clauseRef,
+        question:    item.question,
+        response:    item.response,
+        conformity:  item.conformity,
+        evidence:    item.evidence,
+        sortOrder:   item.sortOrder ?? i,
+        createdBy,
+      }))
+    )
+    .returning()
+
+  return rows
 }

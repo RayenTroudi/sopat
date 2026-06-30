@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { TrendingDown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NcDetail, CapaDetail } from '@/lib/db/iso'
 import { CloudinaryUploader } from '@/components/upload/CloudinaryUploader'
@@ -16,14 +17,20 @@ const STATUS_COLORS: Record<string, string> = {
   closed:      'bg-[var(--admin-blue-dim)] text-[var(--admin-blue)]',
   verified:    'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]',
 }
-const PROCESS_LABELS: Record<string, string> = {
-  etudes: 'Études', realisation: 'Réalisation', entretien: 'Entretien',
-}
 const CAPA_STATUS_LABELS: Record<string, string> = {
   open: 'Ouverte', in_progress: 'En cours', closed: 'Clôturée',
 }
 const NC_TYPE_LABELS: Record<string, string> = {
-  technique: 'Technique', documentaire: 'Doc.', reclamation_client: 'Réclamation client', audit: 'Audit', systeme: 'Système',
+  technique: 'NC Technique', documentaire: 'NC Documentaire',
+  reclamation_client: 'Réclamation Client', audit: 'Audit', systeme: 'NC Système',
+}
+const NC_SOURCE_LABELS: Record<string, string> = {
+  interne: 'Interne', audit: 'Audit',
+  reclamation_client: 'Réclamation Client', reclamation_pi: 'Réclamation PI',
+}
+const DEPT_LABELS: Record<string, string> = {
+  AC: 'AC – Achats', CO: 'CO – Commercial', ET: 'ET – Études',
+  MI: 'MI – Management', RE1: 'RE1 – Réalisation 1', RE2: 'RE2 – Réalisation 2', RH: 'RH – RH',
 }
 
 function fmt(d: Date | string | null) {
@@ -109,7 +116,7 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
     await reload()
   }
 
-  const isOverdue = nc.deadline && new Date(nc.deadline) < new Date() && nc.status !== 'closed' && nc.status !== 'verified'
+  const isOverdue = nc.correctionDeadlinePlanned && new Date(nc.correctionDeadlinePlanned) < new Date() && nc.status !== 'closed' && nc.status !== 'verified'
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -123,16 +130,19 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
       {/* Header card */}
       <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-semibold font-mono" style={{ color: 'var(--admin-text)' }}>{nc.reference}</h1>
+              {nc.dept && (
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded"
+                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                  {nc.dept}
+                </span>
+              )}
               {nc.dmsDocumentCode && (
-                <a
-                  href={`/admin/documents?search=${encodeURIComponent(nc.dmsDocumentCode)}`}
+                <a href={`/admin/documents?search=${encodeURIComponent(nc.dmsDocumentCode)}`}
                   className="font-mono text-[11px] px-2 py-0.5 rounded hover:opacity-75 transition-opacity"
-                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
-                  title="Voir dans le registre documentaire"
-                >
+                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
                   {nc.dmsDocumentCode}
                 </a>
               )}
@@ -144,29 +154,88 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
                   En retard
                 </span>
               )}
+              {nc.isRisk && <span className="flex items-center gap-0.5 text-xs" style={{ color: 'var(--admin-red)' }}><TrendingDown className="w-3.5 h-3.5" />Risque</span>}
+              {nc.isOpportunity && <span className="flex items-center gap-0.5 text-xs" style={{ color: 'var(--admin-emerald)' }}><TrendingUp className="w-3.5 h-3.5" />Opportunité</span>}
             </div>
             <p className="text-sm mt-1" style={{ color: 'var(--admin-text-muted)' }}>
-              {(nc as any).ncType ? NC_TYPE_LABELS[(nc as any).ncType] : (PROCESS_LABELS[nc.processAffected] ?? nc.processAffected)}
-              {(nc as any).ownerType ? ` · ${(nc as any).ownerType === 'interne' ? 'Interne' : 'Externe'}` : ''}
-              {(nc as any).auditorName ? ` · Auditeur : ${(nc as any).auditorName}` : ''}
+              {nc.ncType ? NC_TYPE_LABELS[nc.ncType] : '—'}
+              {nc.ncSource ? ` · Source : ${NC_SOURCE_LABELS[nc.ncSource] ?? nc.ncSource}` : ''}
+              {nc.auditorName ? ` · Auditeur : ${nc.auditorName}` : ''}
+              {nc.referenceDoc ? ` · Réf : ${nc.referenceDoc}` : ''}
               {nc.projectName ? ` · ${nc.projectName}` : ''}
-              {' · '}Détectée le {fmt(nc.detectedAt)} par {nc.detectedByName ?? '—'}
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+              Détectée le {fmt(nc.detectedAt)} par {nc.detectorName ?? nc.detectedByName ?? '—'}
+              {nc.detectorEmail ? ` (${nc.detectorEmail})` : ''}
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t" style={{ borderColor: 'var(--admin-border)' }}>
-          <InfoCell label="Assigné à"   value={nc.assignedToName ?? '—'} />
-          <InfoCell label="Délai"       value={fmt(nc.deadline)} highlight={!!isOverdue} />
-          <InfoCell label="Clôturé par" value={nc.closedByName ?? '—'} />
-          <InfoCell label="Clôturé le"  value={fmt(nc.closedAt)} />
+          <InfoCell label="Assigné à"     value={nc.assignedToName ?? '—'} />
+          <InfoCell label="Correction (prévu)" value={fmt(nc.correctionDeadlinePlanned)} highlight={!!isOverdue} />
+          <InfoCell label="Correction (réel)"  value={fmt(nc.correctionDeadlineActual)} />
+          <InfoCell label="Clôturé le"    value={fmt(nc.closedAt)} />
         </div>
+
+        {/* Eval dates */}
+        {(nc.evalDatePlanned || nc.evalDateActual) && (
+          <div className="grid grid-cols-2 gap-4 pt-3 border-t" style={{ borderColor: 'var(--admin-border)' }}>
+            <InfoCell label="Évaluation efficacité (prévue)" value={fmt(nc.evalDatePlanned)} />
+            <InfoCell label="Évaluation efficacité (réelle)" value={fmt(nc.evalDateActual)} />
+          </div>
+        )}
       </div>
 
-      {/* Description */}
-      <Card title="Description">
+      {/* Identification */}
+      <Card title="Identification de la NC">
         <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{nc.description}</p>
+        {nc.impact && (
+          <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--admin-border)' }}>
+            <p className="text-xs font-medium mb-1" style={{ color: 'var(--admin-text-muted)' }}>Impact de la non-conformité</p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{nc.impact}</p>
+          </div>
+        )}
       </Card>
+
+      {/* Immediate correction */}
+      {(nc.immediateCorrection || nc.derogationAuth || nc.rebut || nc.correctionResponsible) && (
+        <Card title="Correction immédiate">
+          <div className="space-y-3">
+            {nc.immediateCorrection && (
+              <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{nc.immediateCorrection}</p>
+            )}
+            <div className="flex gap-4 text-sm flex-wrap">
+              {nc.derogationAuth && (
+                <span className="px-2 py-0.5 rounded text-xs font-medium"
+                  style={{ background: 'var(--admin-amber-dim)', color: 'var(--admin-amber)' }}>
+                  Autorisation de dérogation
+                </span>
+              )}
+              {nc.rebut && (
+                <span className="px-2 py-0.5 rounded text-xs font-medium"
+                  style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+                  Rebut
+                </span>
+              )}
+            </div>
+            {nc.correctionResponsible && (
+              <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                Responsable(s) : <span style={{ color: 'var(--admin-text)' }}>{nc.correctionResponsible}</span>
+              </p>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <InfoCell label="Date prévue"  value={fmt(nc.correctionDeadlinePlanned)} />
+              <InfoCell label="Date réalisée" value={fmt(nc.correctionDeadlineActual)} />
+            </div>
+            {nc.correctionStatus && (
+              <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                État d&apos;avancement : <span style={{ color: 'var(--admin-text)' }}>{nc.correctionStatus}</span>
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Root cause */}
       <Card title="Analyse des causes racines">
@@ -180,6 +249,15 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
           style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
         />
       </Card>
+
+      {/* Client response (for complaints) */}
+      {(nc.ncSource === 'reclamation_client' || nc.ncSource === 'reclamation_pi') && (
+        <Card title="Réponse Client / PI">
+          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: nc.clientResponse ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>
+            {nc.clientResponse ?? 'Aucune réponse enregistrée.'}
+          </p>
+        </Card>
+      )}
 
       {/* Photos avant/après */}
       <Card title="Photos (avant / après)">
@@ -400,8 +478,20 @@ function CapaCard({
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-        <span>Responsable : {capa.responsibleName ?? '—'}</span>
-        <span>Délai : {capa.deadline ? new Date(capa.deadline).toLocaleDateString('fr-FR') : '—'}</span>
+        <span>Responsable : <span style={{ color: 'var(--admin-text)' }}>{capa.responsibleName ?? '—'}</span></span>
+        <span>Délai prévu : <span style={{ color: 'var(--admin-text)' }}>{capa.deadlinePlanned ? new Date(capa.deadlinePlanned).toLocaleDateString('fr-FR') : (capa.deadline ? new Date(capa.deadline).toLocaleDateString('fr-FR') : '—')}</span></span>
+        {capa.deadlineActual && (
+          <span>Réalisé le : <span style={{ color: 'var(--admin-emerald)' }}>{new Date(capa.deadlineActual).toLocaleDateString('fr-FR')}</span></span>
+        )}
+        {capa.progressStatus && (
+          <span>Avancement : <span style={{ color: 'var(--admin-text)' }}>{capa.progressStatus}</span></span>
+        )}
+        {capa.evalDatePlanned && (
+          <span>Éval. prévue : <span style={{ color: 'var(--admin-text)' }}>{new Date(capa.evalDatePlanned).toLocaleDateString('fr-FR')}</span></span>
+        )}
+        {capa.evalDateActual && (
+          <span>Éval. réalisée : <span style={{ color: 'var(--admin-emerald)' }}>{new Date(capa.evalDateActual).toLocaleDateString('fr-FR')}</span></span>
+        )}
         {capa.effectivenessVerified && (
           <span className="col-span-2" style={{ color: 'var(--admin-emerald)' }}>
             ✓ Efficacité vérifiée par {capa.verifiedByName} le {new Date(capa.verifiedAt!).toLocaleDateString('fr-FR')}

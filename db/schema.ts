@@ -166,6 +166,17 @@ export const ncOwnerTypeEnum = pgEnum('nc_owner_type', [
   'externe',
 ])
 
+export const ncSourceEnum = pgEnum('nc_source', [
+  'interne',
+  'audit',
+  'reclamation_client',
+  'reclamation_pi',
+])
+
+export const ncDeptEnum = pgEnum('nc_dept', [
+  'AC', 'CO', 'ET', 'MI', 'RE1', 'RE2', 'RH',
+])
+
 export const capaStatusEnum = pgEnum('capa_status', [
   'open',
   'in_progress',
@@ -176,6 +187,14 @@ export const auditStatusEnum = pgEnum('audit_status', [
   'scheduled',
   'in_progress',
   'completed',
+])
+
+export const auditProgramStatusEnum = pgEnum('audit_program_status', [
+  'planifie',
+  'en_cours',
+  'realise',
+  'reporte',
+  'annule',
 ])
 
 export const documentStatusEnum = pgEnum('document_status', [
@@ -761,17 +780,40 @@ export const nonConformances = pgTable('non_conformances', {
   projectId: uuid('project_id'),
   detectedAt: timestamp('detected_at').notNull().defaultNow(),
   detectedBy: uuid('detected_by').notNull(),
+  detectorName: text('detector_name'),          // free-text name (e.g. auditor external)
+  detectorEmail: text('detector_email'),
   processAffected: phaseEnum('process_affected'),
+  dept: ncDeptEnum('dept'),                      // AC / CO / ET / MI / RE1 / RE2 / RH
   ncType: ncTypeEnum('nc_type'),
+  ncSource: ncSourceEnum('nc_source'),           // interne / audit / reclamation_client / pi
   ownerType: ncOwnerTypeEnum('nc_owner_type'),
   auditorName: text('auditor_name'),
+  referenceDoc: varchar('reference_doc', { length: 100 }), // e.g. "NC N°1"
   description: text('description').notNull(),
+  impact: text('impact'),                        // Impact de la non-conformité
   rootCause: text('root_cause'),
+  // Immediate correction (distinct from CAPA)
+  immediateCorrection: text('immediate_correction'),
+  derogationAuth: boolean('derogation_auth').default(false),
+  rebut: boolean('rebut').default(false),
+  correctionResponsible: text('correction_responsible'),
+  correctionDeadlinePlanned: timestamp('correction_deadline_planned'),
+  correctionDeadlineActual: timestamp('correction_deadline_actual'),
+  correctionStatus: varchar('correction_status', { length: 30 }),
   assignedTo: uuid('assigned_to'),
   deadline: timestamp('deadline'),
   status: ncStatusEnum('status').notNull().default('open'),
   closedAt: timestamp('closed_at'),
   closedBy: uuid('closed_by'),
+  // Effectiveness evaluation dates
+  evalDatePlanned: timestamp('eval_date_planned'),
+  evalDateActual: timestamp('eval_date_actual'),
+  // Client / PI response (for reclamation_client / reclamation_pi)
+  clientResponse: text('client_response'),
+  // Risk / Opportunity
+  isRisk: boolean('is_risk').default(false),
+  isOpportunity: boolean('is_opportunity').default(false),
+  needsSecondCapa: boolean('needs_second_capa').default(false),
   beforePhotoAssetId: uuid('before_photo_asset_id'),
   afterPhotoAssetId: uuid('after_photo_asset_id'),
   dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
@@ -796,9 +838,15 @@ export const correctiveActions = pgTable('corrective_actions', {
   ncId: uuid('nc_id').notNull(),
   actionDescription: text('action_description').notNull(),
   responsibleId: uuid('responsible_id').notNull(),
-  deadline: timestamp('deadline'),
+  responsibleName: text('responsible_name'),        // free-text fallback
+  deadlinePlanned: timestamp('deadline_planned'),    // Date prévue
+  deadlineActual: timestamp('deadline_actual'),      // Date réalisée
+  deadline: timestamp('deadline'),                   // kept for backward compat
+  evalDatePlanned: timestamp('eval_date_planned'),   // Date d'évaluation prévue
+  evalDateActual: timestamp('eval_date_actual'),     // Date d'évaluation réalisée
   evidenceAssetId: uuid('evidence_asset_id'),
   status: capaStatusEnum('status').notNull().default('open'),
+  progressStatus: varchar('progress_status', { length: 50 }), // Etat d'avancement text
   effectivenessVerified: boolean('effectiveness_verified').notNull().default(false),
   verifiedAt: timestamp('verified_at'),
   verifiedBy: uuid('verified_by'),
@@ -813,6 +861,54 @@ export const correctiveActions = pgTable('corrective_actions', {
   foreignKey({ columns: [t.ncId], foreignColumns: [nonConformances.id] }),
   foreignKey({ columns: [t.responsibleId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.verifiedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Audit Programs (FOR-MI-14) ───────────────────────────────────────────────
+
+export const auditPrograms = pgTable('audit_programs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reference: varchar('reference', { length: 50 }).notNull().unique(), // e.g. AUD-2025-001
+  year: integer('year').notNull(),
+  dept: ncDeptEnum('dept').notNull(),              // AC / CO / ET / MI / RE1 / RE2 / RH
+  title: varchar('title', { length: 200 }),
+  auditorName: text('auditor_name'),               // Internal or external auditor
+  auditeeResponsible: text('auditee_responsible'), // Department head being audited
+  scheduledDate: timestamp('scheduled_date'),
+  actualDate: timestamp('actual_date'),
+  status: auditProgramStatusEnum('status').notNull().default('planifie'),
+  scope: text('scope'),                            // Périmètre d'audit
+  objectives: text('objectives'),                  // Objectifs
+  criteria: text('criteria'),                      // Critères (ISO 9001 clauses)
+  findings: text('findings'),                      // Constats
+  reportAssetId: uuid('report_asset_id'),          // Uploaded audit report
+  dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('audit_programs_year_idx').on(t.year),
+  index('audit_programs_dept_idx').on(t.dept),
+  index('audit_programs_status_idx').on(t.status),
+  foreignKey({ columns: [t.reportAssetId], foreignColumns: [cloudinaryAssets.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const auditProgramItems = pgTable('audit_program_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  auditProgramId: uuid('audit_program_id').notNull(),
+  processCode: varchar('process_code', { length: 20 }),  // e.g. AC, ET, RE1
+  clauseRef: varchar('clause_ref', { length: 50 }),      // ISO 9001 clause (e.g. 8.4.1)
+  question: text('question').notNull(),
+  response: text('response'),
+  conformity: varchar('conformity', { length: 10 }),     // C / NC / NA / PO (Piste d'amélioration)
+  evidence: text('evidence'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('audit_program_items_program_idx').on(t.auditProgramId),
+  foreignKey({ columns: [t.auditProgramId], foreignColumns: [auditPrograms.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
@@ -1619,6 +1715,7 @@ export const dmsLinkEntityEnum = pgEnum('dms_link_entity', [
   'non_conformance',
   'corrective_action',
   'audit_log',
+  'audit_program',
   'maintenance_visit',
   'purchase_order',
   'rse_partnership',

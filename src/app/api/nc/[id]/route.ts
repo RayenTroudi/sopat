@@ -19,14 +19,33 @@ const updateSchema = z.object({
   rootCause:          z.string().optional().nullable(),
   beforePhotoAssetId: z.string().uuid().optional(),
   afterPhotoAssetId:  z.string().uuid().optional(),
-  // Field edits (non-status)
-  description:        z.string().min(5).optional(),
-  ncType:             z.string().optional().nullable(),
-  ownerType:          z.string().optional().nullable(),
-  processAffected:    z.string().optional().nullable(),
-  auditorName:        z.string().optional().nullable(),
-  assignedTo:         z.string().uuid().optional().nullable(),
-  deadline:           z.string().datetime().optional().nullable(),
+  // Field edits
+  description:                z.string().min(5).optional(),
+  ncType:                     z.string().optional().nullable(),
+  ncSource:                   z.string().optional().nullable(),
+  dept:                       z.string().optional().nullable(),
+  ownerType:                  z.string().optional().nullable(),
+  processAffected:            z.string().optional().nullable(),
+  auditorName:                z.string().optional().nullable(),
+  detectorName:               z.string().optional().nullable(),
+  detectorEmail:              z.string().optional().nullable(),
+  referenceDoc:               z.string().optional().nullable(),
+  impact:                     z.string().optional().nullable(),
+  immediateCorrection:        z.string().optional().nullable(),
+  derogationAuth:             z.boolean().optional().nullable(),
+  rebut:                      z.boolean().optional().nullable(),
+  correctionResponsible:      z.string().optional().nullable(),
+  correctionDeadlinePlanned:  z.string().datetime().optional().nullable(),
+  correctionDeadlineActual:   z.string().datetime().optional().nullable(),
+  correctionStatus:           z.string().optional().nullable(),
+  evalDatePlanned:            z.string().datetime().optional().nullable(),
+  evalDateActual:             z.string().datetime().optional().nullable(),
+  clientResponse:             z.string().optional().nullable(),
+  isRisk:                     z.boolean().optional().nullable(),
+  isOpportunity:              z.boolean().optional().nullable(),
+  needsSecondCapa:            z.boolean().optional().nullable(),
+  assignedTo:                 z.string().uuid().optional().nullable(),
+  deadline:                   z.string().datetime().optional().nullable(),
 })
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
@@ -88,21 +107,45 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   // Editable fields (admin/direction only)
   const d = parsed.data
-  if (d.description !== undefined || d.ncType !== undefined || d.ownerType !== undefined ||
-      d.processAffected !== undefined || d.auditorName !== undefined || d.assignedTo !== undefined ||
-      d.deadline !== undefined) {
+  const fieldEditKeys = ['description','ncType','ncSource','dept','ownerType','processAffected',
+    'auditorName','detectorName','detectorEmail','referenceDoc','impact','immediateCorrection',
+    'derogationAuth','rebut','correctionResponsible','correctionDeadlinePlanned',
+    'correctionDeadlineActual','correctionStatus','evalDatePlanned','evalDateActual',
+    'clientResponse','isRisk','isOpportunity','needsSecondCapa','assignedTo','deadline'] as const
+  const hasFieldEdit = fieldEditKeys.some(k => d[k] !== undefined)
+
+  if (hasFieldEdit) {
     const isAdminOrDirection = session.user.role === 'admin' || session.user.role === 'direction'
     if (!isAdminOrDirection) {
       return NextResponse.json({ error: 'Seuls les administrateurs peuvent modifier les champs de la NC' }, { status: 403 })
     }
     await updateNcFields(id, {
-      ...(d.description     !== undefined && { description: d.description }),
-      ...(d.ncType          !== undefined && { ncType: d.ncType }),
-      ...(d.ownerType       !== undefined && { ownerType: d.ownerType }),
-      ...(d.processAffected !== undefined && { processAffected: d.processAffected }),
-      ...(d.auditorName     !== undefined && { auditorName: d.auditorName }),
-      ...(d.assignedTo      !== undefined && { assignedTo: d.assignedTo }),
-      ...(d.deadline        !== undefined && { deadline: d.deadline ? new Date(d.deadline) : null }),
+      ...(d.description             !== undefined && { description: d.description }),
+      ...(d.ncType                  !== undefined && { ncType: d.ncType }),
+      ...(d.ncSource                !== undefined && { ncSource: d.ncSource }),
+      ...(d.dept                    !== undefined && { dept: d.dept }),
+      ...(d.ownerType               !== undefined && { ownerType: d.ownerType }),
+      ...(d.processAffected         !== undefined && { processAffected: d.processAffected }),
+      ...(d.auditorName             !== undefined && { auditorName: d.auditorName }),
+      ...(d.detectorName            !== undefined && { detectorName: d.detectorName }),
+      ...(d.detectorEmail           !== undefined && { detectorEmail: d.detectorEmail }),
+      ...(d.referenceDoc            !== undefined && { referenceDoc: d.referenceDoc }),
+      ...(d.impact                  !== undefined && { impact: d.impact }),
+      ...(d.immediateCorrection     !== undefined && { immediateCorrection: d.immediateCorrection }),
+      ...(d.derogationAuth          !== undefined && { derogationAuth: d.derogationAuth }),
+      ...(d.rebut                   !== undefined && { rebut: d.rebut }),
+      ...(d.correctionResponsible   !== undefined && { correctionResponsible: d.correctionResponsible }),
+      ...(d.correctionDeadlinePlanned !== undefined && { correctionDeadlinePlanned: d.correctionDeadlinePlanned ? new Date(d.correctionDeadlinePlanned) : null }),
+      ...(d.correctionDeadlineActual  !== undefined && { correctionDeadlineActual:  d.correctionDeadlineActual  ? new Date(d.correctionDeadlineActual)  : null }),
+      ...(d.correctionStatus        !== undefined && { correctionStatus: d.correctionStatus }),
+      ...(d.evalDatePlanned         !== undefined && { evalDatePlanned: d.evalDatePlanned ? new Date(d.evalDatePlanned) : null }),
+      ...(d.evalDateActual          !== undefined && { evalDateActual:  d.evalDateActual  ? new Date(d.evalDateActual)  : null }),
+      ...(d.clientResponse          !== undefined && { clientResponse: d.clientResponse }),
+      ...(d.isRisk                  !== undefined && { isRisk: d.isRisk }),
+      ...(d.isOpportunity           !== undefined && { isOpportunity: d.isOpportunity }),
+      ...(d.needsSecondCapa         !== undefined && { needsSecondCapa: d.needsSecondCapa }),
+      ...(d.assignedTo              !== undefined && { assignedTo: d.assignedTo }),
+      ...(d.deadline                !== undefined && { deadline: d.deadline ? new Date(d.deadline) : null }),
     })
   }
 
