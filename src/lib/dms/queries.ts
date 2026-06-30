@@ -1,5 +1,4 @@
 // src/lib/dms/queries.ts
-import { unstable_cache } from 'next/cache'
 import { db } from '../../../db/index'
 import {
   dmsDocuments,
@@ -76,7 +75,7 @@ async function _listDmsDocuments(
   filters?: DmsListFilters,
 ): Promise<{ rows: DmsDocRow[]; total: number }> {
   const page     = filters?.page     ?? 1
-  const pageSize = filters?.pageSize ?? 50
+  const pageSize = filters?.pageSize ?? 500
   const offset   = (page - 1) * pageSize
 
   const ownerUsers  = aliasedTable(users, 'owner_u')
@@ -149,7 +148,7 @@ async function _listDmsDocuments(
   return { rows: rows as DmsDocRow[], total: Number(total) }
 }
 
-export const listDmsDocuments = unstable_cache(_listDmsDocuments, ['dms-documents-list'], { revalidate: 30, tags: ['dms-documents-list'] })
+export const listDmsDocuments = _listDmsDocuments
 
 export async function createDmsDocument(
   input: DmsCreateInput,

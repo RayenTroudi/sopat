@@ -36,12 +36,15 @@ const STATUS_COLORS: Record<string, string> = {
   archived:         'bg-[var(--admin-border)] text-[var(--admin-text-muted)]',
 }
 
-function simplifiedStatus(status: string): { label: string; className: string } {
-  if (status === 'effective' || status === 'approved') {
-    return { label: 'Ajout', className: 'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]' }
+function simplifiedStatus(status: string, highlight?: string): { label: string; className: string } {
+  if (status === 'obsolete' || status === 'archived') {
+    return { label: 'Éliminé', className: 'bg-gray-100 text-gray-500' }
   }
-  if (status === 'archived' || status === 'obsolete') {
-    return { label: 'Éliminer', className: 'bg-[var(--admin-border)] text-[var(--admin-text-muted)]' }
+  if (highlight === 'red') {
+    return { label: 'Modifié', className: 'bg-red-50 text-red-600' }
+  }
+  if (status === 'effective' || status === 'approved') {
+    return { label: 'En vigueur', className: 'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]' }
   }
   return { label: 'En cours', className: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]' }
 }
@@ -83,10 +86,10 @@ const DEPARTMENT_LABELS: Record<string, string> = {
 
 // ── Row highlight ────────────────────────────────────────────────────────────
 
-function rowHighlight(h: 'none' | 'green' | 'red'): React.CSSProperties {
-  if (h === 'red')   return { background: 'rgba(239,68,68,0.10)' }
-  if (h === 'green') return { background: 'rgba(16,185,129,0.10)' }
-  return {}
+function rowHighlightStyle(h: 'none' | 'green' | 'red'): React.CSSProperties {
+  if (h === 'red')   return { background: 'rgba(239,68,68,0.08)', borderLeft: '3px solid rgba(239,68,68,0.7)' }
+  if (h === 'green') return { background: 'rgba(16,185,129,0.07)', borderLeft: '3px solid rgba(16,185,129,0.6)' }
+  return { borderLeft: '3px solid transparent' }
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -283,7 +286,9 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
     setTogglingId(null)
   }
 
-  const activeCount = rows.filter(r => r.status === 'effective').length
+  const activeCount   = rows.filter(r => r.status === 'effective').length
+  const redCount      = rows.filter(r => r.rowHighlight === 'red').length
+  const obsoleteCount = rows.filter(r => r.status === 'obsolete').length
 
   return (
     <div className="space-y-6">
@@ -294,7 +299,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
             LIS-MI-01
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            Liste des Informations Documentées Internes · ISO 9001:2015 §7.5 · {activeCount} document{activeCount !== 1 ? 's' : ''} en vigueur
+            Liste des Informations Documentées Internes · ISO 9001:2015 §7.5 · {rows.length} documents
           </p>
         </div>
         {canEdit && (
@@ -307,6 +312,24 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
           </button>
         )}
       </div>
+
+      {/* Legend — shown when data is loaded */}
+      {rows.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+            <span className="w-3 h-3 rounded-sm inline-block border-l-4 border-[rgba(16,185,129,0.7)] bg-[rgba(16,185,129,0.07)]" />
+            <span style={{ color: 'var(--admin-text-muted)' }}>En vigueur — <strong style={{ color: 'var(--admin-text)' }}>{activeCount}</strong></span>
+          </div>
+          <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)' }}>
+            <span className="w-3 h-3 rounded-sm inline-block border-l-4 border-[rgba(239,68,68,0.7)] bg-[rgba(239,68,68,0.08)]" />
+            <span style={{ color: '#dc2626' }}>Modifié / Sous révision — <strong>{redCount}</strong></span>
+          </div>
+          <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+            <span className="w-3 h-3 rounded-sm inline-block bg-gray-200" />
+            <span style={{ color: 'var(--admin-text-muted)' }}>Éliminé / Obsolète — <strong style={{ color: 'var(--admin-text)' }}>{obsoleteCount}</strong></span>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 sm:gap-3">
@@ -382,9 +405,9 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                 const codeParts = doc.documentNumber.split('-')
                 const typeCode = codeParts[0] ?? ''
                 const processCode = codeParts[1] ?? ''
-                const s = simplifiedStatus(doc.status)
+                const s = simplifiedStatus(doc.status, doc.rowHighlight)
                 return (
-                  <li key={doc.id} className="px-4 py-3" style={{ borderColor: 'var(--admin-border)', ...rowHighlight(doc.rowHighlight) }}>
+                  <li key={doc.id} className="px-4 py-3" style={{ borderColor: 'var(--admin-border)', ...rowHighlightStyle(doc.rowHighlight) }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -482,9 +505,9 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                   const codeParts   = doc.documentNumber.split('-')
                   const typeCode    = codeParts[0] ?? ''
                   const processCode = codeParts[1] ?? ''
-                  const s = simplifiedStatus(doc.status)
+                  const s = simplifiedStatus(doc.status, doc.rowHighlight)
                   return (
-                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)] group" style={{ borderBottom: '1px solid var(--admin-border)', ...rowHighlight(doc.rowHighlight) }}>
+                    <tr key={doc.id} className="transition-colors hover:bg-[var(--admin-bg)] group" style={{ borderBottom: '1px solid var(--admin-border)', ...rowHighlightStyle(doc.rowHighlight) }}>
                       {/* Type */}
                       <td className="px-3 py-2.5 font-mono text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--admin-text)' }}>
                         {typeCode}
