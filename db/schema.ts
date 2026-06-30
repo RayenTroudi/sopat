@@ -223,6 +223,7 @@ export const healthStatusEnum = pgEnum('health_status', [
 ])
 
 export const supplierCategoryEnum = pgEnum('supplier_category', [
+  // Legacy generic categories
   'pepiniere',
   'materiaux',
   'equipements',
@@ -230,6 +231,16 @@ export const supplierCategoryEnum = pgEnum('supplier_category', [
   'logistique',
   'location_engins',
   'autre',
+  // FOR-AC-11 sheet categories (real categories from SOPAT supplier register)
+  'plantes',
+  'terre_vegetale',
+  'gazon',
+  'matiere_decorative',
+  'bac_fleurs',
+  'parc_auto',
+  'equipements_bureautique',
+  'services',
+  'sous_traitants',
 ])
 
 export const supplierStatusEnum = pgEnum('supplier_status', [
@@ -479,18 +490,26 @@ export const plantSpecies = pgTable('plant_species', {
 
 export const suppliers = pgTable('suppliers', {
   id: uuid('id').primaryKey().defaultRandom(),
+  supplierCode: varchar('supplier_code', { length: 20 }),          // FR-001 from FOR-AC-11
   name: varchar('name', { length: 255 }).notNull(),
   category: supplierCategoryEnum('category').notNull().default('autre'),
+  registreCommerce: varchar('registre_commerce', { length: 100 }), // N° identification registre
   contactName: varchar('contact_name', { length: 255 }),
   email: varchar('email', { length: 255 }),
   phone: varchar('phone', { length: 50 }),
   city: varchar('city', { length: 100 }),
   address: text('address'),
   isoStatus: supplierStatusEnum('iso_status').notNull().default('en_evaluation'),
-  evaluationScore: integer('evaluation_score'),
+  // FOR-AC-11 evaluation scores (computed averages, decimal)
+  selectionScore: decimal('selection_score', { precision: 5, scale: 2 }),   // avg of 7 selection criteria
+  selectionClass: varchar('selection_class', { length: 1 }),                  // A / B / C
+  evaluationScore: decimal('evaluation_score', { precision: 5, scale: 2 }), // avg of eval criteria
+  evaluationClass: varchar('evaluation_class', { length: 1 }),               // A / B / C (last eval)
+  isoClass: varchar('iso_class', { length: 1 }),                             // final status A/B/C
+  nextEvalPlanned: varchar('next_eval_planned', { length: 50 }),             // "Fev 2025"
+  nextEvalDone: varchar('next_eval_done', { length: 50 }),
   lastAuditDate: timestamp('last_audit_date'),
   contractAssetId: uuid('contract_asset_id'),
-  // kept for backwards compat — derived from isoStatus
   isoApproved: boolean('iso_approved').notNull().default(false),
   isActive: boolean('is_active').notNull().default(true),
   notes: text('notes'),
@@ -511,7 +530,28 @@ export const supplierEvaluations = pgTable('supplier_evaluations', {
   supplierId: uuid('supplier_id').notNull(),
   evaluatedBy: uuid('evaluated_by').notNull(),
   evaluatorName: varchar('evaluator_name', { length: 255 }).notNull(),
-  score: integer('score').notNull(),
+  evaluationType: varchar('evaluation_type', { length: 20 }).default('selection'), // 'selection' | 'evaluation'
+  // Legacy single score (1–5)
+  score: integer('score').notNull().default(0),
+  // FOR-AC-11 selection criteria (1–3 scale)
+  tauxCouverture:       integer('taux_couverture'),
+  niveauQualite:        integer('niveau_qualite'),
+  prix:                 integer('prix'),
+  delaiLivraison:       integer('delai_livraison'),
+  modeLivraison:        integer('mode_livraison'),
+  modalitesPaiement:    integer('modalites_paiement'),
+  proximiteLivraison:   integer('proximite_livraison'),
+  // FOR-AC-11 evaluation criteria (1–3 scale)
+  notorieteReference:   integer('notoriete_reference'),   // services only
+  respectExigences:     integer('respect_exigences'),
+  respectPrix:          integer('respect_prix'),
+  respectDelai:         integer('respect_delai'),
+  reactivite:           integer('reactivite'),            // services only
+  assistanceTechnique:  integer('assistance_technique'),  // services only
+  documentationTech:    integer('documentation_technique'), // services only
+  // Computed
+  computedScore:  decimal('computed_score', { precision: 5, scale: 2 }),
+  classification: varchar('classification', { length: 1 }), // A / B / C
   notes: text('notes'),
   evaluatedAt: timestamp('evaluated_at').notNull().defaultNow(),
   ...timestamps,
