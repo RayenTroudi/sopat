@@ -1,41 +1,43 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Loader2, AlertCircle, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
+import {
+  Calendar, Loader2, AlertCircle, ChevronDown, ChevronUp, Plus, Trash2,
+  ClipboardCheck, Clock, CheckCircle2, BookOpen, Users, FileText, Check,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { AuditProgramRow, AuditProgramItemRow } from '@/lib/db/iso'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { EmptyState } from '@/components/ui/EmptyState'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<string, string> = {
-  planifie: 'Planifié', en_cours: 'En cours', realise: 'Réalisé',
-  reporte: 'Reporté', annule: 'Annulé',
-}
-const STATUS_COLORS: Record<string, string> = {
-  planifie: 'bg-[var(--admin-blue-dim)] text-[var(--admin-blue)] border-transparent',
-  en_cours: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)] border-transparent',
-  realise:  'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)] border-transparent',
-  reporte:  'bg-[var(--admin-red-dim)] text-[var(--admin-red)] border-transparent',
-  annule:   'bg-[var(--admin-border)] text-[var(--admin-text-muted)] border-transparent',
-}
-const DEPT_LABELS: Record<string, string> = {
-  AC: 'Achats', CO: 'Commercial', ET: 'Études',
-  MI: 'Management Qualité', RE1: 'Réalisation 1',
-  RE2: 'Réalisation 2 / Entretien', RH: 'Ressources Humaines',
-}
-const CONFORMITY_LABELS: Record<string, { label: string; color: string }> = {
-  C:  { label: 'Conforme',             color: 'var(--admin-emerald)' },
-  NC: { label: 'Non-conforme',         color: 'var(--admin-red)' },
-  NA: { label: 'Non applicable',       color: 'var(--admin-text-muted)' },
-  PA: { label: "Piste d'amélioration", color: 'var(--admin-amber)' },
+const STATUS_CONFIG: Record<string, { label: string; dot: string; dim: string; text: string }> = {
+  planifie: { label: 'Planifié',  dot: '#2563EB', dim: 'rgba(37,99,235,0.10)',   text: '#2563EB' },
+  en_cours: { label: 'En cours',  dot: '#B8870A', dim: 'rgba(184,135,10,0.10)',  text: '#B8870A' },
+  realise:  { label: 'Réalisé',   dot: '#1C7A48', dim: 'rgba(28,122,72,0.10)',   text: '#1C7A48' },
+  reporte:  { label: 'Reporté',   dot: '#DC2626', dim: 'rgba(220,38,38,0.10)',   text: '#DC2626' },
+  annule:   { label: 'Annulé',    dot: '#6B7280', dim: 'rgba(107,114,128,0.10)', text: '#6B7280' },
 }
 
-// Default agenda steps per dept, from Excel FOR-MI-14
+const DEPT_CONFIG: Record<string, { label: string; short: string; color: string }> = {
+  AC:  { label: 'Achats',                    short: 'AC',  color: '#7C3AED' },
+  CO:  { label: 'Commercial',                short: 'CO',  color: '#0D9488' },
+  ET:  { label: 'Études',                    short: 'ET',  color: '#2563EB' },
+  MI:  { label: 'Management Qualité',        short: 'MI',  color: '#1C7A48' },
+  RE1: { label: 'Réalisation 1',             short: 'RE1', color: '#B8870A' },
+  RE2: { label: 'Réalisation 2 / Entretien', short: 'RE2', color: '#EA6A0A' },
+  RH:  { label: 'Ressources Humaines',       short: 'RH',  color: '#DC2626' },
+}
+
+const CONFORMITY_LABELS: Record<string, { label: string; color: string; bg: string }> = {
+  C:  { label: 'Conforme',             color: '#1C7A48', bg: 'rgba(28,122,72,0.10)' },
+  NC: { label: 'Non-conforme',         color: '#DC2626', bg: 'rgba(220,38,38,0.10)' },
+  NA: { label: 'Non applicable',       color: '#6B7280', bg: 'rgba(107,114,128,0.10)' },
+  PA: { label: "Piste d'amélioration", color: '#B8870A', bg: 'rgba(184,135,10,0.10)' },
+}
+
 const DEFAULT_AGENDA: Record<string, string[]> = {
   AC:  ["Plans d'actions R&O / Objectifs qualité", 'Ressources - RH', 'Produits & services / Prestataires externes', 'Surveillance - Mesure - Analyse', 'NC - Réclamations', 'AC - Améliorations'],
   CO:  ['Plans R&O / Objectifs', 'Ressources - RH / Compétences', 'Revue des offres / des contrats', 'Communication clients', 'Surveillance - Mesure - Analyse', 'NC - Réclamations', 'AC - Améliorations'],
@@ -71,12 +73,6 @@ const DEFAULT_TIME_SLOTS: Record<string, { start: string; end: string }> = {
 
 const currentYear = new Date().getFullYear()
 const YEAR_OPTIONS = Array.from({ length: 4 }, (_, i) => currentYear - i)
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const inputStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }
-const inputClass = 'w-full px-3 py-2 rounded-lg border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
-const selectStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -129,12 +125,14 @@ export function AuditProgramsClient({ initialRows, users, currentUserId, canEdit
   const [filterYear, setFilterYear] = useState(String(currentYear))
   const [loading, setLoading]       = useState(false)
   const [form, setForm]             = useState<FormState>(buildEmptyForm())
+  const [formStep, setFormStep]     = useState(1)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const byStatus = rows.reduce<Record<string, number>>((acc, r) => { acc[r.status] = (acc[r.status] ?? 0) + 1; return acc }, {})
-  const pct = rows.length > 0 ? Math.round(((byStatus['realise'] ?? 0) / rows.length) * 100) : 0
+  const realised = byStatus['realise'] ?? 0
+  const pct = rows.length > 0 ? Math.round((realised / rows.length) * 100) : 0
 
   async function loadRows(overrides?: { dept?: string; status?: string; year?: string }) {
     setLoading(true)
@@ -179,7 +177,7 @@ export function AuditProgramsClient({ initialRows, users, currentUserId, canEdit
         body: JSON.stringify({ items: validItems }),
       })
     }
-    setShowForm(false); setForm(buildEmptyForm())
+    setShowForm(false); setForm(buildEmptyForm()); setFormStep(1)
     await loadRows(); setSubmitting(false)
   }
 
@@ -190,66 +188,127 @@ export function AuditProgramsClient({ initialRows, users, currentUserId, canEdit
     await loadRows()
   }
 
+  function openForm() { setForm(buildEmptyForm()); setFormStep(1); setFormError(''); setShowForm(true) }
+
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
-        <div>
-          <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Programmes d&apos;audit interne</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            FOR-MI-14 · ISO 9001:2015 clause 9.2 · {rows.length} programme{rows.length !== 1 ? 's' : ''} · {pct}% réalisés
-          </p>
+    <div className="space-y-6">
+
+      {/* ── Hero header ─────────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-2xl px-6 py-6"
+        style={{ background: 'linear-gradient(135deg, #1C3D2E 0%, #2F6F4F 50%, #1a3828 100%)' }}>
+        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-10"
+          style={{ background: 'radial-gradient(circle, #ffffff 0%, transparent 70%)' }} />
+        <div className="absolute bottom-0 left-1/4 w-36 h-36 rounded-full opacity-5"
+          style={{ background: 'radial-gradient(circle, #6EE7A0 0%, transparent 70%)' }} />
+
+        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}>
+              <ClipboardCheck className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-semibold text-white tracking-tight">Programmes d&apos;audit interne</h1>
+              <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
+                FOR-MI-14 · ISO 9001:2015 clause 9.2
+              </p>
+              {/* Progress bar */}
+              <div className="mt-3 w-56">
+                <div className="flex justify-between text-xs mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                  <span>Avancement {filterYear}</span>
+                  <span className="font-semibold" style={{ color: '#6EE7A0' }}>{realised}/{rows.length} · {pct}%</span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.15)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #6EE7A0, #34D399)' }} />
+                </div>
+              </div>
+            </div>
+          </div>
+          {canEdit && (
+            <button onClick={openForm}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0"
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)' }}>
+              <Plus className="w-4 h-4" /> Nouveau programme
+            </button>
+          )}
         </div>
-        {canEdit && (
-          <Button onClick={() => setShowForm(true)} className="text-white hover:opacity-90 w-full sm:w-auto"
-            style={{ background: 'var(--admin-blue)' }}>
-            + Nouveau programme
-          </Button>
-        )}
+
+        {/* Status pills */}
+        <div className="relative flex flex-wrap gap-2 mt-4">
+          {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
+            const count = byStatus[key] ?? 0
+            if (count === 0) return null
+            return (
+              <div key={key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cfg.dot }} />
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>{cfg.label}</span>
+                <span className="font-bold" style={{ color: '#fff' }}>{count}</span>
+              </div>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Progress */}
-      <div className="rounded-xl border p-4" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Avancement {filterYear || 'toutes années'}</p>
-          <p className="text-xs font-semibold" style={{ color: 'var(--admin-emerald)' }}>{byStatus['realise'] ?? 0} / {rows.length} réalisés ({pct}%)</p>
-        </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: 'var(--admin-border)' }}>
-          <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'var(--admin-emerald)' }} />
-        </div>
-        <div className="flex flex-wrap gap-2 mt-3">
-          {Object.entries(byStatus).map(([s, n]) => (
-            <span key={s} className={cn('text-xs px-2 py-0.5 rounded-full border', STATUS_COLORS[s] ?? '')}>
-              {STATUS_LABELS[s] ?? s} · {n}
-            </span>
-          ))}
-        </div>
-      </div>
+      {/* ── Filters ─────────────────────────────────────────────────────────── */}
+      <div className="rounded-xl border p-3" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-medium mr-1" style={{ color: 'var(--admin-text-muted)' }}>Filtres</span>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 p-3 rounded-xl border items-center"
-        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-        {[
-          { value: filterYear, setter: setFilterYear, key: 'year', all: 'Toutes années', options: YEAR_OPTIONS.map((y) => ({ v: String(y), l: String(y) })) },
-          { value: filterDept, setter: setFilterDept, key: 'dept', all: 'Tous dépt.', options: Object.entries(DEPT_LABELS).map(([v, l]) => ({ v, l: `${v} – ${l}` })) },
-          { value: filterStatus, setter: setFilterStatus, key: 'status', all: 'Tous statuts', options: Object.entries(STATUS_LABELS).map(([v, l]) => ({ v, l })) },
-        ].map(({ value, setter, key, all, options }) => (
-          <Select key={key} value={value || '__all__'}
-            onValueChange={(v) => { const val = v === '__all__' ? '' : v; setter(val); void loadRows({ [key]: val }) }}>
-            <SelectTrigger className="text-sm h-9 w-auto" style={selectStyle}><SelectValue /></SelectTrigger>
-            <SelectContent style={selectStyle}>
-              <SelectItem value="__all__">{all}</SelectItem>
-              {options.map(({ v, l }) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          {/* Year filter — pill buttons */}
+          <div className="flex gap-1.5">
+            {YEAR_OPTIONS.map((y) => (
+              <button key={y}
+                onClick={() => { setFilterYear(String(y)); void loadRows({ year: String(y) }) }}
+                className="text-xs px-2.5 py-1 rounded-lg border font-medium transition-all"
+                style={{
+                  borderColor: filterYear === String(y) ? 'var(--admin-accent)' : 'var(--admin-border)',
+                  background: filterYear === String(y) ? 'var(--admin-accent)' : 'transparent',
+                  color: filterYear === String(y) ? '#fff' : 'var(--admin-text-muted)',
+                }}>
+                {y}
+              </button>
+            ))}
+          </div>
+
+          <div className="w-px h-5 mx-1" style={{ background: 'var(--admin-border)' }} />
+
+          {/* Dept filter */}
+          <Select value={filterDept || '__all__'}
+            onValueChange={(v) => { const val = v === '__all__' ? '' : v; setFilterDept(val); void loadRows({ dept: val }) }}>
+            <SelectTrigger className="h-8 text-xs w-auto min-w-[130px]"
+              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__all__">Tous départements</SelectItem>
+              {Object.entries(DEPT_CONFIG).map(([v, c]) => <SelectItem key={v} value={v}>{v} — {c.label}</SelectItem>)}
             </SelectContent>
           </Select>
-        ))}
+
+          {/* Status filter */}
+          <Select value={filterStatus || '__all__'}
+            onValueChange={(v) => { const val = v === '__all__' ? '' : v; setFilterStatus(val); void loadRows({ status: val }) }}>
+            <SelectTrigger className="h-8 text-xs w-auto min-w-[120px]"
+              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
+              <SelectItem value="__all__">Tous statuts</SelectItem>
+              {Object.entries(STATUS_CONFIG).map(([v, c]) => <SelectItem key={v} value={v}>{c.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      {/* List */}
+      {/* ── List ────────────────────────────────────────────────────────────── */}
       <div className="space-y-3">
         {loading ? (
-          <div className="flex items-center justify-center py-12" style={{ color: 'var(--admin-text-muted)' }}>
-            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Chargement…
+          <div className="py-16 flex flex-col items-center gap-3">
+            <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--admin-emerald)' }} />
+            <span className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>Chargement…</span>
           </div>
         ) : rows.length === 0 ? (
           <EmptyState icon={Calendar} title="Aucun programme d'audit" description="Créez le programme d'audit annuel par département." />
@@ -261,129 +320,289 @@ export function AuditProgramsClient({ initialRows, users, currentUserId, canEdit
         ))}
       </div>
 
-      {/* Create Sheet */}
-      <Sheet open={showForm} onOpenChange={(o) => { setShowForm(o); if (!o) setForm(buildEmptyForm()) }}>
-        <SheetContent side="right" className="w-full max-w-2xl flex flex-col p-0" style={{ background: 'var(--admin-surface)' }}>
-          <SheetHeader className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
-            <SheetTitle style={{ color: 'var(--admin-text)' }}>Nouveau programme d&apos;audit</SheetTitle>
-            <SheetDescription style={{ color: 'var(--admin-text-muted)' }}>FOR-MI-14 · ISO 9001:2015 clause 9.2</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+      {/* ── Create Sheet ─────────────────────────────────────────────────────── */}
+      <Sheet open={showForm} onOpenChange={(o) => { setShowForm(o); if (!o) { setForm(buildEmptyForm()); setFormStep(1) } }}>
+        <SheetContent side="right" className="w-full max-w-2xl flex flex-col p-0 border-l"
+          style={{ background: 'var(--admin-bg)', borderColor: 'var(--admin-border)' }}>
 
-            <SectionLabel>Identification</SectionLabel>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Département *">
-                <Select value={form.dept || '__none__'}
-                  onValueChange={(v) => setForm(buildEmptyForm(v === '__none__' ? '' : v))}>
-                  <SelectTrigger style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
-                  <SelectContent style={selectStyle}>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {Object.entries(DEPT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{v} – {l}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </FormField>
-              <FormField label="Statut">
-                <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
-                  <SelectTrigger style={selectStyle}><SelectValue /></SelectTrigger>
-                  <SelectContent style={selectStyle}>
-                    {Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </FormField>
-            </div>
-            <FormField label="Titre">
-              <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                className={inputClass} style={inputStyle} placeholder="ex: Audit interne AC 2025" />
-            </FormField>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Auditeur">
-                <input value={form.auditorName} onChange={(e) => setForm((f) => ({ ...f, auditorName: e.target.value }))}
-                  className={inputClass} style={inputStyle} placeholder="Nom de l'auditeur" />
-              </FormField>
-              <FormField label="Responsable audité">
-                <input value={form.auditeeResponsible} onChange={(e) => setForm((f) => ({ ...f, auditeeResponsible: e.target.value }))}
-                  className={inputClass} style={inputStyle} placeholder="Pilote processus" />
-              </FormField>
-            </div>
-
-            <SectionLabel>Planification</SectionLabel>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Date prévue">
-                <input type="date" value={form.scheduledDate} onChange={(e) => setForm((f) => ({ ...f, scheduledDate: e.target.value }))}
-                  className={inputClass} style={inputStyle} />
-              </FormField>
-              <FormField label="Date réalisée">
-                <input type="date" value={form.actualDate} onChange={(e) => setForm((f) => ({ ...f, actualDate: e.target.value }))}
-                  className={inputClass} style={inputStyle} />
-              </FormField>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Horaire début">
-                <input value={form.scheduledStartTime} onChange={(e) => setForm((f) => ({ ...f, scheduledStartTime: e.target.value }))}
-                  className={inputClass} style={inputStyle} placeholder="09H00" />
-              </FormField>
-              <FormField label="Horaire fin">
-                <input value={form.scheduledEndTime} onChange={(e) => setForm((f) => ({ ...f, scheduledEndTime: e.target.value }))}
-                  className={inputClass} style={inputStyle} placeholder="11H00" />
-              </FormField>
-            </div>
-
-            <SectionLabel>Référentiel</SectionLabel>
-            <FormField label="Clauses ISO 9001">
-              <input value={form.criteria} onChange={(e) => setForm((f) => ({ ...f, criteria: e.target.value }))}
-                className={inputClass} style={inputStyle} placeholder="ex: 4.4; 6.1; 8.4" />
-            </FormField>
-            <FormField label="Documents de référence">
-              <input value={form.referenceDocuments} onChange={(e) => setForm((f) => ({ ...f, referenceDocuments: e.target.value }))}
-                className={inputClass} style={inputStyle} placeholder="ex: PRS-AC-01 & documents associés" />
-            </FormField>
-
-            <SectionLabel>Étapes du processus (agenda)</SectionLabel>
-            <div className="space-y-2">
-              {form.items.map((item, idx) => (
-                <div key={idx} className="rounded-lg border p-3 space-y-2"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)' }}>
-                  <div className="flex gap-2 items-center">
-                    <span className="text-xs font-mono shrink-0 w-5 text-right" style={{ color: 'var(--admin-text-muted)' }}>{idx + 1}.</span>
-                    <input value={item.agendaStep}
-                      onChange={(e) => setForm((f) => { const items = [...f.items]; items[idx] = { ...items[idx], agendaStep: e.target.value }; return { ...f, items } })}
-                      className={cn(inputClass, 'flex-1')} style={inputStyle} placeholder="Étape du processus…" />
-                    <button onClick={() => setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))}
-                      className="p-1 rounded hover:bg-[var(--admin-red-dim)] transition-colors shrink-0"
-                      style={{ color: 'var(--admin-text-muted)' }}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <input value={item.interlocuteurs}
-                    onChange={(e) => setForm((f) => { const items = [...f.items]; items[idx] = { ...items[idx], interlocuteurs: e.target.value }; return { ...f, items } })}
-                    className={cn(inputClass, 'text-xs')} style={inputStyle}
-                    placeholder="Interlocuteurs (ex: Pilote processus & Collaborateurs)" />
+          {/* Sheet header */}
+          <div className="relative overflow-hidden px-6 py-5 shrink-0"
+            style={{ background: 'linear-gradient(135deg, #1C3D2E 0%, #2F6F4F 100%)' }}>
+            <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full opacity-10"
+              style={{ background: 'radial-gradient(circle, #ffffff 0%, transparent 70%)' }} />
+            <SheetHeader className="relative">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: 'rgba(255,255,255,0.15)' }}>
+                  <ClipboardCheck className="w-5 h-5 text-white" />
                 </div>
-              ))}
-              <button onClick={() => setForm((f) => ({ ...f, items: [...f.items, emptyItem()] }))}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-dashed w-full justify-center hover:bg-[var(--admin-bg)] transition-colors"
-                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
-                <Plus className="w-3.5 h-3.5" /> Ajouter une étape
-              </button>
-            </div>
+                <div>
+                  <SheetTitle className="text-white text-base font-semibold text-left">Nouveau programme d&apos;audit</SheetTitle>
+                  <p className="text-xs mt-0.5 text-left" style={{ color: 'rgba(255,255,255,0.6)' }}>FOR-MI-14 · ISO 9001:2015 clause 9.2</p>
+                </div>
+              </div>
+              {/* Step indicator */}
+              <div className="flex items-center gap-2 mt-4">
+                {['Département', 'Planification', 'Référentiel', 'Agenda'].map((label, i) => {
+                  const step = i + 1
+                  const done = formStep > step
+                  const active = formStep === step
+                  return (
+                    <button key={step} onClick={() => setFormStep(step)}
+                      className="flex items-center gap-1.5 text-xs transition-all">
+                      <span className={cn('w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all', active ? 'text-[#1C3D2E]' : done ? 'text-[#1C3D2E]' : 'text-white')}
+                        style={{ background: active ? '#6EE7A0' : done ? '#34D399' : 'rgba(255,255,255,0.2)' }}>
+                        {done ? <Check className="w-2.5 h-2.5" /> : step}
+                      </span>
+                      <span className={cn('hidden sm:inline', active ? 'font-semibold' : '')}
+                        style={{ color: active ? '#fff' : 'rgba(255,255,255,0.5)' }}>{label}</span>
+                      {step < 4 && <span style={{ color: 'rgba(255,255,255,0.25)' }}>›</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </SheetHeader>
+          </div>
 
-            <SectionLabel>Notes</SectionLabel>
-            <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-              rows={2} className={cn(inputClass, 'resize-none')} style={inputStyle} placeholder="Notes complémentaires…" />
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+
+            {/* Step 1 — Département */}
+            {formStep === 1 && (
+              <div className="space-y-5">
+                <StepHeader icon={<ClipboardCheck className="w-4 h-4" />} title="Sélectionnez le département audité" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {Object.entries(DEPT_CONFIG).map(([key, cfg]) => (
+                    <button key={key}
+                      onClick={() => { const f = buildEmptyForm(key); setForm(f) }}
+                      className="flex flex-col items-start gap-2 p-4 rounded-xl border-2 transition-all text-left"
+                      style={{
+                        borderColor: form.dept === key ? cfg.color : 'var(--admin-border)',
+                        background: form.dept === key ? `${cfg.color}10` : 'var(--admin-surface)',
+                      }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
+                        style={{ background: cfg.color }}>
+                        {cfg.short}
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold" style={{ color: form.dept === key ? cfg.color : 'var(--admin-text)' }}>{cfg.short}</p>
+                        <p className="text-[10px] mt-0.5 leading-tight" style={{ color: 'var(--admin-text-muted)' }}>{cfg.label}</p>
+                      </div>
+                      {form.dept === key && (
+                        <Check className="w-3.5 h-3.5 ml-auto mt-auto" style={{ color: cfg.color }} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {form.dept && (
+                  <div className="space-y-3 pt-2">
+                    <div className="h-px" style={{ background: 'var(--admin-border)' }} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <FieldGroup label="Titre du programme">
+                        <input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl border text-sm focus-visible:outline-none"
+                          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                          placeholder={`Audit ${form.dept} ${currentYear}`} />
+                      </FieldGroup>
+                      <FieldGroup label="Statut">
+                        <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v }))}>
+                          <SelectTrigger className="rounded-xl" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
+                            {Object.entries(STATUS_CONFIG).map(([v, c]) => <SelectItem key={v} value={v}>{c.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </FieldGroup>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <FieldGroup label="Auditeur">
+                        <input value={form.auditorName} onChange={(e) => setForm((f) => ({ ...f, auditorName: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl border text-sm focus-visible:outline-none"
+                          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                          placeholder="Nom de l'auditeur" />
+                      </FieldGroup>
+                      <FieldGroup label="Responsable audité">
+                        <input value={form.auditeeResponsible} onChange={(e) => setForm((f) => ({ ...f, auditeeResponsible: e.target.value }))}
+                          className="w-full px-3 py-2 rounded-xl border text-sm focus-visible:outline-none"
+                          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                          placeholder="Pilote processus" />
+                      </FieldGroup>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Step 2 — Planification */}
+            {formStep === 2 && (
+              <div className="space-y-4">
+                <StepHeader icon={<Calendar className="w-4 h-4" />} title="Dates et horaires" />
+                <div className="grid grid-cols-2 gap-3">
+                  <FieldGroup label="Date prévue">
+                    <input type="date" value={form.scheduledDate} onChange={(e) => setForm((f) => ({ ...f, scheduledDate: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl border text-sm focus-visible:outline-none"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
+                  </FieldGroup>
+                  <FieldGroup label="Date réalisée">
+                    <input type="date" value={form.actualDate} onChange={(e) => setForm((f) => ({ ...f, actualDate: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl border text-sm focus-visible:outline-none"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
+                  </FieldGroup>
+                </div>
+
+                <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)' }}>
+                  <p className="text-xs font-semibold flex items-center gap-2" style={{ color: 'var(--admin-text)' }}>
+                    <Clock className="w-3.5 h-3.5" style={{ color: 'var(--admin-emerald)' }} />
+                    Horaire de l&apos;audit
+                    {form.dept && DEFAULT_TIME_SLOTS[form.dept] && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>
+                        Pré-rempli depuis Excel
+                      </span>
+                    )}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FieldGroup label="Début">
+                      <input value={form.scheduledStartTime} onChange={(e) => setForm((f) => ({ ...f, scheduledStartTime: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl border text-sm focus-visible:outline-none"
+                        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                        placeholder="09H00" />
+                    </FieldGroup>
+                    <FieldGroup label="Fin">
+                      <input value={form.scheduledEndTime} onChange={(e) => setForm((f) => ({ ...f, scheduledEndTime: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl border text-sm focus-visible:outline-none"
+                        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                        placeholder="11H00" />
+                    </FieldGroup>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3 — Référentiel */}
+            {formStep === 3 && (
+              <div className="space-y-4">
+                <StepHeader icon={<BookOpen className="w-4 h-4" />} title="Référentiel ISO et documents" />
+                <FieldGroup label="Clauses ISO 9001 applicables">
+                  <div className="relative">
+                    <input value={form.criteria} onChange={(e) => setForm((f) => ({ ...f, criteria: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border text-sm focus-visible:outline-none"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                      placeholder="4.4; 6.1; 6.2; …" />
+                    {form.dept && DEFAULT_CRITERIA[form.dept] && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded-full"
+                        style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>
+                        Excel
+                      </span>
+                    )}
+                  </div>
+                </FieldGroup>
+                <FieldGroup label="Documents de référence">
+                  <input value={form.referenceDocuments} onChange={(e) => setForm((f) => ({ ...f, referenceDocuments: e.target.value }))}
+                    className="w-full px-3 py-2.5 rounded-xl border text-sm focus-visible:outline-none"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                    placeholder="PRS-XX-01 & documents associés" />
+                </FieldGroup>
+                <FieldGroup label="Notes">
+                  <textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                    rows={3} placeholder="Observations, contexte de l'audit…"
+                    className="w-full px-3 py-2.5 rounded-xl border text-sm resize-none focus-visible:outline-none"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
+                </FieldGroup>
+              </div>
+            )}
+
+            {/* Step 4 — Agenda */}
+            {formStep === 4 && (
+              <div className="space-y-4">
+                <StepHeader icon={<Users className="w-4 h-4" />} title="Étapes du processus (agenda)" />
+
+                {form.dept && DEFAULT_AGENDA[form.dept] && (
+                  <div className="flex items-start gap-2 p-3 rounded-xl text-xs"
+                    style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>
+                    <Check className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>{form.items.length} étapes pré-remplies depuis le FOR-MI-14 du département {form.dept}. Vous pouvez les modifier ci-dessous.</span>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {form.items.map((item, idx) => (
+                    <div key={idx} className="rounded-xl border overflow-hidden"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+                      <div className="flex gap-2 items-center px-3 py-2.5">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #2F6F4F, #1C3D2E)' }}>
+                          {idx + 1}
+                        </span>
+                        <input value={item.agendaStep}
+                          onChange={(e) => setForm((f) => { const items = [...f.items]; items[idx] = { ...items[idx], agendaStep: e.target.value }; return { ...f, items } })}
+                          className="flex-1 bg-transparent text-sm focus-visible:outline-none"
+                          style={{ color: 'var(--admin-text)' }}
+                          placeholder="Étape du processus…" />
+                        <button onClick={() => setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }))}
+                          className="p-1 rounded-lg transition-colors shrink-0"
+                          style={{ color: 'var(--admin-text-muted)' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.background = 'rgba(220,38,38,0.08)' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--admin-text-muted)'; e.currentTarget.style.background = 'transparent' }}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="px-3 pb-2.5 pl-10">
+                        <input value={item.interlocuteurs}
+                          onChange={(e) => setForm((f) => { const items = [...f.items]; items[idx] = { ...items[idx], interlocuteurs: e.target.value }; return { ...f, items } })}
+                          className="w-full px-2.5 py-1.5 rounded-lg border text-xs focus-visible:outline-none"
+                          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text-muted)' }}
+                          placeholder="Interlocuteurs…" />
+                      </div>
+                    </div>
+                  ))}
+                  <button onClick={() => setForm((f) => ({ ...f, items: [...f.items, emptyItem()] }))}
+                    className="flex items-center gap-2 text-xs px-4 py-3 rounded-xl border-2 border-dashed w-full justify-center transition-colors"
+                    style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--admin-accent)'; e.currentTarget.style.color = 'var(--admin-accent)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--admin-border)'; e.currentTarget.style.color = 'var(--admin-text-muted)' }}>
+                    <Plus className="w-3.5 h-3.5" /> Ajouter une étape
+                  </button>
+                </div>
+              </div>
+            )}
 
             {formError && (
-              <div className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg"
+              <div className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl mt-4"
                 style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
                 <AlertCircle className="w-4 h-4 shrink-0" />{formError}
               </div>
             )}
           </div>
-          <div className="flex gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
-            <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Annuler</Button>
-            <Button className="flex-1 text-white" onClick={() => void handleCreate()} disabled={submitting}
-              style={{ background: 'var(--admin-blue)' }}>
-              {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Création…</> : 'Créer le programme'}
-            </Button>
+
+          {/* Footer navigation */}
+          <div className="flex gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+            {formStep > 1 ? (
+              <button onClick={() => setFormStep((s) => s - 1)}
+                className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                ← Précédent
+              </button>
+            ) : (
+              <button onClick={() => setShowForm(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                Annuler
+              </button>
+            )}
+            {formStep < 4 ? (
+              <button onClick={() => { if (!form.dept && formStep === 1) { setFormError('Sélectionnez un département'); return }; setFormError(''); setFormStep((s) => s + 1) }}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity"
+                style={{ background: 'linear-gradient(135deg, #1C7A48 0%, #2F6F4F 100%)' }}>
+                Suivant →
+              </button>
+            ) : (
+              <button onClick={() => void handleCreate()} disabled={submitting}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, #1C7A48 0%, #2F6F4F 100%)' }}>
+                {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Création…</> : 'Créer le programme'}
+              </button>
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -404,6 +623,14 @@ function AuditProgramCard({ row, canEdit, expanded, onToggle, onPatch }: {
   const [auditorSignedAt, setAuditorSignedAt] = useState(row.auditorSignedAt ? new Date(row.auditorSignedAt).toISOString().split('T')[0] : '')
   const [findings, setFindings]           = useState(row.findings ?? '')
   const [saving, setSaving]               = useState(false)
+
+  const statusCfg = STATUS_CONFIG[row.status] ?? STATUS_CONFIG.planifie
+  const deptCfg   = DEPT_CONFIG[row.dept]
+  const timeSlot  = row.scheduledStartTime && row.scheduledEndTime
+    ? `${row.scheduledStartTime} – ${row.scheduledEndTime}` : null
+  const realised = items ? items.filter((i) => i.conformity && i.conformity !== '').length : 0
+  const total    = items ? items.length : 0
+  const pct      = total > 0 ? Math.round((realised / total) * 100) : 0
 
   async function loadItems() {
     if (items !== null) return
@@ -430,122 +657,153 @@ function AuditProgramCard({ row, canEdit, expanded, onToggle, onPatch }: {
     })
   }
 
-  const timeSlot = row.scheduledStartTime && row.scheduledEndTime
-    ? `${row.scheduledStartTime} à ${row.scheduledEndTime}` : null
-
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-      <button className="w-full px-5 py-4 flex items-center gap-3 hover:bg-[var(--admin-bg)] transition-colors text-left"
+    <div className="rounded-2xl border overflow-hidden transition-shadow"
+      style={{
+        borderColor: expanded ? (deptCfg?.color ?? 'var(--admin-accent)') : 'var(--admin-border)',
+        background: 'var(--admin-surface)',
+        boxShadow: expanded ? 'var(--admin-shadow-md)' : 'var(--admin-shadow-sm)',
+        borderWidth: expanded ? '1.5px' : '1px',
+      }}>
+
+      {/* Card header */}
+      <button className="w-full px-5 py-4 flex items-center gap-4 transition-colors text-left"
+        style={{ background: expanded ? `${deptCfg?.color ?? '#2F6F4F'}08` : 'transparent' }}
         onClick={() => void handleToggle()}>
+
+        {/* Dept badge */}
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold text-white shrink-0"
+          style={{ background: deptCfg?.color ?? 'var(--admin-accent)' }}>
+          {row.dept}
+        </div>
+
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-xs font-bold px-2 py-0.5 rounded"
-              style={{ background: 'var(--admin-border)', color: 'var(--admin-text)' }}>{row.dept}</span>
-            <span className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{row.reference}</span>
+            <span className="font-mono text-sm font-bold" style={{ color: 'var(--admin-text)' }}>{row.reference}</span>
             {row.dmsDocumentCode && (
               <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
                 style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>{row.dmsDocumentCode}</span>
             )}
-            <Badge className={cn('text-[10px] font-medium rounded-full border', STATUS_COLORS[row.status] ?? '')}>
-              {STATUS_LABELS[row.status] ?? row.status}
-            </Badge>
+            {/* Status chip */}
+            <span className="flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full"
+              style={{ background: statusCfg.dim, color: statusCfg.text }}>
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusCfg.dot }} />
+              {statusCfg.label}
+            </span>
           </div>
-          <p className="text-sm mt-1 truncate" style={{ color: 'var(--admin-text)' }}>
-            {row.title ?? `Audit ${DEPT_LABELS[row.dept] ?? row.dept} ${row.year}`}
+          <p className="text-sm font-medium mt-0.5 truncate" style={{ color: 'var(--admin-text)' }}>
+            {row.title ?? `Audit ${deptCfg?.label ?? row.dept} ${row.year}`}
           </p>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            {row.auditorName ? `Auditeur : ${row.auditorName}` : ''}
-            {row.scheduledDate ? ` · ${new Date(row.scheduledDate).toLocaleDateString('fr-FR')}` : ''}
-            {timeSlot ? ` · ${timeSlot}` : ''}
-            {row.auditeeResponsible ? ` · ${row.auditeeResponsible}` : ''}
-          </p>
+          <div className="flex items-center gap-3 mt-1 text-xs flex-wrap" style={{ color: 'var(--admin-text-muted)' }}>
+            {row.auditorName && <span className="flex items-center gap-1"><Users className="w-3 h-3" />{row.auditorName}</span>}
+            {row.scheduledDate && <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{new Date(row.scheduledDate).toLocaleDateString('fr-FR')}</span>}
+            {timeSlot && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{timeSlot}</span>}
+            {row.auditeeResponsible && <span>{row.auditeeResponsible}</span>}
+          </div>
         </div>
+
         {expanded
           ? <ChevronUp className="w-4 h-4 shrink-0" style={{ color: 'var(--admin-text-muted)' }} />
           : <ChevronDown className="w-4 h-4 shrink-0" style={{ color: 'var(--admin-text-muted)' }} />}
       </button>
 
+      {/* Expanded body */}
       {expanded && (
-        <div className="border-t space-y-5 px-5 py-4" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)' }}>
-          {/* Meta pills */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {row.criteria           && <InfoPill label="Clauses ISO"        value={row.criteria} />}
-            {row.referenceDocuments && <InfoPill label="Documents de réf."  value={row.referenceDocuments} />}
-            {timeSlot               && <InfoPill label="Horaire"            value={timeSlot} />}
-            {row.scope              && <InfoPill label="Périmètre"          value={row.scope} />}
-            {row.auditorSignedAt    && <InfoPill label="Signé le"           value={new Date(row.auditorSignedAt).toLocaleDateString('fr-FR')} />}
-          </div>
+        <div className="border-t" style={{ borderColor: 'var(--admin-border)' }}>
+          <div className="px-5 py-5 space-y-5" style={{ background: 'var(--admin-bg)' }}>
 
-          {/* Agenda items */}
-          <div>
-            <p className="text-xs font-semibold mb-2" style={{ color: 'var(--admin-text)' }}>Étapes du processus</p>
-            {loadingItems && (
-              <div className="flex items-center gap-2 text-xs py-2" style={{ color: 'var(--admin-text-muted)' }}>
-                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Chargement…
-              </div>
-            )}
-            {items !== null && items.length === 0 && (
-              <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Aucune étape enregistrée.</p>
-            )}
-            {items !== null && items.length > 0 && (
-              <div className="space-y-2">
-                {items.map((item) => (
-                  <AgendaItemRow key={item.id} item={item} canEdit={canEdit}
-                    onSave={(patch) => void saveItem(item, patch)} />
-                ))}
-              </div>
-            )}
-          </div>
+            {/* Meta grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {row.criteria && <MetaCard icon={<BookOpen className="w-3.5 h-3.5" />} label="Clauses ISO" value={row.criteria} />}
+              {row.referenceDocuments && <MetaCard icon={<FileText className="w-3.5 h-3.5" />} label="Documents de réf." value={row.referenceDocuments} />}
+              {timeSlot && <MetaCard icon={<Clock className="w-3.5 h-3.5" />} label="Horaire" value={timeSlot} />}
+              {row.scope && <MetaCard icon={<ClipboardCheck className="w-3.5 h-3.5" />} label="Périmètre" value={row.scope} />}
+              {row.auditorSignedAt && <MetaCard icon={<CheckCircle2 className="w-3.5 h-3.5" />} label="Signé le" value={new Date(row.auditorSignedAt).toLocaleDateString('fr-FR')} />}
+            </div>
 
-          {/* Update panel */}
-          {canEdit && (
-            <div className="space-y-3 pt-2 border-t" style={{ borderColor: 'var(--admin-border)' }}>
-              <p className="text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>Mise à jour</p>
-              <div className="grid grid-cols-2 gap-3">
+            {/* Agenda items */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--admin-text-muted)' }}>Étapes du processus</p>
+                {items !== null && total > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--admin-border)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--admin-emerald)' }} />
+                    </div>
+                    <span className="text-[10px] font-medium" style={{ color: 'var(--admin-emerald)' }}>{realised}/{total} évalués</span>
+                  </div>
+                )}
+              </div>
+              {loadingItems && (
+                <div className="flex items-center gap-2 text-xs py-3" style={{ color: 'var(--admin-text-muted)' }}>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Chargement des étapes…
+                </div>
+              )}
+              {items !== null && items.length === 0 && (
+                <p className="text-xs py-2" style={{ color: 'var(--admin-text-muted)' }}>Aucune étape enregistrée.</p>
+              )}
+              {items !== null && items.length > 0 && (
                 <div className="space-y-1.5">
-                  <label className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Statut</label>
-                  <Select value={editStatus} onValueChange={setEditStatus}>
-                    <SelectTrigger className="text-sm h-8" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
-                      {Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  {items.map((item) => (
+                    <AgendaItemRow key={item.id} item={item} canEdit={canEdit}
+                      onSave={(patch) => void saveItem(item, patch)} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Update panel */}
+            {canEdit && (
+              <div className="pt-4 border-t space-y-3" style={{ borderColor: 'var(--admin-border)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--admin-text-muted)' }}>Mise à jour</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Statut</label>
+                    <Select value={editStatus} onValueChange={setEditStatus}>
+                      <SelectTrigger className="h-9 text-sm rounded-xl" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}>
+                        {Object.entries(STATUS_CONFIG).map(([v, c]) => <SelectItem key={v} value={v}>{c.label}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Date réalisée</label>
+                    <input type="date" value={actualDate} onChange={(e) => setActualDate(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border text-sm"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Signature auditeur</label>
+                    <input type="date" value={auditorSignedAt} onChange={(e) => setAuditorSignedAt(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border text-sm"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
+                  </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Date réalisée</label>
-                  <input type="date" value={actualDate} onChange={(e) => setActualDate(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-lg border text-sm"
+                  <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Constats</label>
+                  <textarea value={findings} onChange={(e) => setFindings(e.target.value)} rows={3}
+                    placeholder="Constats de l'audit, NC détectées…"
+                    className="w-full px-3 py-2 rounded-xl border text-sm resize-none"
                     style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
                 </div>
+                <button disabled={saving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+                  style={{ background: 'linear-gradient(135deg, #1C7A48, #2F6F4F)' }}
+                  onClick={() => { setSaving(true); onPatch({ status: editStatus, actualDate: actualDate ? new Date(actualDate).toISOString() : undefined, auditorSignedAt: auditorSignedAt ? new Date(auditorSignedAt).toISOString() : undefined, findings: findings || undefined }); setSaving(false) }}>
+                  {saving ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Enregistrement…</> : <><Check className="w-3.5 h-3.5" /> Enregistrer</>}
+                </button>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Date de signature auditeur</label>
-                <input type="date" value={auditorSignedAt} onChange={(e) => setAuditorSignedAt(e.target.value)}
-                  className="w-full px-3 py-1.5 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Constats</label>
-                <textarea value={findings} onChange={(e) => setFindings(e.target.value)} rows={3}
-                  placeholder="Constats de l'audit, NC détectées…"
-                  className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
-              </div>
-              <Button size="sm" disabled={saving} className="text-white" style={{ background: 'var(--admin-blue)' }}
-                onClick={() => { setSaving(true); onPatch({ status: editStatus, actualDate: actualDate ? new Date(actualDate).toISOString() : undefined, auditorSignedAt: auditorSignedAt ? new Date(auditorSignedAt).toISOString() : undefined, findings: findings || undefined }); setSaving(false) }}>
-                {saving ? <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />Enregistrement…</> : 'Enregistrer'}
-              </Button>
-            </div>
-          )}
+            )}
 
-          {!canEdit && row.findings && (
-            <div>
-              <p className="text-xs font-medium mb-1" style={{ color: 'var(--admin-text-muted)' }}>Constats</p>
-              <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{row.findings}</p>
-            </div>
-          )}
+            {!canEdit && row.findings && (
+              <div className="pt-3 border-t" style={{ borderColor: 'var(--admin-border)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--admin-text-muted)' }}>Constats</p>
+                <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{row.findings}</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -565,46 +823,52 @@ function AgendaItemRow({ item, canEdit, onSave }: {
   const conf = CONFORMITY_LABELS[conformity]
 
   return (
-    <div className="rounded-lg border overflow-hidden" style={{ borderColor: 'var(--admin-border)' }}>
-      <button className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[var(--admin-surface)] transition-colors"
+    <div className="rounded-xl border overflow-hidden transition-colors"
+      style={{ borderColor: conf ? conf.color + '40' : 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+      <button className="w-full flex items-center gap-3 px-4 py-3 text-left"
         onClick={() => setOpen((o) => !o)}>
-        <span className="text-xs font-mono w-5 shrink-0 text-right" style={{ color: 'var(--admin-text-muted)' }}>
-          {item.sortOrder + 1}.
+        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0"
+          style={{ background: 'linear-gradient(135deg, #2F6F4F, #1C3D2E)' }}>
+          {item.sortOrder + 1}
         </span>
         <span className="flex-1 text-sm" style={{ color: 'var(--admin-text)' }}>{item.agendaStep}</span>
         {item.interlocuteurs && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded hidden sm:inline"
-            style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-lg hidden sm:inline"
+            style={{ background: 'var(--admin-bg)', color: 'var(--admin-text-muted)', border: '1px solid var(--admin-border)' }}>
             {item.interlocuteurs}
           </span>
         )}
-        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0"
-          style={{ background: 'var(--admin-border)', color: conf ? conf.color : 'var(--admin-text-muted)' }}>
+        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+          style={{
+            background: conf ? conf.bg : 'var(--admin-bg)',
+            color: conf ? conf.color : 'var(--admin-text-muted)',
+          }}>
           {conf ? conf.label : 'À évaluer'}
         </span>
-        {open ? <ChevronUp className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--admin-text-muted)' }} />
-              : <ChevronDown className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--admin-text-muted)' }} />}
+        {open
+          ? <ChevronUp className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--admin-text-muted)' }} />
+          : <ChevronDown className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--admin-text-muted)' }} />}
       </button>
 
       {open && (
-        <div className="px-3 pb-3 space-y-2.5 border-t" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)' }}>
+        <div className="px-4 pb-4 pt-1 space-y-3 border-t" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)' }}>
           {item.clauseRef && (
-            <p className="text-xs pt-2" style={{ color: 'var(--admin-text-muted)' }}>
-              Clauses : <span style={{ color: 'var(--admin-text)' }}>{item.clauseRef}</span>
+            <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+              Clauses ISO : <span style={{ color: 'var(--admin-text)' }}>{item.clauseRef}</span>
             </p>
           )}
           {canEdit ? (
             <>
-              <div className="space-y-1.5 pt-1">
-                <label className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Conformité</label>
-                <div className="flex gap-2 flex-wrap">
-                  {Object.entries(CONFORMITY_LABELS).map(([v, { label, color }]) => (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Résultat de conformité</label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {Object.entries(CONFORMITY_LABELS).map(([v, { label, color, bg }]) => (
                     <button key={v} onClick={() => { setConformity(v); onSave({ conformity: v }) }}
-                      className="text-xs px-2.5 py-1 rounded-full border transition-colors"
+                      className="text-xs px-3 py-1.5 rounded-lg border font-medium transition-all"
                       style={{
                         borderColor: conformity === v ? color : 'var(--admin-border)',
+                        background: conformity === v ? bg : 'var(--admin-surface)',
                         color: conformity === v ? color : 'var(--admin-text-muted)',
-                        fontWeight: conformity === v ? 600 : 400,
                       }}>
                       {label}
                     </button>
@@ -612,26 +876,26 @@ function AgendaItemRow({ item, canEdit, onSave }: {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Observations</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Observations</label>
                 <textarea value={response} onChange={(e) => setResponse(e.target.value)}
                   onBlur={() => onSave({ response })} rows={2}
                   placeholder="Observations de l'auditeur…"
-                  className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                  className="w-full px-3 py-2 rounded-xl border text-sm resize-none"
                   style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Preuves objectivées</label>
+                <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>Preuves objectivées</label>
                 <input value={evidence} onChange={(e) => setEvidence(e.target.value)}
                   onBlur={() => onSave({ evidence })}
                   placeholder="Références des preuves…"
-                  className="w-full px-3 py-2 rounded-lg border text-sm"
+                  className="w-full px-3 py-2 rounded-xl border text-sm"
                   style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
               </div>
             </>
           ) : (
             <>
-              {item.response && <p className="text-sm pt-2 whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{item.response}</p>}
-              {item.evidence && <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Preuves : {item.evidence}</p>}
+              {item.response && <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{item.response}</p>}
+              {item.evidence && <p className="text-xs mt-1" style={{ color: 'var(--admin-text-muted)' }}>Preuves : {item.evidence}</p>}
             </>
           )}
         </div>
@@ -642,24 +906,35 @@ function AgendaItemRow({ item, canEdit, onSave }: {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs font-semibold uppercase tracking-wider pt-1" style={{ color: 'var(--admin-text-muted)' }}>{children}</p>
+function StepHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-2.5 pb-1">
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+        style={{ background: 'var(--admin-emerald-dim)', color: 'var(--admin-emerald)' }}>
+        {icon}
+      </div>
+      <p className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</p>
+    </div>
+  )
 }
 
-function FormField({ label, children }: { label: string; children: React.ReactNode }) {
+function FieldGroup({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium" style={{ color: 'var(--admin-text)' }}>{label}</label>
+      <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{label}</label>
       {children}
     </div>
   )
 }
 
-function InfoPill({ label, value }: { label: string; value: string }) {
+function MetaCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-lg p-2.5" style={{ background: 'var(--admin-surface)' }}>
-      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: 'var(--admin-text-muted)' }}>{label}</p>
-      <p className="text-xs" style={{ color: 'var(--admin-text)' }}>{value}</p>
+    <div className="rounded-xl p-3" style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)' }}>
+      <div className="flex items-center gap-1.5 mb-1" style={{ color: 'var(--admin-text-muted)' }}>
+        {icon}
+        <p className="text-[10px] uppercase tracking-wider">{label}</p>
+      </div>
+      <p className="text-xs font-medium" style={{ color: 'var(--admin-text)' }}>{value}</p>
     </div>
   )
 }
