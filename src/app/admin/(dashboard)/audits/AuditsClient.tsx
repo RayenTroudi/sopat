@@ -32,10 +32,6 @@ const PROCESS_OPTIONS = [
 ]
 const PROCESS_MAP = Object.fromEntries(PROCESS_OPTIONS.map((p) => [p.value, p.label]))
 
-function fmt(d: Date | string | null) {
-  if (!d) return '—'
-  return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
-}
 function fmtShort(d: Date | string | null) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -66,11 +62,6 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
   })
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
-
-  // Stats
-  const scheduled   = rows.filter((r) => r.status === 'scheduled').length
-  const in_progress = rows.filter((r) => r.status === 'in_progress').length
-  const completed   = rows.filter((r) => r.status === 'completed').length
 
   async function loadAudits() {
     setLoading(true)
@@ -128,53 +119,19 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
   return (
     <div className="space-y-6">
 
-      {/* ── Hero header ─────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl px-6 py-6"
-        style={{ background: 'linear-gradient(135deg, #1C3D2E 0%, #2D5A42 50%, #1a3828 100%)' }}>
-        {/* decorative circles */}
-        <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #ffffff 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 left-1/3 w-32 h-32 rounded-full opacity-5"
-          style={{ background: 'radial-gradient(circle, #ffffff 0%, transparent 70%)' }} />
-
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}>
-              <ClipboardCheck className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-white tracking-tight">Audits Internes</h1>
-              <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                ISO 9001:2015 · clause 9.2 · {total} audit{total !== 1 ? 's' : ''}
-              </p>
-            </div>
-          </div>
-          {isAdmin && (
-            <button onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0"
-              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)' }}>
-              <span className="text-base leading-none">+</span> Planifier un audit
-            </button>
-          )}
+      {/* ── Page header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Audits Internes</h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            ISO 9001:2015 · clause 9.2 · {total} audit{total !== 1 ? 's' : ''}
+          </p>
         </div>
-
-        {/* Stat chips */}
-        <div className="relative flex flex-wrap gap-3 mt-5">
-          {[
-            { label: 'Planifiés',  value: scheduled,   color: 'rgba(255,255,255,0.75)' },
-            { label: 'En cours',   value: in_progress, color: '#F0C040' },
-            { label: 'Clôturés',   value: completed,   color: '#6EE7A0' },
-          ].map((s) => (
-            <div key={s.label} className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
-              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-              <span className="text-xl font-bold" style={{ color: s.color }}>{s.value}</span>
-              <span className="text-xs" style={{ color: 'rgba(255,255,255,0.55)' }}>{s.label}</span>
-            </div>
-          ))}
-        </div>
+        {isAdmin && (
+          <Button onClick={() => setShowForm(true)} className="text-white hover:opacity-90" style={{ background: 'var(--admin-emerald)' }}>
+            + Planifier un audit
+          </Button>
+        )}
       </div>
 
       {/* ── Filter bar ──────────────────────────────────────────────────────── */}

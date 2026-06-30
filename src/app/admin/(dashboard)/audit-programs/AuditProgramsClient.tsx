@@ -193,63 +193,21 @@ export function AuditProgramsClient({ initialRows, users, currentUserId, canEdit
   return (
     <div className="space-y-6">
 
-      {/* ── Hero header ─────────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl px-6 py-6"
-        style={{ background: 'linear-gradient(135deg, #1C3D2E 0%, #2F6F4F 50%, #1a3828 100%)' }}>
-        <div className="absolute -top-10 -right-10 w-48 h-48 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #ffffff 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 left-1/4 w-36 h-36 rounded-full opacity-5"
-          style={{ background: 'radial-gradient(circle, #6EE7A0 0%, transparent 70%)' }} />
-
-        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}>
-              <ClipboardCheck className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-white tracking-tight">Programmes d&apos;audit interne</h1>
-              <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                FOR-MI-14 · ISO 9001:2015 clause 9.2
-              </p>
-              {/* Progress bar */}
-              <div className="mt-3 w-56">
-                <div className="flex justify-between text-xs mb-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                  <span>Avancement {filterYear}</span>
-                  <span className="font-semibold" style={{ color: '#6EE7A0' }}>{realised}/{rows.length} · {pct}%</span>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.15)' }}>
-                  <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #6EE7A0, #34D399)' }} />
-                </div>
-              </div>
-            </div>
-          </div>
-          {canEdit && (
-            <button onClick={openForm}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0"
-              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}
-              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.22)' }}
-              onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)' }}>
-              <Plus className="w-4 h-4" /> Nouveau programme
-            </button>
-          )}
+      {/* ── Page header ─────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Programmes d&apos;audit interne</h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            FOR-MI-14 · ISO 9001:2015 clause 9.2 · {rows.length} programme{rows.length !== 1 ? 's' : ''} · {pct}% réalisés
+          </p>
         </div>
-
-        {/* Status pills */}
-        <div className="relative flex flex-wrap gap-2 mt-4">
-          {Object.entries(STATUS_CONFIG).map(([key, cfg]) => {
-            const count = byStatus[key] ?? 0
-            if (count === 0) return null
-            return (
-              <div key={key} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs"
-                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)' }}>
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: cfg.dot }} />
-                <span style={{ color: 'rgba(255,255,255,0.55)' }}>{cfg.label}</span>
-                <span className="font-bold" style={{ color: '#fff' }}>{count}</span>
-              </div>
-            )
-          })}
-        </div>
+        {canEdit && (
+          <button onClick={openForm}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            style={{ background: 'var(--admin-emerald)' }}>
+            <Plus className="w-4 h-4" /> Nouveau programme
+          </button>
+        )}
       </div>
 
       {/* ── Filters ─────────────────────────────────────────────────────────── */}
