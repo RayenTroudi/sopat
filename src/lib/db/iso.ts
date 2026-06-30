@@ -1039,11 +1039,15 @@ export type AuditProgramRow = {
   auditorName: string | null
   auditeeResponsible: string | null
   scheduledDate: Date | null
+  scheduledStartTime: string | null  // e.g. "09H00"
+  scheduledEndTime: string | null    // e.g. "11H00"
   actualDate: Date | null
+  auditorSignedAt: Date | null
   status: string
   scope: string | null
   objectives: string | null
-  criteria: string | null
+  criteria: string | null            // ISO clause references e.g. "4.4; 6.1; 8.4"
+  referenceDocuments: string | null  // e.g. "PRS-AC-01 & documents associés"
   findings: string | null
   reportAssetId: string | null
   reportUrl: string | null
@@ -1055,11 +1059,11 @@ export type AuditProgramRow = {
 export type AuditProgramItemRow = {
   id: string
   auditProgramId: string
-  processCode: string | null
-  clauseRef: string | null
-  question: string
+  agendaStep: string             // Etapes du processus — e.g. "Revue des offres / contrats"
+  clauseRef: string | null       // ISO clause(s) for this step
+  interlocuteurs: string | null  // Who must attend — e.g. "Pilote processus & Collaborateurs"
   response: string | null
-  conformity: string | null
+  conformity: string | null      // C / NC / NA / PA
   evidence: string | null
   sortOrder: number
 }
@@ -1089,11 +1093,15 @@ export async function listAuditPrograms(filters?: {
       auditorName:        auditPrograms.auditorName,
       auditeeResponsible: auditPrograms.auditeeResponsible,
       scheduledDate:      auditPrograms.scheduledDate,
+      scheduledStartTime: auditPrograms.scheduledStartTime,
+      scheduledEndTime:   auditPrograms.scheduledEndTime,
       actualDate:         auditPrograms.actualDate,
+      auditorSignedAt:    auditPrograms.auditorSignedAt,
       status:             auditPrograms.status,
       scope:              auditPrograms.scope,
       objectives:         auditPrograms.objectives,
       criteria:           auditPrograms.criteria,
+      referenceDocuments: auditPrograms.referenceDocuments,
       findings:           auditPrograms.findings,
       reportAssetId:      auditPrograms.reportAssetId,
       reportUrl:          cloudinaryAssets.secureUrl,
@@ -1105,7 +1113,7 @@ export async function listAuditPrograms(filters?: {
     .leftJoin(cloudinaryAssets, eq(auditPrograms.reportAssetId, cloudinaryAssets.id))
     .where(
       and(
-        filters?.year   ? sql`extract(year from ${auditPrograms.scheduledDate}) = ${filters.year}` : undefined,
+        filters?.year   ? eq(auditPrograms.year, filters.year) : undefined,
         filters?.dept   ? eq(auditPrograms.dept, filters.dept as NcDept) : undefined,
         filters?.status ? eq(auditPrograms.status, filters.status as AuditProgramStatus) : undefined,
       )
@@ -1126,11 +1134,15 @@ export async function getAuditProgramById(id: string): Promise<(AuditProgramRow 
       auditorName:        auditPrograms.auditorName,
       auditeeResponsible: auditPrograms.auditeeResponsible,
       scheduledDate:      auditPrograms.scheduledDate,
+      scheduledStartTime: auditPrograms.scheduledStartTime,
+      scheduledEndTime:   auditPrograms.scheduledEndTime,
       actualDate:         auditPrograms.actualDate,
+      auditorSignedAt:    auditPrograms.auditorSignedAt,
       status:             auditPrograms.status,
       scope:              auditPrograms.scope,
       objectives:         auditPrograms.objectives,
       criteria:           auditPrograms.criteria,
+      referenceDocuments: auditPrograms.referenceDocuments,
       findings:           auditPrograms.findings,
       reportAssetId:      auditPrograms.reportAssetId,
       reportUrl:          cloudinaryAssets.secureUrl,
@@ -1146,7 +1158,17 @@ export async function getAuditProgramById(id: string): Promise<(AuditProgramRow 
   if (!program) return null
 
   const items = await db
-    .select()
+    .select({
+      id:             auditProgramItems.id,
+      auditProgramId: auditProgramItems.auditProgramId,
+      agendaStep:     auditProgramItems.agendaStep,
+      clauseRef:      auditProgramItems.clauseRef,
+      interlocuteurs: auditProgramItems.interlocuteurs,
+      response:       auditProgramItems.response,
+      conformity:     auditProgramItems.conformity,
+      evidence:       auditProgramItems.evidence,
+      sortOrder:      auditProgramItems.sortOrder,
+    })
     .from(auditProgramItems)
     .where(eq(auditProgramItems.auditProgramId, id))
     .orderBy(asc(auditProgramItems.sortOrder))
@@ -1155,20 +1177,24 @@ export async function getAuditProgramById(id: string): Promise<(AuditProgramRow 
 }
 
 export async function createAuditProgram(input: {
-  dept:               NcDept
-  title?:             string
-  auditorName?:       string
+  dept:                NcDept
+  title?:              string
+  auditorName?:        string
   auditeeResponsible?: string
-  scheduledDate?:     Date
-  actualDate?:        Date
-  status?:            AuditProgramStatus
-  scope?:             string
-  objectives?:        string
-  criteria?:          string
-  findings?:          string
-  reportAssetId?:     string
-  notes?:             string
-  createdBy:          string
+  scheduledDate?:      Date
+  scheduledStartTime?: string
+  scheduledEndTime?:   string
+  actualDate?:         Date
+  auditorSignedAt?:    Date
+  status?:             AuditProgramStatus
+  scope?:              string
+  objectives?:         string
+  criteria?:           string
+  referenceDocuments?: string
+  findings?:           string
+  reportAssetId?:      string
+  notes?:              string
+  createdBy:           string
 }) {
   return db.transaction(async (tx) => {
     const reference = await generateAuditProgramReference(input.dept)
@@ -1179,20 +1205,24 @@ export async function createAuditProgram(input: {
       .values({
         reference,
         year,
-        dept:               input.dept,
-        title:              input.title,
-        auditorName:        input.auditorName,
-        auditeeResponsible: input.auditeeResponsible,
-        scheduledDate:      input.scheduledDate,
-        actualDate:         input.actualDate,
-        status:             input.status ?? 'planifie',
-        scope:              input.scope,
-        objectives:         input.objectives,
-        criteria:           input.criteria,
-        findings:           input.findings,
-        reportAssetId:      input.reportAssetId || null,
-        notes:              input.notes,
-        createdBy:          input.createdBy,
+        dept:                input.dept,
+        title:               input.title,
+        auditorName:         input.auditorName,
+        auditeeResponsible:  input.auditeeResponsible,
+        scheduledDate:       input.scheduledDate,
+        scheduledStartTime:  input.scheduledStartTime,
+        scheduledEndTime:    input.scheduledEndTime,
+        actualDate:          input.actualDate,
+        auditorSignedAt:     input.auditorSignedAt,
+        status:              input.status ?? 'planifie',
+        scope:               input.scope,
+        objectives:          input.objectives,
+        criteria:            input.criteria,
+        referenceDocuments:  input.referenceDocuments,
+        findings:            input.findings,
+        reportAssetId:       input.reportAssetId || null,
+        notes:               input.notes,
+        createdBy:           input.createdBy,
       })
       .returning()
 
@@ -1214,18 +1244,22 @@ export async function createAuditProgram(input: {
 }
 
 export async function updateAuditProgram(id: string, input: {
-  title?:             string | null
-  auditorName?:       string | null
+  title?:              string | null
+  auditorName?:        string | null
   auditeeResponsible?: string | null
-  scheduledDate?:     Date | null
-  actualDate?:        Date | null
-  status?:            AuditProgramStatus
-  scope?:             string | null
-  objectives?:        string | null
-  criteria?:          string | null
-  findings?:          string | null
-  reportAssetId?:     string | null
-  notes?:             string | null
+  scheduledDate?:      Date | null
+  scheduledStartTime?: string | null
+  scheduledEndTime?:   string | null
+  actualDate?:         Date | null
+  auditorSignedAt?:    Date | null
+  status?:             AuditProgramStatus
+  scope?:              string | null
+  objectives?:         string | null
+  criteria?:           string | null
+  referenceDocuments?: string | null
+  findings?:           string | null
+  reportAssetId?:      string | null
+  notes?:              string | null
 }) {
   const [updated] = await db
     .update(auditPrograms)
@@ -1238,18 +1272,16 @@ export async function updateAuditProgram(id: string, input: {
 export async function upsertAuditProgramItems(
   auditProgramId: string,
   items: Array<{
-    id?: string
-    processCode?: string
-    clauseRef?: string
-    question: string
-    response?: string
-    conformity?: string
-    evidence?: string
-    sortOrder?: number
+    agendaStep:      string
+    clauseRef?:      string
+    interlocuteurs?: string
+    response?:       string
+    conformity?:     string
+    evidence?:       string
+    sortOrder?:      number
   }>,
   createdBy: string
 ) {
-  // Delete existing items and re-insert (simpler than merge for small checklists)
   await db.delete(auditProgramItems).where(eq(auditProgramItems.auditProgramId, auditProgramId))
 
   if (items.length === 0) return []
@@ -1259,13 +1291,13 @@ export async function upsertAuditProgramItems(
     .values(
       items.map((item, i) => ({
         auditProgramId,
-        processCode: item.processCode,
-        clauseRef:   item.clauseRef,
-        question:    item.question,
-        response:    item.response,
-        conformity:  item.conformity,
-        evidence:    item.evidence,
-        sortOrder:   item.sortOrder ?? i,
+        agendaStep:     item.agendaStep,
+        clauseRef:      item.clauseRef,
+        interlocuteurs: item.interlocuteurs,
+        response:       item.response,
+        conformity:     item.conformity,
+        evidence:       item.evidence,
+        sortOrder:      item.sortOrder ?? i,
         createdBy,
       }))
     )

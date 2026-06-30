@@ -873,13 +873,17 @@ export const auditPrograms = pgTable('audit_programs', {
   dept: ncDeptEnum('dept').notNull(),              // AC / CO / ET / MI / RE1 / RE2 / RH
   title: varchar('title', { length: 200 }),
   auditorName: text('auditor_name'),               // Internal or external auditor
-  auditeeResponsible: text('auditee_responsible'), // Department head being audited
+  auditeeResponsible: text('auditee_responsible'), // Department head / Pilote processus
   scheduledDate: timestamp('scheduled_date'),
+  scheduledStartTime: varchar('scheduled_start_time', { length: 10 }), // e.g. "09H00"
+  scheduledEndTime: varchar('scheduled_end_time', { length: 10 }),     // e.g. "11H00"
   actualDate: timestamp('actual_date'),
+  auditorSignedAt: timestamp('auditor_signed_at'),
   status: auditProgramStatusEnum('status').notNull().default('planifie'),
   scope: text('scope'),                            // Périmètre d'audit
   objectives: text('objectives'),                  // Objectifs
-  criteria: text('criteria'),                      // Critères (ISO 9001 clauses)
+  criteria: text('criteria'),                      // Clauses ISO 9001 (e.g. "4.4; 6.1; 8.4")
+  referenceDocuments: text('reference_documents'), // e.g. "PRS-AC-01 & documents associés"
   findings: text('findings'),                      // Constats
   reportAssetId: uuid('report_asset_id'),          // Uploaded audit report
   dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
@@ -897,12 +901,13 @@ export const auditPrograms = pgTable('audit_programs', {
 export const auditProgramItems = pgTable('audit_program_items', {
   id: uuid('id').primaryKey().defaultRandom(),
   auditProgramId: uuid('audit_program_id').notNull(),
-  processCode: varchar('process_code', { length: 20 }),  // e.g. AC, ET, RE1
-  clauseRef: varchar('clause_ref', { length: 50 }),      // ISO 9001 clause (e.g. 8.4.1)
-  question: text('question').notNull(),
-  response: text('response'),
-  conformity: varchar('conformity', { length: 10 }),     // C / NC / NA / PO (Piste d'amélioration)
-  evidence: text('evidence'),
+  // Agenda step label (Etapes du processus) — e.g. "Revue des offres / contrats"
+  agendaStep: text('agenda_step').notNull(),
+  clauseRef: varchar('clause_ref', { length: 100 }),     // ISO clause(s) for this step
+  interlocuteurs: text('interlocuteurs'),                 // Who must attend — e.g. "Pilote processus & Collaborateurs"
+  response: text('response'),                            // Auditor notes / observations
+  conformity: varchar('conformity', { length: 10 }),     // C / NC / NA / PA (Piste d'amélioration)
+  evidence: text('evidence'),                            // Supporting evidence
   sortOrder: integer('sort_order').notNull().default(0),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
