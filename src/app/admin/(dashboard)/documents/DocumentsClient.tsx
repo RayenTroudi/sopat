@@ -131,14 +131,15 @@ const EMPTY_FORM = {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
-  const [rows, setRows]         = useState<DmsDocRow[]>([])
+  const [allRows, setAllRows]   = useState<DmsDocRow[]>([])
   const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
 
-  const [filterStatus,  setFilterStatus]  = useState('')
-  const [filterType,    setFilterType]    = useState('')
-  const [filterProcess, setFilterProcess] = useState('')
-  const [search,        setSearch]        = useState('')
+  const [filterStatus,    setFilterStatus]    = useState('')
+  const [filterType,      setFilterType]      = useState('')
+  const [filterProcess,   setFilterProcess]   = useState('')
+  const [filterHighlight, setFilterHighlight] = useState('')
+  const [search,          setSearch]          = useState('')
 
   const [form, setForm]             = useState({ ...EMPTY_FORM, ownerId: currentUserId })
   const [editingDoc, setEditingDoc] = useState<DmsDocRow | null>(null)
@@ -152,7 +153,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
   async function handleDeleteDoc(doc: DmsDocRow) {
     setDeletingId(doc.id)
     const res = await fetch(`/api/dms/${doc.id}`, { method: 'DELETE' })
-    if (res.ok) setRows((prev) => prev.filter((r) => r.id !== doc.id))
+    if (res.ok) setAllRows((prev) => prev.filter((r) => r.id !== doc.id))
     setDeletingId(null)
     setConfirmDelete(null)
   }
@@ -189,22 +190,36 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
     setShowForm(true)
   }
 
-  useEffect(() => { loadDocs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void loadDocs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadDocs() {
     setLoading(true)
-    const params = new URLSearchParams()
-    if (filterStatus)  params.set('status',      filterStatus)
-    if (filterType)    params.set('typeCode',     filterType)
-    if (filterProcess) params.set('processCode',  filterProcess)
-    if (search)        params.set('search',       search)
-    const res = await fetch(`/api/dms?${params}`)
+    const res = await fetch('/api/dms')
     if (res.ok) {
       const data = await res.json() as { rows: DmsDocRow[] }
-      setRows(data.rows)
+      setAllRows(data.rows)
     }
     setLoading(false)
   }
+
+  // Client-side filtering — no round-trip on every filter change
+  const rows = allRows.filter(doc => {
+    const parts = doc.documentNumber.split('-')
+    const typeCode    = parts[0] ?? ''
+    const processCode = parts[1] ?? ''
+
+    if (filterStatus    && doc.status !== filterStatus) return false
+    if (filterType      && typeCode !== filterType) return false
+    if (filterProcess   && processCode !== filterProcess) return false
+    if (filterHighlight === 'red'      && doc.rowHighlight !== 'red') return false
+    if (filterHighlight === 'obsolete' && doc.status !== 'obsolete') return false
+    if (filterHighlight === 'normal'   && (doc.rowHighlight !== 'none' || doc.status === 'obsolete')) return false
+    if (search) {
+      const q = search.toLowerCase()
+      if (!doc.documentNumber.toLowerCase().includes(q) && !doc.title.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
 
   async function handleTypeProcessChange(type: string, process: string) {
     if (!type || !process) { setCodePreview(''); return }
@@ -281,7 +296,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
       body: JSON.stringify({ rowHighlight: next }),
     })
     if (res.ok) {
-      setRows(prev => prev.map(r => r.id === doc.id ? { ...r, rowHighlight: next } : r))
+      setAllRows(prev => prev.map(r => r.id === doc.id ? { ...r, rowHighlight: next } : r))
     }
     setTogglingId(null)
   }
@@ -331,62 +346,79 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-2 sm:gap-3">
-        <Select
-          value={filterStatus === '' ? '__all__' : filterStatus}
-          onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterStatus(next); setTimeout(() => void loadDocs(), 0) }}
-        >
-          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-            <SelectItem value="__all__">Tous statuts</SelectItem>
-            {Object.entries(STATUS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filterType === '' ? '__all__' : filterType}
-          onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterType(next); setTimeout(() => void loadDocs(), 0) }}
-        >
-          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-            <SelectValue />
+      {/* Filters — instant client-side */}
+      <div className="flex flex-wrap gap-2">
+        {/* Type */}
+        <Select value={filterType === '' ? '__all__' : filterType} onValueChange={(v) => setFilterType(v === '__all__' ? '' : v)}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-auto min-w-[130px]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectItem value="__all__">Tous types</SelectItem>
-            {TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
+            {TYPE_CODES.map(t => (
+              <SelectItem key={t} value={t}>
+                <span className="font-mono font-semibold">{t}</span>
+                <span className="text-[var(--admin-text-muted)]"> — {TYPE_LABELS[t]}</span>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <Select
-          value={filterProcess === '' ? '__all__' : filterProcess}
-          onValueChange={(v) => { const next = v === '__all__' ? '' : v; setFilterProcess(next); setTimeout(() => void loadDocs(), 0) }}
-        >
-          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-full lg:w-auto" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-            <SelectValue />
+        {/* Processus */}
+        <Select value={filterProcess === '' ? '__all__' : filterProcess} onValueChange={(v) => setFilterProcess(v === '__all__' ? '' : v)}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-auto min-w-[130px]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue placeholder="Processus" />
           </SelectTrigger>
           <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
             <SelectItem value="__all__">Tous processus</SelectItem>
-            {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
+            {PROCESS_CODES.map(p => (
+              <SelectItem key={p} value={p}>
+                <span className="font-mono font-semibold">{p}</span>
+                <span className="text-[var(--admin-text-muted)]"> — {PROCESS_LABELS[p]}</span>
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
+        {/* Statut / couleur */}
+        <Select value={filterHighlight === '' ? '__all__' : filterHighlight} onValueChange={(v) => setFilterHighlight(v === '__all__' ? '' : v)}>
+          <SelectTrigger className="text-sm h-9 bg-[#F4F8F5] w-auto min-w-[140px]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectValue placeholder="Statut" />
+          </SelectTrigger>
+          <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+            <SelectItem value="__all__">Tous statuts</SelectItem>
+            <SelectItem value="normal">⚪ En vigueur</SelectItem>
+            <SelectItem value="red">🔴 Modifié / Sous révision</SelectItem>
+            <SelectItem value="obsolete">⬛ Éliminé / Obsolète</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Search */}
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void loadDocs()}
-          placeholder="Code ou titre…"
-          className="text-sm px-3 py-1.5 rounded-lg border w-full sm:col-span-2 lg:flex-1 lg:col-span-1 lg:min-w-[160px] outline-none focus:ring-2 focus:ring-[var(--admin-border-light)] focus:border-[var(--admin-border-light)]"
+          placeholder="Rechercher code ou titre…"
+          className="text-sm px-3 py-1.5 rounded-lg border flex-1 min-w-[180px] outline-none"
           style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
         />
-        <button
-          onClick={() => void loadDocs()}
-          className="text-sm px-3 py-1.5 rounded-lg border w-full sm:col-span-2 lg:col-span-1 lg:w-auto"
-          style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
-        >
-          Filtrer
-        </button>
+
+        {/* Reset */}
+        {(filterType || filterProcess || filterHighlight || search) && (
+          <button
+            onClick={() => { setFilterType(''); setFilterProcess(''); setFilterHighlight(''); setSearch('') }}
+            className="text-sm px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+          >
+            Réinitialiser
+          </button>
+        )}
+
+        {/* Result count */}
+        {!loading && (
+          <span className="text-xs self-center ml-auto" style={{ color: 'var(--admin-text-muted)' }}>
+            {rows.length} / {allRows.length} documents
+          </span>
+        )}
       </div>
 
       {/* Table */}
@@ -425,7 +457,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                           </div>
                           <div className="min-w-0">
                             <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Version</dt>
-                            <dd style={{ color: 'var(--admin-text)' }}>{doc.versionLabel ? `v${doc.versionLabel}` : '—'}</dd>
+                            <dd style={{ color: 'var(--admin-text)' }}>{doc.versionLabel ?? '—'}</dd>
                           </div>
                           <div className="min-w-0">
                             <dt className="uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>Date</dt>
@@ -529,7 +561,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                       </td>
                       {/* Version */}
                       <td className="px-3 py-2.5 text-xs text-center whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
-                        {doc.versionLabel ? `v${doc.versionLabel}` : '—'}
+                        {doc.versionLabel ?? '—'}
                       </td>
                       {/* Date */}
                       <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>

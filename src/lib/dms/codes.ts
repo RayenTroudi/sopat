@@ -1,33 +1,35 @@
 // src/lib/dms/codes.ts
 // Canonical coding system from LIS-MI-01 (SOPAT internal document register)
 
-export const TYPE_CODES = ['LIS', 'PRS', 'PRC', 'INS', 'FOR', 'ORG', 'PLA'] as const
+export const TYPE_CODES = ['FOR', 'INS', 'ISN', 'LIS', 'ORG', 'PLA', 'PRC', 'PRS'] as const
 export type TypeCode = (typeof TYPE_CODES)[number]
 
-export const PROCESS_CODES = ['MI', 'RH', 'CO', 'RE', 'ET', 'AC'] as const
+export const PROCESS_CODES = ['AC', 'CO', 'ET', 'MI', 'MQ', 'RE', 'RH'] as const
 export type ProcessCode = (typeof PROCESS_CODES)[number]
 
 export const TYPE_LABELS: Record<TypeCode, string> = {
-  LIS: 'Liste',
-  PRS: 'PRS',
-  PRC: 'PNC',
-  INS: 'Instruction',
   FOR: 'Formulaire / Fiche',
+  INS: 'Instruction',
+  ISN: 'Instruction (ancien)',
+  LIS: 'Liste',
   ORG: 'Document organisationnel',
   PLA: 'Plan',
+  PRC: 'Procédure',
+  PRS: 'Processus',
 }
 
 export const PROCESS_LABELS: Record<ProcessCode, string> = {
-  MI: 'Management Intégré / Qualité',
-  RH: 'Ressources Humaines',
-  CO: 'Commercial',
-  RE: 'Réalisation & Entretien',
-  ET: 'Étude',
-  AC: 'Achat',
+  AC:  'Achat',
+  CO:  'Commercial',
+  ET:  'Étude',
+  MI:  'Management Intégré',
+  MQ:  'Management Qualité',
+  RE:  'Réalisation & Entretien',
+  RH:  'Ressources Humaines',
 }
 
 // CODE_REGEX matches TYPE-PROCESS-NN or TYPE-PROCESS-NN-VA
-const CODE_REGEX = /^(LIS|PRS|PRC|INS|FOR|ORG|PLA)-(MI|RH|CO|RE|ET|AC)-(\d{2})(-VA)?$/
+const CODE_REGEX = /^(FOR|INS|ISN|LIS|ORG|PLA|PRC|PRS)-(AC|CO|ET|MI|MQ|RE|RH)-(\d{2,3})(-VA)?$/
 
 export function isValidCode(code: string): boolean {
   return CODE_REGEX.test(code)
