@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Search, AlertTriangle, ArrowRight, AlertCircle, Loader2, TrendingUp, TrendingDown } from 'lucide-react'
+import { Search, AlertTriangle, ArrowRight, AlertCircle, Loader2, TrendingUp, TrendingDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { NcListItem } from '@/lib/db/iso'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
@@ -124,7 +124,7 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
   const [form, setForm]               = useState<FormState>(EMPTY_FORM)
   const [submitting, setSubmitting]   = useState(false)
   const [formError, setFormError]     = useState('')
-  const [activeTab, setActiveTab]     = useState<'identification' | 'correction' | 'suivi'>('identification')
+  const [formStep, setFormStep]       = useState(1)
 
   // ── Stats ──────────────────────────────────────────────────────────────────
 
@@ -205,7 +205,7 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
     if (!res.ok) { setFormError(data.error ?? 'Erreur'); setSubmitting(false); return }
     setShowForm(false)
     setForm(EMPTY_FORM)
-    setActiveTab('identification')
+    setFormStep(1)
     await loadNcs()
     setSubmitting(false)
   }
@@ -479,38 +479,49 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
       />
 
       {/* Create Sheet */}
-      <Sheet open={showForm} onOpenChange={(o) => { setShowForm(o); if (!o) { setForm(EMPTY_FORM); setActiveTab('identification') } }}>
-        <SheetContent side="right" className="w-full max-w-xl flex flex-col p-0" style={{ background: 'var(--admin-surface)' }}>
+      <Sheet open={showForm} onOpenChange={(o) => { setShowForm(o); if (!o) { setForm(EMPTY_FORM); setFormStep(1); setFormError('') } }}>
+        <SheetContent side="right" className="w-full max-w-xl flex flex-col p-0 border-l"
+          style={{ background: 'var(--admin-bg)', borderColor: 'var(--admin-border)' }}>
+
+          {/* Sheet header with step indicator */}
           <SheetHeader className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
             <SheetTitle style={{ color: 'var(--admin-text)' }}>Nouvelle NC / PNC / Réclamation</SheetTitle>
-            <SheetDescription style={{ color: 'var(--admin-text-muted)' }}>FOR-MI-05 · ISO 9001:2015 clause 10.2</SheetDescription>
+            <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>FOR-MI-05 · ISO 9001:2015 clause 10.2</p>
+            {/* Step indicator */}
+            <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+              {(['Identification', 'Description', 'Correction', 'Suivi'] as const).map((label, i) => {
+                const step = i + 1
+                const done = formStep > step
+                const active = formStep === step
+                return (
+                  <button key={step} onClick={() => setFormStep(step)}
+                    className="flex items-center gap-1.5 text-xs transition-all min-w-0">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                      style={{
+                        background: active ? 'var(--admin-accent)' : done ? 'var(--admin-emerald-dim)' : 'var(--admin-border)',
+                        color: active ? '#fff' : done ? 'var(--admin-emerald)' : 'var(--admin-text-muted)',
+                      }}>
+                      {done ? <Check className="w-2.5 h-2.5" /> : step}
+                    </span>
+                    <span className="hidden sm:inline truncate" style={{ color: active ? 'var(--admin-text)' : 'var(--admin-text-muted)', fontWeight: active ? 600 : 400 }}>{label}</span>
+                    {step < 4 && <span className="shrink-0" style={{ color: 'var(--admin-border)' }}>›</span>}
+                  </button>
+                )
+              })}
+            </div>
           </SheetHeader>
-
-          {/* Tabs */}
-          <div className="flex border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
-            {([
-              ['identification', 'Identification'],
-              ['correction',     'Correction immédiate'],
-              ['suivi',          'Suivi & CAPA'],
-            ] as const).map(([tab, label]) => (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={cn('flex-1 py-2.5 text-xs font-medium transition-colors border-b-2',
-                  activeTab === tab ? 'border-[var(--admin-red)]' : 'border-transparent')}
-                style={{ color: activeTab === tab ? 'var(--admin-red)' : 'var(--admin-text-muted)' }}>
-                {label}
-              </button>
-            ))}
-          </div>
 
           <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
 
-            {/* ── Tab 1: Identification ── */}
-            {activeTab === 'identification' && (
+            {/* ── Step 1: Identification ── */}
+            {formStep === 1 && (
               <>
+                <StepHeader number="1" title="Identification de la NC" />
+
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Département">
                     <Select value={form.dept || '__none__'} onValueChange={(v) => setForm((f) => ({ ...f, dept: v === '__none__' ? '' : v }))}>
-                      <SelectTrigger style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectTrigger className="rounded-xl" style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent style={selectStyle}>
                         <SelectItem value="__none__">—</SelectItem>
                         {Object.entries(DEPT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{v} – {l.split(' – ')[1]}</SelectItem>)}
@@ -519,7 +530,7 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                   </FormField>
                   <FormField label="Source de NC *">
                     <Select value={form.ncSource || '__none__'} onValueChange={(v) => setForm((f) => ({ ...f, ncSource: v === '__none__' ? '' : v }))}>
-                      <SelectTrigger style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectTrigger className="rounded-xl" style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent style={selectStyle}>
                         <SelectItem value="__none__">—</SelectItem>
                         {Object.entries(NC_SOURCE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -531,7 +542,7 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Type de NC">
                     <Select value={form.ncType || '__none__'} onValueChange={(v) => setForm((f) => ({ ...f, ncType: v === '__none__' ? '' : v }))}>
-                      <SelectTrigger style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectTrigger className="rounded-xl" style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent style={selectStyle}>
                         <SelectItem value="__none__">—</SelectItem>
                         {Object.entries(NC_TYPE_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
@@ -540,7 +551,7 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                   </FormField>
                   <FormField label="Processus rattaché">
                     <Select value={form.ownerType || '__none__'} onValueChange={(v) => setForm((f) => ({ ...f, ownerType: v === '__none__' ? '' : v }))}>
-                      <SelectTrigger style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectTrigger className="rounded-xl" style={selectStyle}><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent style={selectStyle}>
                         <SelectItem value="__none__">—</SelectItem>
                         <SelectItem value="interne">Interne</SelectItem>
@@ -553,53 +564,59 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                 <div className="grid grid-cols-2 gap-3">
                   <FormField label="Détecteur (nom)">
                     <input value={form.detectorName} onChange={(e) => setForm((f) => ({ ...f, detectorName: e.target.value }))}
-                      className={inputClass} style={inputStyle} placeholder="Nom du détecteur" />
+                      className={cn(inputClass, 'rounded-xl')} style={inputStyle} placeholder="Nom du détecteur" />
                   </FormField>
                   <FormField label="Document de référence">
                     <input value={form.referenceDoc} onChange={(e) => setForm((f) => ({ ...f, referenceDoc: e.target.value }))}
-                      className={inputClass} style={inputStyle} placeholder="ex: NC N°1" />
+                      className={cn(inputClass, 'rounded-xl')} style={inputStyle} placeholder="ex: NC N°1" />
                   </FormField>
                 </div>
 
                 {(form.ncSource === 'audit' || form.ncType === 'audit') && (
                   <FormField label="Nom de l'auditeur">
                     <input value={form.auditorName} onChange={(e) => setForm((f) => ({ ...f, auditorName: e.target.value }))}
-                      className={inputClass} style={inputStyle} placeholder="Nom de l'auditeur" />
+                      className={cn(inputClass, 'rounded-xl')} style={inputStyle} placeholder="Nom de l'auditeur" />
                   </FormField>
                 )}
 
                 <FormField label="Projet lié (optionnel)">
                   <Select value={form.projectId || '__none__'} onValueChange={(v) => setForm((f) => ({ ...f, projectId: v === '__none__' ? '' : v }))}>
-                    <SelectTrigger style={selectStyle}><SelectValue placeholder="— Aucun —" /></SelectTrigger>
+                    <SelectTrigger className="rounded-xl" style={selectStyle}><SelectValue placeholder="— Aucun —" /></SelectTrigger>
                     <SelectContent style={selectStyle}>
                       <SelectItem value="__none__">— Aucun —</SelectItem>
                       {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.reference} · {p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </FormField>
+              </>
+            )}
+
+            {/* ── Step 2: Description ── */}
+            {formStep === 2 && (
+              <>
+                <StepHeader number="2" title="Description & analyse" />
 
                 <FormField label="Identification de la NC *">
                   <textarea value={form.description}
                     onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                     rows={4} placeholder="Décrivez précisément la non-conformité observée…"
-                    className={cn(inputClass, 'resize-none')} style={inputStyle} />
+                    className={cn(inputClass, 'resize-none rounded-xl')} style={inputStyle} />
                 </FormField>
 
                 <FormField label="Impact de la non-conformité">
                   <textarea value={form.impact}
                     onChange={(e) => setForm((f) => ({ ...f, impact: e.target.value }))}
                     rows={2} placeholder="Quel est l'impact sur la qualité / client / coût…"
-                    className={cn(inputClass, 'resize-none')} style={inputStyle} />
+                    className={cn(inputClass, 'resize-none rounded-xl')} style={inputStyle} />
                 </FormField>
 
                 <FormField label="Analyse des causes">
                   <textarea value={form.rootCause}
                     onChange={(e) => setForm((f) => ({ ...f, rootCause: e.target.value }))}
                     rows={2} placeholder="Cause(s) racine identifiée(s)…"
-                    className={cn(inputClass, 'resize-none')} style={inputStyle} />
+                    className={cn(inputClass, 'resize-none rounded-xl')} style={inputStyle} />
                 </FormField>
 
-                {/* Risk / Opportunity */}
                 <div className="flex gap-4 pt-1">
                   <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--admin-text)' }}>
                     <input type="checkbox" checked={form.isRisk} onChange={(e) => setForm((f) => ({ ...f, isRisk: e.target.checked }))} className="accent-[var(--admin-red)]" />
@@ -613,14 +630,16 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
               </>
             )}
 
-            {/* ── Tab 2: Correction immédiate ── */}
-            {activeTab === 'correction' && (
+            {/* ── Step 3: Correction immédiate ── */}
+            {formStep === 3 && (
               <>
-                <FormField label="Correction immédiate">
+                <StepHeader number="3" title="Correction immédiate" />
+
+                <FormField label="Action de correction immédiate">
                   <textarea value={form.immediateCorrection}
                     onChange={(e) => setForm((f) => ({ ...f, immediateCorrection: e.target.value }))}
                     rows={3} placeholder="Actions de correction immédiates prises…"
-                    className={cn(inputClass, 'resize-none')} style={inputStyle} />
+                    className={cn(inputClass, 'resize-none rounded-xl')} style={inputStyle} />
                 </FormField>
 
                 <div className="flex gap-4 pt-1">
@@ -637,23 +656,25 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                 <FormField label="Responsable(s) de la correction">
                   <input value={form.correctionResponsible}
                     onChange={(e) => setForm((f) => ({ ...f, correctionResponsible: e.target.value }))}
-                    className={inputClass} style={inputStyle} placeholder="Nom(s) du/des responsable(s)" />
+                    className={cn(inputClass, 'rounded-xl')} style={inputStyle} placeholder="Nom(s) du/des responsable(s)" />
                 </FormField>
 
                 <FormField label="Date de correction prévue">
                   <input type="date" value={form.correctionDeadlinePlanned}
                     onChange={(e) => setForm((f) => ({ ...f, correctionDeadlinePlanned: e.target.value }))}
-                    className={inputClass} style={inputStyle} />
+                    className={cn(inputClass, 'rounded-xl')} style={inputStyle} />
                 </FormField>
               </>
             )}
 
-            {/* ── Tab 3: Suivi & CAPA ── */}
-            {activeTab === 'suivi' && (
+            {/* ── Step 4: Suivi & CAPA ── */}
+            {formStep === 4 && (
               <>
+                <StepHeader number="4" title="Suivi & CAPA" />
+
                 <FormField label="Assigné à (responsable CAPA)">
                   <Select value={form.assignedTo || '__none__'} onValueChange={(v) => setForm((f) => ({ ...f, assignedTo: v === '__none__' ? '' : v }))}>
-                    <SelectTrigger style={selectStyle}><SelectValue placeholder="— Non assigné —" /></SelectTrigger>
+                    <SelectTrigger className="rounded-xl" style={selectStyle}><SelectValue placeholder="— Non assigné —" /></SelectTrigger>
                     <SelectContent style={selectStyle}>
                       <SelectItem value="__none__">— Non assigné —</SelectItem>
                       {users.map((u) => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
@@ -664,28 +685,50 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                 <FormField label="Délai de traitement global">
                   <input type="date" value={form.deadline}
                     onChange={(e) => setForm((f) => ({ ...f, deadline: e.target.value }))}
-                    className={inputClass} style={inputStyle} />
+                    className={cn(inputClass, 'rounded-xl')} style={inputStyle} />
                 </FormField>
 
-                <div className="rounded-lg border p-3 text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}>
+                <div className="rounded-xl border p-3.5 text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-surface)' }}>
                   Les actions correctives (CAPA) seront ajoutées depuis la fiche NC après création.
                 </div>
               </>
             )}
 
             {formError && (
-              <div className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+              <div className="flex items-center gap-1.5 text-sm px-3 py-2.5 rounded-xl" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
                 <AlertCircle className="w-4 h-4 shrink-0" />{formError}
               </div>
             )}
           </div>
 
-          <div className="flex gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
-            <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Annuler</Button>
-            <Button className="flex-1 text-white" onClick={() => void handleCreate()} disabled={submitting}
-              style={{ background: 'var(--admin-red)' }}>
-              {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Création…</> : 'Créer la fiche NC'}
-            </Button>
+          {/* Footer navigation */}
+          <div className="flex gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+            {formStep > 1 ? (
+              <button onClick={() => setFormStep((s) => s - 1)}
+                className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                ← Précédent
+              </button>
+            ) : (
+              <button onClick={() => setShowForm(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl border text-sm font-medium transition-colors"
+                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                Annuler
+              </button>
+            )}
+            {formStep < 4 ? (
+              <button onClick={() => { setFormError(''); setFormStep((s) => s + 1) }}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity"
+                style={{ background: 'var(--admin-accent)' }}>
+                Suivant →
+              </button>
+            ) : (
+              <button onClick={() => void handleCreate()} disabled={submitting}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+                style={{ background: 'var(--admin-accent)' }}>
+                {submitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Création…</> : 'Créer la fiche NC'}
+              </button>
+            )}
           </div>
         </SheetContent>
       </Sheet>
@@ -693,10 +736,23 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
   )
 }
 
+function StepHeader({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-center gap-2.5 pb-1">
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
+        style={{ background: 'linear-gradient(135deg, #2F6F4F, #1C3D2E)' }}>
+        {number}
+      </div>
+      <p className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</p>
+      <div className="flex-1 h-px" style={{ background: 'var(--admin-border)' }} />
+    </div>
+  )
+}
+
 function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-medium" style={{ color: 'var(--admin-text)' }}>{label}</label>
+      <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{label}</label>
       {children}
     </div>
   )
