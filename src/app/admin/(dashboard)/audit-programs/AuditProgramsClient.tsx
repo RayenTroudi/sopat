@@ -5,7 +5,6 @@ import {
   Calendar, Loader2, AlertCircle, ChevronDown, ChevronUp, Plus, Trash2,
   ClipboardCheck, Clock, CheckCircle2, BookOpen, Users, FileText, Check,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { AuditProgramRow, AuditProgramItemRow } from '@/lib/db/iso'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -283,44 +282,32 @@ export function AuditProgramsClient({ initialRows, users, currentUserId, canEdit
         <SheetContent side="right" className="w-full max-w-2xl flex flex-col p-0 border-l"
           style={{ background: 'var(--admin-bg)', borderColor: 'var(--admin-border)' }}>
 
-          {/* Sheet header */}
-          <div className="relative overflow-hidden px-6 py-5 shrink-0"
-            style={{ background: 'linear-gradient(135deg, #1C3D2E 0%, #2F6F4F 100%)' }}>
-            <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full opacity-10"
-              style={{ background: 'radial-gradient(circle, #ffffff 0%, transparent 70%)' }} />
-            <SheetHeader className="relative">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                  style={{ background: 'rgba(255,255,255,0.15)' }}>
-                  <ClipboardCheck className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <SheetTitle className="text-white text-base font-semibold text-left">Nouveau programme d&apos;audit</SheetTitle>
-                  <p className="text-xs mt-0.5 text-left" style={{ color: 'rgba(255,255,255,0.6)' }}>FOR-MI-14 · ISO 9001:2015 clause 9.2</p>
-                </div>
-              </div>
-              {/* Step indicator */}
-              <div className="flex items-center gap-2 mt-4">
-                {['Département', 'Planification', 'Référentiel', 'Agenda'].map((label, i) => {
-                  const step = i + 1
-                  const done = formStep > step
-                  const active = formStep === step
-                  return (
-                    <button key={step} onClick={() => setFormStep(step)}
-                      className="flex items-center gap-1.5 text-xs transition-all">
-                      <span className={cn('w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all', active ? 'text-[#1C3D2E]' : done ? 'text-[#1C3D2E]' : 'text-white')}
-                        style={{ background: active ? '#6EE7A0' : done ? '#34D399' : 'rgba(255,255,255,0.2)' }}>
-                        {done ? <Check className="w-2.5 h-2.5" /> : step}
-                      </span>
-                      <span className={cn('hidden sm:inline', active ? 'font-semibold' : '')}
-                        style={{ color: active ? '#fff' : 'rgba(255,255,255,0.5)' }}>{label}</span>
-                      {step < 4 && <span style={{ color: 'rgba(255,255,255,0.25)' }}>›</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            </SheetHeader>
-          </div>
+          <SheetHeader className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+            <SheetTitle style={{ color: 'var(--admin-text)' }}>Nouveau programme d&apos;audit</SheetTitle>
+            <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>FOR-MI-14 · ISO 9001:2015 clause 9.2</p>
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 pt-1">
+              {['Département', 'Planification', 'Référentiel', 'Agenda'].map((label, i) => {
+                const step = i + 1
+                const done = formStep > step
+                const active = formStep === step
+                return (
+                  <button key={step} onClick={() => setFormStep(step)}
+                    className="flex items-center gap-1.5 text-xs transition-all">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                      style={{
+                        background: active ? 'var(--admin-accent)' : done ? 'var(--admin-emerald-dim)' : 'var(--admin-border)',
+                        color: active ? '#fff' : done ? 'var(--admin-emerald)' : 'var(--admin-text-muted)',
+                      }}>
+                      {done ? <Check className="w-2.5 h-2.5" /> : step}
+                    </span>
+                    <span className="hidden sm:inline" style={{ color: active ? 'var(--admin-text)' : 'var(--admin-text-muted)', fontWeight: active ? 600 : 400 }}>{label}</span>
+                    {step < 4 && <span style={{ color: 'var(--admin-border)' }}>›</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </SheetHeader>
 
           <div className="flex-1 overflow-y-auto px-6 py-6">
 
@@ -618,7 +605,7 @@ function AuditProgramCard({ row, canEdit, expanded, onToggle, onPatch }: {
   return (
     <div className="rounded-2xl border overflow-hidden transition-shadow"
       style={{
-        borderColor: expanded ? (deptCfg?.color ?? 'var(--admin-accent)') : 'var(--admin-border)',
+        borderColor: expanded ? 'var(--admin-accent)' : 'var(--admin-border)',
         background: 'var(--admin-surface)',
         boxShadow: expanded ? 'var(--admin-shadow-md)' : 'var(--admin-shadow-sm)',
         borderWidth: expanded ? '1.5px' : '1px',
@@ -626,7 +613,7 @@ function AuditProgramCard({ row, canEdit, expanded, onToggle, onPatch }: {
 
       {/* Card header */}
       <button className="w-full px-5 py-4 flex items-center gap-4 transition-colors text-left"
-        style={{ background: expanded ? `${deptCfg?.color ?? '#2F6F4F'}08` : 'transparent' }}
+        style={{ background: expanded ? 'var(--admin-accent-dim)' : 'transparent' }}
         onClick={() => void handleToggle()}>
 
         {/* Dept badge */}

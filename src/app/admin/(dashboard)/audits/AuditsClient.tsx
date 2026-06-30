@@ -340,24 +340,10 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
           <SheetContent side="right" className="w-full max-w-lg flex flex-col p-0 border-l"
             style={{ background: 'var(--admin-bg)', borderColor: 'var(--admin-border)' }}>
 
-            {/* Sheet header — green gradient */}
-            <div className="relative overflow-hidden px-6 py-5 shrink-0"
-              style={{ background: 'linear-gradient(135deg, #1C3D2E 0%, #2D5A42 100%)' }}>
-              <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full opacity-10"
-                style={{ background: 'radial-gradient(circle, #ffffff 0%, transparent 70%)' }} />
-              <SheetHeader className="relative">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(255,255,255,0.15)' }}>
-                    <ClipboardCheck className="w-5 h-5 text-white" />
-                  </div>
-                  <div>
-                    <SheetTitle className="text-white text-base font-semibold text-left">Planifier un audit interne</SheetTitle>
-                    <p className="text-xs mt-0.5 text-left" style={{ color: 'rgba(255,255,255,0.6)' }}>ISO 9001:2015 · clause 9.2</p>
-                  </div>
-                </div>
-              </SheetHeader>
-            </div>
+            <SheetHeader className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+              <SheetTitle style={{ color: 'var(--admin-text)' }}>Planifier un audit interne</SheetTitle>
+              <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>ISO 9001:2015 · clause 9.2</p>
+            </SheetHeader>
 
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
 
