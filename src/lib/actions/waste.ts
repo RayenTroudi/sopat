@@ -26,7 +26,7 @@ export async function createWasteRecord(data: {
     contractor: data.contractor,
     cost: data.cost,
     notes: data.notes,
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
   revalidatePath('/admin/environment/waste')
   return { success: true }

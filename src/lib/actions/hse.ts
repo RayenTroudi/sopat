@@ -30,7 +30,7 @@ export async function submitHseChecklist(data: {
       dept: data.dept as 'AC' | 'CO' | 'ET' | 'MI' | 'RE1' | 'RE2' | 'RH',
       overallStatus: overallStatus as 'conforme' | 'non_conforme' | 'partiel',
       notes: data.notes,
-      createdBy: session.user.id,
+      createdBy: session.user.userId,
     })
     .returning()
 
@@ -41,7 +41,7 @@ export async function submitHseChecklist(data: {
         itemId: a.itemId,
         isCompliant: a.isCompliant,
         comment: a.comment,
-        createdBy: session.user.id,
+        createdBy: session.user.userId,
       }))
     )
   }

@@ -23,7 +23,7 @@ export async function createManagementActivity(data: {
     action: data.action,
     responsible: data.responsible,
     plannedWeeks: data.plannedWeeks ?? [],
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
   revalidatePath('/admin/management-plan')
   return { success: true }
@@ -62,7 +62,7 @@ export async function upsertExecution(data: {
       year: data.year,
       status: data.status as 'planifie' | 'realise_dans_delai' | 'realise_avec_retard' | 'non_realise' | 'cloture',
       notes: data.notes,
-      createdBy: session.user.id,
+      createdBy: session.user.userId,
     })
   }
   revalidatePath('/admin/management-plan')
@@ -90,7 +90,7 @@ export async function createCommunicationEntry(data: {
     frequency: data.frequency,
     responsible: data.responsible,
     plannedDate: data.plannedDate,
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
   revalidatePath('/admin/management-plan')
   return { success: true }

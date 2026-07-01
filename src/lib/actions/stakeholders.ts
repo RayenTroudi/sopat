@@ -34,7 +34,7 @@ export async function createStakeholder(data: {
     contactEmail: data.contactEmail,
     contactPhone: data.contactPhone,
     notes: data.notes,
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
   revalidatePath('/admin/stakeholders')
   return { success: true }
@@ -77,7 +77,7 @@ export async function addStakeholderFeedback(data: {
     summary: data.summary,
     satisfactionScore: data.satisfactionScore,
     responseActions: data.responseActions,
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
   revalidatePath(`/admin/stakeholders/${data.stakeholderId}`)
   return { success: true }
@@ -94,7 +94,7 @@ export async function addStaffSuggestion(data: {
     date: data.date,
     dept: data.dept as 'AC' | 'CO' | 'ET' | 'MI' | 'RE1' | 'RE2' | 'RH',
     suggestionText: data.suggestionText,
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
   revalidatePath('/admin/stakeholders')
   return { success: true }

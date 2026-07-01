@@ -44,7 +44,7 @@ export async function createRiskOpportunity(data: {
     owner: data.owner,
     targetDate: data.targetDate,
     notes: data.notes,
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
 
   revalidatePath('/admin/risks-opportunities')
@@ -109,7 +109,7 @@ export async function addRoAction(data: {
     description: data.description,
     responsible: data.responsible,
     targetDate: data.targetDate,
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
   revalidatePath(`/admin/risks-opportunities/${data.roId}`)
   return { success: true }

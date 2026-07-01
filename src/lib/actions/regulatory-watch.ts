@@ -29,7 +29,7 @@ export async function createRegulatoryEntry(data: {
     status: data.status as 'applicable' | 'non_applicable' | 'en_veille',
     complianceNotes: data.complianceNotes,
     nextReviewDate: data.nextReviewDate,
-    createdBy: session.user.id,
+    createdBy: session.user.userId,
   })
   revalidatePath('/admin/regulatory-watch')
   return { success: true }

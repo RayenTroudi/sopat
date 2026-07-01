@@ -1,6 +1,6 @@
-import { auth } from '@/lib/auth'
+﻿import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { db } from '@/lib/db'
+import { db } from '@/db'
 import { users } from '@/db/schema'
 import { isNull } from 'drizzle-orm'
 
