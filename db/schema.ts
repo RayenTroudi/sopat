@@ -301,6 +301,90 @@ export const residentialSubtypeEnum = pgEnum('residential_subtype', [
   'appartement',
 ])
 
+// ─── SMQ Enums ────────────────────────────────────────────────────────────────
+
+export const roTypeEnum = pgEnum('ro_type', ['risk', 'opportunity'])
+
+export const roCategoryEnum = pgEnum('ro_category', [
+  'contexte_interne',
+  'contexte_externe',
+  'partie_interessee',
+  'processus',
+  'environnement',
+  'autre',
+])
+
+export const roStatusEnum = pgEnum('ro_status', [
+  'identified',
+  'treated',
+  'monitored',
+  'closed',
+])
+
+export const stakeholderTypeEnum = pgEnum('stakeholder_type', [
+  'client',
+  'fournisseur',
+  'partenaire',
+  'employe',
+  'actionnaire',
+  'autorite_reglementaire',
+  'communaute',
+  'autre',
+])
+
+export const feedbackChannelEnum = pgEnum('feedback_channel', [
+  'enquete_satisfaction',
+  'reunion',
+  'email',
+  'reclamation',
+  'audit',
+  'autre',
+])
+
+export const regulatoryStatusEnum = pgEnum('regulatory_status', [
+  'applicable',
+  'non_applicable',
+  'en_veille',
+])
+
+export const wasteTypeEnum = pgEnum('waste_type', [
+  'papier_carton',
+  'plastique',
+  'verre',
+  'metal',
+  'dechets_verts',
+  'dechets_chimiques',
+  'electronique',
+  'autre',
+])
+
+export const wasteDisposalEnum = pgEnum('waste_disposal', [
+  'tri_selectif',
+  'collecte_municipale',
+  'prestataire_agree',
+  'incineration',
+  'autre',
+])
+
+export const hseSubmissionStatusEnum = pgEnum('hse_submission_status', [
+  'conforme',
+  'non_conforme',
+  'partiel',
+])
+
+export const planActivityStatusEnum = pgEnum('plan_activity_status', [
+  'planifie',
+  'realise_dans_delai',
+  'realise_avec_retard',
+  'non_realise',
+  'cloture',
+])
+
+export const communicationDirectionEnum = pgEnum('communication_direction', [
+  'interne',
+  'externe',
+])
+
 // ─── Shared column helpers ─────────────────────────────────────────────────────
 
 const timestamps = {
@@ -319,6 +403,10 @@ export const users = pgTable('users', {
   phone: varchar('phone', { length: 50 }),
   avatarUrl: varchar('avatar_url', { length: 500 }),
   isActive: boolean('is_active').notNull().default(true),
+  isInternalAuditor: boolean('is_internal_auditor').notNull().default(false),
+  auditorDomain: text('auditor_domain'),
+  auditorQualifiedDate: date('auditor_qualified_date'),
+  auditorQualificationProof: varchar('auditor_qualification_proof', { length: 500 }),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by'),
@@ -2014,4 +2102,251 @@ export const portfolioSettings = pgTable('portfolio_settings', {
   uniqueIndex('portfolio_settings_singleton_uidx').on(t.isSingleton),
   foreignKey({ columns: [t.ceoPhotoCloudinaryId], foreignColumns: [cloudinaryAssets.id] }),
   foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
+])
+
+// ─── Risks & Opportunities (FOR-MI-07) ───────────────────────────────────────
+
+export const risksOpportunities = pgTable('risks_opportunities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reference: varchar('reference', { length: 30 }).notNull().unique(),
+  type: roTypeEnum('type').notNull(),
+  category: roCategoryEnum('category').notNull(),
+  description: text('description').notNull(),
+  context: text('context'),
+  gravity: integer('gravity'),
+  probability: integer('probability'),
+  criticality: integer('criticality'),
+  priority: integer('priority'),
+  importance: integer('importance'),
+  score: integer('score'),
+  status: roStatusEnum('status').notNull().default('identified'),
+  owner: text('owner'),
+  targetDate: date('target_date'),
+  closedAt: timestamp('closed_at'),
+  notes: text('notes'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('ro_type_idx').on(t.type),
+  index('ro_status_idx').on(t.status),
+  index('ro_category_idx').on(t.category),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const roActions = pgTable('ro_actions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  roId: uuid('ro_id').notNull(),
+  description: text('description').notNull(),
+  responsible: text('responsible'),
+  targetDate: date('target_date'),
+  completedAt: timestamp('completed_at'),
+  result: text('result'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('ro_actions_ro_idx').on(t.roId),
+  foreignKey({ columns: [t.roId], foreignColumns: [risksOpportunities.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Stakeholders & Écoute Parties Intéressées (FOR-MI-08/09) ────────────────
+
+export const stakeholders = pgTable('stakeholders', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reference: varchar('reference', { length: 30 }).notNull().unique(),
+  name: varchar('name', { length: 255 }).notNull(),
+  type: stakeholderTypeEnum('type').notNull(),
+  needs: text('needs'),
+  influence: integer('influence').notNull().default(1),
+  interaction: integer('interaction').notNull().default(1),
+  isPip: boolean('is_pip').notNull().default(false),
+  contactName: varchar('contact_name', { length: 255 }),
+  contactEmail: varchar('contact_email', { length: 255 }),
+  contactPhone: varchar('contact_phone', { length: 50 }),
+  notes: text('notes'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('stakeholders_type_idx').on(t.type),
+  index('stakeholders_pip_idx').on(t.isPip),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const stakeholderFeedback = pgTable('stakeholder_feedback', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  stakeholderId: uuid('stakeholder_id').notNull(),
+  channel: feedbackChannelEnum('channel').notNull(),
+  date: date('date').notNull(),
+  summary: text('summary').notNull(),
+  satisfactionScore: integer('satisfaction_score'),
+  responseActions: text('response_actions'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('stakeholder_feedback_sh_idx').on(t.stakeholderId),
+  foreignKey({ columns: [t.stakeholderId], foreignColumns: [stakeholders.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const staffSuggestions = pgTable('staff_suggestions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  date: date('date').notNull(),
+  dept: ncDeptEnum('dept').notNull(),
+  suggestionText: text('suggestion_text').notNull(),
+  responseText: text('response_text'),
+  respondedAt: timestamp('responded_at'),
+  respondedBy: uuid('responded_by'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('staff_suggestions_dept_idx').on(t.dept),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.respondedBy], foreignColumns: [users.id] }),
+])
+
+// ─── Regulatory Watch (LIS-MI-07) ────────────────────────────────────────────
+
+export const regulatoryWatch = pgTable('regulatory_watch', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  reference: varchar('reference', { length: 50 }),
+  title: varchar('title', { length: 500 }).notNull(),
+  domain: varchar('domain', { length: 100 }),
+  issuingBody: varchar('issuing_body', { length: 255 }),
+  publicationDate: date('publication_date'),
+  effectiveDate: date('effective_date'),
+  status: regulatoryStatusEnum('status').notNull().default('applicable'),
+  complianceNotes: text('compliance_notes'),
+  nextReviewDate: date('next_review_date'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('regulatory_watch_status_idx').on(t.status),
+  index('regulatory_watch_domain_idx').on(t.domain),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Waste Tracking (FOR-MI-11) ───────────────────────────────────────────────
+
+export const wasteRecords = pgTable('waste_records', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  month: integer('month').notNull(),
+  year: integer('year').notNull(),
+  wasteType: wasteTypeEnum('waste_type').notNull(),
+  quantityKg: real('quantity_kg'),
+  disposal: wasteDisposalEnum('disposal').notNull(),
+  contractor: varchar('contractor', { length: 255 }),
+  cost: decimal('cost', { precision: 10, scale: 3 }),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('waste_records_year_month_idx').on(t.year, t.month),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── HSE Checklist (FOR-MI-12) ───────────────────────────────────────────────
+
+export const hseChecklistItems = pgTable('hse_checklist_items', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: varchar('code', { length: 20 }).notNull().unique(),
+  description: text('description').notNull(),
+  category: varchar('category', { length: 100 }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  isActive: boolean('is_active').notNull().default(true),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const hseChecklistSubmissions = pgTable('hse_checklist_submissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  submittedDate: date('submitted_date').notNull(),
+  dept: ncDeptEnum('dept').notNull(),
+  overallStatus: hseSubmissionStatusEnum('overall_status').notNull(),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('hse_submissions_date_idx').on(t.submittedDate),
+  index('hse_submissions_dept_idx').on(t.dept),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const hseChecklistAnswers = pgTable('hse_checklist_answers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  submissionId: uuid('submission_id').notNull(),
+  itemId: uuid('item_id').notNull(),
+  isCompliant: boolean('is_compliant'),
+  comment: text('comment'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('hse_answers_submission_idx').on(t.submissionId),
+  foreignKey({ columns: [t.submissionId], foreignColumns: [hseChecklistSubmissions.id] }),
+  foreignKey({ columns: [t.itemId], foreignColumns: [hseChecklistItems.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Annual Management Plan (PLA-MI-01) ───────────────────────────────────────
+
+export const managementPlanActivities = pgTable('management_plan_activities', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  year: integer('year').notNull(),
+  dept: ncDeptEnum('dept').notNull(),
+  objective: text('objective').notNull(),
+  action: text('action').notNull(),
+  responsible: varchar('responsible', { length: 255 }),
+  plannedWeeks: jsonb('planned_weeks'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('mgmt_plan_year_idx').on(t.year),
+  index('mgmt_plan_dept_idx').on(t.dept),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const managementPlanExecutions = pgTable('management_plan_executions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  activityId: uuid('activity_id').notNull(),
+  week: integer('week').notNull(),
+  year: integer('year').notNull(),
+  status: planActivityStatusEnum('status').notNull().default('planifie'),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('mgmt_exec_activity_idx').on(t.activityId),
+  index('mgmt_exec_year_week_idx').on(t.year, t.week),
+  foreignKey({ columns: [t.activityId], foreignColumns: [managementPlanActivities.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Communication Plan (PLA-MI-02) ───────────────────────────────────────────
+
+export const communicationPlan = pgTable('communication_plan', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  year: integer('year').notNull(),
+  direction: communicationDirectionEnum('direction').notNull(),
+  subject: varchar('subject', { length: 500 }).notNull(),
+  target: varchar('target', { length: 255 }),
+  channel: varchar('channel', { length: 255 }),
+  frequency: varchar('frequency', { length: 100 }),
+  responsible: varchar('responsible', { length: 255 }),
+  plannedDate: date('planned_date'),
+  doneAt: timestamp('done_at'),
+  doneBy: uuid('done_by'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('comm_plan_year_idx').on(t.year),
+  index('comm_plan_direction_idx').on(t.direction),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.doneBy], foreignColumns: [users.id] }),
 ])
