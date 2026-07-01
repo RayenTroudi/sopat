@@ -14,11 +14,13 @@ export default async function NewClientPage() {
   const canToggleFeatured = ['admin', 'direction'].includes(session.user.role)
 
   return (
-    <div className="p-6 space-y-6 max-w-2xl">
-      <h1 className="text-xl font-bold" style={{ color: 'var(--admin-text)' }}>
-        Nouveau client
-      </h1>
-      <ClientForm canToggleFeatured={canToggleFeatured} />
+    <div className="min-h-full flex items-start justify-center p-6 pt-10">
+      <div className="w-full max-w-2xl space-y-6">
+        <h1 className="text-xl font-bold" style={{ color: 'var(--admin-text)' }}>
+          Nouveau client
+        </h1>
+        <ClientForm canToggleFeatured={canToggleFeatured} />
+      </div>
     </div>
   )
 }
