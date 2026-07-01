@@ -2,6 +2,7 @@
 // src/app/admin/(dashboard)/documents/DocumentsClient.tsx
 
 import { useState, useEffect } from 'react'
+import { Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DeleteModal } from '@/components/ui/DeleteModal'
@@ -146,6 +147,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
   const [editingDoc, setEditingDoc] = useState<DmsDocRow | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError]   = useState('')
+  const [formStep, setFormStep]     = useState(1)
   const [codePreview, setCodePreview] = useState('')
   const [togglingId, setTogglingId]   = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<DmsDocRow | null>(null)
@@ -164,6 +166,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
     setForm({ ...EMPTY_FORM, ownerId: currentUserId })
     setCodePreview('')
     setFormError('')
+    setFormStep(1)
     setShowForm(true)
   }
 
@@ -188,6 +191,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
     })
     setCodePreview(doc.documentNumber)
     setFormError('')
+    setFormStep(1)
     setShowForm(true)
   }
 
@@ -646,218 +650,345 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
       {showForm && canEdit && (
         <>
           <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={() => { setShowForm(false); setEditingDoc(null) }} />
-          <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl overflow-y-auto" style={{ background: 'var(--admin-surface)', borderLeft: '1px solid var(--admin-border)' }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
-              <h2 className="text-base font-semibold" style={{ color: 'var(--admin-text)' }}>
-                {editingDoc ? `Modifier — ${editingDoc.documentNumber}` : 'Nouveau document'}
-              </h2>
-              <button onClick={() => { setShowForm(false); setEditingDoc(null) }} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color: 'var(--admin-text-muted)' }}>✕</button>
-            </div>
-            <div className="flex-1 px-6 py-5 space-y-4">
+          <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl" style={{ background: 'var(--admin-bg)', borderLeft: '1px solid var(--admin-border)' }}>
 
-              {/* Code section — read-only when editing, auto-generated when creating */}
+            {/* Header with step indicator */}
+            <div className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <h2 className="text-base font-semibold" style={{ color: 'var(--admin-text)' }}>
+                    {editingDoc ? `Modifier — ${editingDoc.documentNumber}` : 'Nouveau document'}
+                  </h2>
+                  <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>ISO 9001:2015 · §7.5</p>
+                </div>
+                <button onClick={() => { setShowForm(false); setEditingDoc(null) }} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color: 'var(--admin-text-muted)' }}>✕</button>
+              </div>
+              {!editingDoc && (
+                <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                  {(['Identification', 'Désignation', 'Classification', 'Observations'] as const).map((label, i) => {
+                    const step = i + 1
+                    const done = formStep > step
+                    const active = formStep === step
+                    return (
+                      <button key={step} onClick={() => setFormStep(step)}
+                        className="flex items-center gap-1.5 text-xs transition-all min-w-0">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{
+                            background: active ? 'var(--admin-accent)' : done ? 'var(--admin-emerald-dim)' : 'var(--admin-border)',
+                            color: active ? '#fff' : done ? 'var(--admin-emerald)' : 'var(--admin-text-muted)',
+                          }}>
+                          {done ? <Check className="w-2.5 h-2.5" /> : step}
+                        </span>
+                        <span className="hidden sm:inline truncate" style={{ color: active ? 'var(--admin-text)' : 'var(--admin-text-muted)', fontWeight: active ? 600 : 400 }}>{label}</span>
+                        {step < 4 && <span className="shrink-0" style={{ color: 'var(--admin-border)' }}>›</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+
               {editingDoc ? (
-                <FF label="Code">
-                  <div className="px-3 py-2 rounded-lg border font-mono text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}>
-                    {editingDoc.documentNumber}
-                  </div>
-                </FF>
-              ) : (
+                /* Edit mode — flat form */
                 <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <FF label="Type *">
-                      <Select
-                        value={form.typeCode === '' ? '__none__' : form.typeCode}
-                        onValueChange={(v) => {
-                          const t = (v === '__none__' ? '' : v) as TypeCode | ''
-                          setForm(f => ({ ...f, typeCode: t }))
-                          if (t && form.processCode) void handleTypeProcessChange(t, form.processCode)
-                        }}
-                      >
-                        <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                          <SelectValue placeholder="— Choisir —" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                          <SelectItem value="__none__">— Choisir —</SelectItem>
-                          {CREATABLE_TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </FF>
-                    <FF label="Processus *">
-                      <Select
-                        value={form.processCode === '' ? '__none__' : form.processCode}
-                        onValueChange={(v) => {
-                          const p = (v === '__none__' ? '' : v) as ProcessCode | ''
-                          setForm(f => ({ ...f, processCode: p }))
-                          if (p && form.typeCode) void handleTypeProcessChange(form.typeCode, p)
-                        }}
-                      >
-                        <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                          <SelectValue placeholder="— Choisir —" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                          <SelectItem value="__none__">— Choisir —</SelectItem>
-                          {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </FF>
-                  </div>
-                  <FF label="Code généré">
-                    <div className="px-3 py-2 rounded-lg border font-mono text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: codePreview ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }}>
-                      {codePreview || 'Sélectionner type + processus'}
+                  <DmsStepHeader number="1" title="Code document" />
+                  <FF label="Code">
+                    <div className="px-3 py-2 rounded-xl border font-mono text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}>
+                      {editingDoc.documentNumber}
                     </div>
                   </FF>
+
+                  <DmsStepHeader number="2" title="Désignation & Dates" />
+                  <FF label="Désignation *">
+                    <input value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
+                      placeholder="ex: Procédure de gestion des congés"
+                      className="w-full px-3 py-2 rounded-xl border text-sm"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                  </FF>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FF label="Version">
+                      <input value={form.versionLabel} onChange={(e) => setForm(f => ({ ...f, versionLabel: e.target.value }))}
+                        placeholder="ex: 3" className="w-full px-3 py-2 rounded-xl border text-sm"
+                        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                    </FF>
+                    <FF label="Date">
+                      <input type="date" value={form.effectiveDate} onChange={(e) => setForm(f => ({ ...f, effectiveDate: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl border text-sm"
+                        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                    </FF>
+                  </div>
+
+                  <DmsStepHeader number="3" title="Classification" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FF label="Type de classement">
+                      <Select value={form.storageType} onValueChange={(v) => setForm(f => ({ ...f, storageType: v }))}>
+                        <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          <SelectItem value="Numérique">Numérique</SelectItem>
+                          <SelectItem value="Papier">Papier</SelectItem>
+                          <SelectItem value="Les deux">Les deux</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FF>
+                    <FF label="Géré par MDP">
+                      <Select value={form.managedByPassword ? 'oui' : 'non'} onValueChange={(v) => setForm(f => ({ ...f, managedByPassword: v === 'oui' }))}>
+                        <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          <SelectItem value="non">Non</SelectItem>
+                          <SelectItem value="oui">Oui</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FF>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FF label="Catégorie DMS">
+                      <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+                        <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          {Object.entries(CATEGORY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </FF>
+                    <FF label="Département">
+                      <Select value={form.department} onValueChange={(v) => setForm(f => ({ ...f, department: v }))}>
+                        <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          {Object.entries(DEPARTMENT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </FF>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FF label="Confidentialité">
+                      <Select value={form.confidentiality} onValueChange={(v) => setForm(f => ({ ...f, confidentiality: v }))}>
+                        <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                          <SelectItem value="public">Public</SelectItem>
+                          <SelectItem value="internal">Interne</SelectItem>
+                          <SelectItem value="confidential">Confidentiel</SelectItem>
+                          <SelectItem value="restricted">Restreint</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </FF>
+                    <FF label="Clauses ISO">
+                      <input value={form.isoClauses} onChange={(e) => setForm(f => ({ ...f, isoClauses: e.target.value }))}
+                        placeholder="ex: 7.5, 9.2" className="w-full px-3 py-2 rounded-xl border text-sm"
+                        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                    </FF>
+                  </div>
+
+                  <DmsStepHeader number="4" title="Observations" />
+                  <textarea value={form.observations} onChange={(e) => setForm(f => ({ ...f, observations: e.target.value }))}
+                    placeholder="Historique des révisions, remarques…" rows={4}
+                    className="w-full px-3 py-2 rounded-xl border text-sm resize-none"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                </>
+              ) : (
+                /* Create mode — step-by-step */
+                <>
+                  {formStep === 1 && (
+                    <div className="space-y-4">
+                      <DmsStepHeader number="1" title="Identification du document" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <FF label="Type *">
+                          <Select
+                            value={form.typeCode === '' ? '__none__' : form.typeCode}
+                            onValueChange={(v) => {
+                              const t = (v === '__none__' ? '' : v) as TypeCode | ''
+                              setForm(f => ({ ...f, typeCode: t }))
+                              if (t && form.processCode) void handleTypeProcessChange(t, form.processCode)
+                            }}
+                          >
+                            <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              <SelectValue placeholder="— Choisir —" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              <SelectItem value="__none__">— Choisir —</SelectItem>
+                              {CREATABLE_TYPE_CODES.map(t => <SelectItem key={t} value={t}>{t} – {TYPE_LABELS[t]}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FF>
+                        <FF label="Processus *">
+                          <Select
+                            value={form.processCode === '' ? '__none__' : form.processCode}
+                            onValueChange={(v) => {
+                              const p = (v === '__none__' ? '' : v) as ProcessCode | ''
+                              setForm(f => ({ ...f, processCode: p }))
+                              if (p && form.typeCode) void handleTypeProcessChange(form.typeCode, p)
+                            }}
+                          >
+                            <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              <SelectValue placeholder="— Choisir —" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              <SelectItem value="__none__">— Choisir —</SelectItem>
+                              {PROCESS_CODES.map(p => <SelectItem key={p} value={p}>{p} – {PROCESS_LABELS[p]}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FF>
+                      </div>
+                      <FF label="Code généré">
+                        <div className="px-3 py-2 rounded-xl border font-mono text-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: codePreview ? 'var(--admin-emerald)' : 'var(--admin-text-muted)' }}>
+                          {codePreview || 'Sélectionner type + processus'}
+                        </div>
+                      </FF>
+                    </div>
+                  )}
+
+                  {formStep === 2 && (
+                    <div className="space-y-4">
+                      <DmsStepHeader number="2" title="Désignation & Dates" />
+                      <FF label="Désignation *">
+                        <input value={form.title} onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
+                          placeholder="ex: Procédure de gestion des congés"
+                          className="w-full px-3 py-2 rounded-xl border text-sm"
+                          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                      </FF>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FF label="Version">
+                          <input value={form.versionLabel} onChange={(e) => setForm(f => ({ ...f, versionLabel: e.target.value }))}
+                            placeholder="ex: 3" className="w-full px-3 py-2 rounded-xl border text-sm"
+                            style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                        </FF>
+                        <FF label="Date">
+                          <input type="date" value={form.effectiveDate} onChange={(e) => setForm(f => ({ ...f, effectiveDate: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-xl border text-sm"
+                            style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                        </FF>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FF label="Type de classement">
+                          <Select value={form.storageType} onValueChange={(v) => setForm(f => ({ ...f, storageType: v }))}>
+                            <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              <SelectItem value="Numérique">Numérique</SelectItem>
+                              <SelectItem value="Papier">Papier</SelectItem>
+                              <SelectItem value="Les deux">Les deux</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FF>
+                        <FF label="Géré par MDP">
+                          <Select value={form.managedByPassword ? 'oui' : 'non'} onValueChange={(v) => setForm(f => ({ ...f, managedByPassword: v === 'oui' }))}>
+                            <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              <SelectItem value="non">Non</SelectItem>
+                              <SelectItem value="oui">Oui</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FF>
+                      </div>
+                    </div>
+                  )}
+
+                  {formStep === 3 && (
+                    <div className="space-y-4">
+                      <DmsStepHeader number="3" title="Classification" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <FF label="Catégorie DMS">
+                          <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+                            <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              {Object.entries(CATEGORY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FF>
+                        <FF label="Département">
+                          <Select value={form.department} onValueChange={(v) => setForm(f => ({ ...f, department: v }))}>
+                            <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              {Object.entries(DEPARTMENT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </FF>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <FF label="Confidentialité">
+                          <Select value={form.confidentiality} onValueChange={(v) => setForm(f => ({ ...f, confidentiality: v }))}>
+                            <SelectTrigger className="bg-[#F4F8F5] rounded-xl" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+                              <SelectItem value="public">Public</SelectItem>
+                              <SelectItem value="internal">Interne</SelectItem>
+                              <SelectItem value="confidential">Confidentiel</SelectItem>
+                              <SelectItem value="restricted">Restreint</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FF>
+                        <FF label="Clauses ISO">
+                          <input value={form.isoClauses} onChange={(e) => setForm(f => ({ ...f, isoClauses: e.target.value }))}
+                            placeholder="ex: 7.5, 9.2" className="w-full px-3 py-2 rounded-xl border text-sm"
+                            style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                        </FF>
+                      </div>
+                    </div>
+                  )}
+
+                  {formStep === 4 && (
+                    <div className="space-y-4">
+                      <DmsStepHeader number="4" title="Observations" />
+                      <textarea value={form.observations} onChange={(e) => setForm(f => ({ ...f, observations: e.target.value }))}
+                        placeholder="Historique des révisions, remarques…" rows={5}
+                        className="w-full px-3 py-2 rounded-xl border text-sm resize-none"
+                        style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                    </div>
+                  )}
                 </>
               )}
 
-              {/* Désignation */}
-              <FF label="Désignation *">
-                <input
-                  value={form.title}
-                  onChange={(e) => setForm(f => ({ ...f, title: e.target.value }))}
-                  placeholder="ex: Procédure de gestion des congés"
-                  className="w-full px-3 py-2 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                />
-              </FF>
-
-              {/* Version + Date */}
-              <div className="grid grid-cols-2 gap-3">
-                <FF label="Version">
-                  <input
-                    value={form.versionLabel}
-                    onChange={(e) => setForm(f => ({ ...f, versionLabel: e.target.value }))}
-                    placeholder="ex: 3"
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                  />
-                </FF>
-                <FF label="Date">
-                  <input
-                    type="date"
-                    value={form.effectiveDate}
-                    onChange={(e) => setForm(f => ({ ...f, effectiveDate: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                  />
-                </FF>
-              </div>
-
-              {/* Type de classement + Géré par MDP */}
-              <div className="grid grid-cols-2 gap-3">
-                <FF label="Type de classement">
-                  <Select value={form.storageType} onValueChange={(v) => setForm(f => ({ ...f, storageType: v }))}>
-                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectItem value="Numérique">Numérique</SelectItem>
-                      <SelectItem value="Papier">Papier</SelectItem>
-                      <SelectItem value="Les deux">Les deux</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FF>
-                <FF label="Géré par MDP">
-                  <Select
-                    value={form.managedByPassword ? 'oui' : 'non'}
-                    onValueChange={(v) => setForm(f => ({ ...f, managedByPassword: v === 'oui' }))}
-                  >
-                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectItem value="non">Non</SelectItem>
-                      <SelectItem value="oui">Oui</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FF>
-              </div>
-
-              {/* Category + Department — auto-filled from type+process, overridable */}
-              <div className="grid grid-cols-2 gap-3">
-                <FF label="Catégorie DMS">
-                  <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
-                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      {Object.entries(CATEGORY_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </FF>
-                <FF label="Département">
-                  <Select value={form.department} onValueChange={(v) => setForm(f => ({ ...f, department: v }))}>
-                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      {Object.entries(DEPARTMENT_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </FF>
-              </div>
-
-              {/* Confidentiality + ISO */}
-              <div className="grid grid-cols-2 gap-3">
-                <FF label="Confidentialité">
-                  <Select value={form.confidentiality} onValueChange={(v) => setForm(f => ({ ...f, confidentiality: v }))}>
-                    <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
-                      <SelectItem value="public">Public</SelectItem>
-                      <SelectItem value="internal">Interne</SelectItem>
-                      <SelectItem value="confidential">Confidentiel</SelectItem>
-                      <SelectItem value="restricted">Restreint</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </FF>
-                <FF label="Clauses ISO">
-                  <input
-                    value={form.isoClauses}
-                    onChange={(e) => setForm(f => ({ ...f, isoClauses: e.target.value }))}
-                    placeholder="ex: 7.5, 9.2"
-                    className="w-full px-3 py-2 rounded-lg border text-sm"
-                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                  />
-                </FF>
-              </div>
-
-              {/* Observations */}
-              <FF label="Observations">
-                <textarea
-                  value={form.observations}
-                  onChange={(e) => setForm(f => ({ ...f, observations: e.target.value }))}
-                  placeholder="Historique des révisions, remarques…"
-                  rows={4}
-                  className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
-                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
-                />
-              </FF>
-
               {formError && (
-                <p className="text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+                <p className="text-sm px-3 py-2 rounded-xl" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
                   {formError}
                 </p>
               )}
+            </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => { setShowForm(false); setEditingDoc(null) }}
-                  className="flex-1 px-4 py-2.5 rounded-lg border text-sm"
-                  style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={() => void handleSave()}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60"
-                  style={{ background: 'var(--admin-emerald)' }}
-                >
-                  {submitting ? 'Enregistrement…' : editingDoc ? 'Mettre à jour' : 'Enregistrer'}
-                </button>
-              </div>
+            {/* Sticky footer */}
+            <div className="flex gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+              {editingDoc ? (
+                <>
+                  <button onClick={() => { setShowForm(false); setEditingDoc(null) }}
+                    className="flex-1 px-4 py-2.5 rounded-xl border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                    Annuler
+                  </button>
+                  <button onClick={() => void handleSave()} disabled={submitting}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+                    style={{ background: 'var(--admin-accent)' }}>
+                    {submitting ? <><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Enregistrement…</> : 'Mettre à jour'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {formStep > 1 ? (
+                    <button onClick={() => setFormStep(s => s - 1)}
+                      className="px-4 py-2.5 rounded-xl border text-sm"
+                      style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                      ← Précédent
+                    </button>
+                  ) : (
+                    <button onClick={() => { setShowForm(false); setEditingDoc(null) }}
+                      className="px-4 py-2.5 rounded-xl border text-sm"
+                      style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                      Annuler
+                    </button>
+                  )}
+                  {formStep < 4 ? (
+                    <button onClick={() => { setFormError(''); setFormStep(s => s + 1) }}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+                      style={{ background: 'var(--admin-accent)' }}>
+                      Suivant →
+                    </button>
+                  ) : (
+                    <button onClick={() => void handleSave()} disabled={submitting}
+                      className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+                      style={{ background: 'var(--admin-accent)' }}>
+                      {submitting ? <><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Création…</> : 'Enregistrer le document'}
+                    </button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </>
@@ -880,6 +1011,19 @@ function FF({ label, children }: { label: string; children: React.ReactNode }) {
     <div className="space-y-1.5">
       <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{label}</label>
       {children}
+    </div>
+  )
+}
+
+function DmsStepHeader({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-center gap-2.5 pb-1">
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
+        style={{ background: 'linear-gradient(135deg, #2F6F4F, #1C3D2E)' }}>
+        {number}
+      </div>
+      <p className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</p>
+      <div className="flex-1 h-px" style={{ background: 'var(--admin-border)' }} />
     </div>
   )
 }

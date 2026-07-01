@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SupplierRow, SupplierEvaluationRow, SupplierCategory, SupplierStatus } from '@/lib/db/suppliers'
 import { Select as ShadSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -202,6 +203,21 @@ function Select({ value, onChange, children }: { value: string; onChange: (v: st
   )
 }
 
+// ─── Step header helper ───────────────────────────────────────────────────────
+
+function SupStepHeader({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-center gap-2.5 pb-1">
+      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white shrink-0"
+        style={{ background: 'linear-gradient(135deg, #2F6F4F, #1C3D2E)' }}>
+        {number}
+      </div>
+      <p className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</p>
+      <div className="flex-1 h-px" style={{ background: 'var(--admin-border)' }} />
+    </div>
+  )
+}
+
 // ─── Supplier form drawer ─────────────────────────────────────────────────────
 
 function SupplierFormDrawer({ editing, form, setForm, onClose, onSaved }: {
@@ -211,9 +227,12 @@ function SupplierFormDrawer({ editing, form, setForm, onClose, onSaved }: {
   const [saving, setSaving]       = useState(false)
   const [error, setError]         = useState('')
   const [uploading, setUploading] = useState(false)
+  const [formStep, setFormStep]   = useState(1)
   const fileRef                   = useRef<HTMLInputElement>(null)
 
   const set = (k: keyof FormState) => (v: string) => setForm({ ...form, [k]: v })
+
+  const STEPS = ['Identité', 'Contact', 'Contrat & Notes'] as const
 
   async function uploadContract(file: File) {
     setUploading(true)
@@ -259,96 +278,247 @@ function SupplierFormDrawer({ editing, form, setForm, onClose, onSaved }: {
   return (
     <>
       <div className="fixed inset-0 z-40" style={{ background: 'rgba(0,0,0,0.4)' }} onClick={onClose} />
-      <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl overflow-y-auto" style={{ background: 'var(--admin-surface)', borderLeft: '1px solid var(--admin-border)' }}>
-        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0 sticky top-0 z-10" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-          <h2 className="text-base font-semibold" style={{ color: 'var(--admin-text)' }}>
-            {editing ? 'Modifier le fournisseur' : 'Nouveau fournisseur'}
-          </h2>
-          <button onClick={onClose} style={{ color: 'var(--admin-text-muted)' }}>✕</button>
+      <div className="fixed top-0 right-0 h-full z-50 w-full max-w-lg flex flex-col shadow-xl" style={{ background: 'var(--admin-bg)', borderLeft: '1px solid var(--admin-border)' }}>
+
+        {/* Header with step indicator */}
+        <div className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h2 className="text-base font-semibold" style={{ color: 'var(--admin-text)' }}>
+                {editing ? 'Modifier le fournisseur' : 'Nouveau fournisseur'}
+              </h2>
+              <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>FOR-AC-11 · ISO 9001:2015 §7.4</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[var(--admin-border)]" style={{ color: 'var(--admin-text-muted)' }}>✕</button>
+          </div>
+          {!editing && (
+            <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+              {STEPS.map((label, i) => {
+                const step = i + 1
+                const done = formStep > step
+                const active = formStep === step
+                return (
+                  <button key={step} onClick={() => setFormStep(step)}
+                    className="flex items-center gap-1.5 text-xs transition-all min-w-0">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                      style={{
+                        background: active ? 'var(--admin-accent)' : done ? 'var(--admin-emerald-dim)' : 'var(--admin-border)',
+                        color: active ? '#fff' : done ? 'var(--admin-emerald)' : 'var(--admin-text-muted)',
+                      }}>
+                      {done ? <Check className="w-2.5 h-2.5" /> : step}
+                    </span>
+                    <span className="hidden sm:inline truncate" style={{ color: active ? 'var(--admin-text)' : 'var(--admin-text-muted)', fontWeight: active ? 600 : 400 }}>{label}</span>
+                    {step < 3 && <span className="shrink-0" style={{ color: 'var(--admin-border)' }}>›</span>}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 px-6 py-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <FF label="Code fournisseur">
-              <Input value={form.supplierCode} onChange={set('supplierCode')} placeholder="FR-001" />
-            </FF>
-            <FF label="Catégorie *">
-              <Select value={form.category} onChange={set('category')}>
-                {CATEGORY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </Select>
-            </FF>
-          </div>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
 
-          <FF label="Nom du fournisseur *">
-            <Input value={form.name} onChange={set('name')} placeholder="ex: LES PEPINIERES DE LA TUNISIE" />
-          </FF>
-
-          <FF label="N° registre de commerce">
-            <Input value={form.registreCommerce} onChange={set('registreCommerce')} placeholder="1172568/ZNM/000" />
-          </FF>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FF label="Personne à contacter">
-              <Input value={form.contactName} onChange={set('contactName')} placeholder="Mohamed Ben Ali" />
-            </FF>
-            <FF label="Statut ISO *">
-              <Select value={form.isoStatus} onChange={set('isoStatus')}>
-                {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-              </Select>
-            </FF>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <FF label="Téléphone">
-              <Input value={form.phone} onChange={set('phone')} placeholder="+216 xx xxx xxx" />
-            </FF>
-            <FF label="Email">
-              <Input value={form.email} onChange={set('email')} type="email" placeholder="contact@fournisseur.tn" />
-            </FF>
-          </div>
-
-          <FF label="Adresse">
-            <textarea value={form.address} onChange={(e) => set('address')(e.target.value)} rows={2}
-              placeholder="Adresse complète…"
-              className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
-              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
-          </FF>
-
-          <FF label="Contrat PDF">
-            <input ref={fileRef} type="file" accept=".pdf" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadContract(f) }} />
-            {form.contractAssetUrl ? (
-              <div className="flex items-center gap-3 px-3 py-2 rounded-lg border" style={{ borderColor: 'var(--admin-emerald)', background: 'var(--admin-emerald-dim)' }}>
-                <span className="text-sm flex-1 truncate" style={{ color: 'var(--admin-emerald)' }}>✓ Contrat téléchargé</span>
-                <a href={form.contractAssetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>Voir</a>
-                <button onClick={() => setForm({ ...form, contractAssetId: '', contractAssetUrl: '' })} className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Supprimer</button>
+          {editing ? (
+            /* Edit mode — flat form */
+            <>
+              <SupStepHeader number="1" title="Identité" />
+              <div className="grid grid-cols-2 gap-3">
+                <FF label="Code fournisseur">
+                  <Input value={form.supplierCode} onChange={set('supplierCode')} placeholder="FR-001" />
+                </FF>
+                <FF label="Catégorie *">
+                  <Select value={form.category} onChange={set('category')}>
+                    {CATEGORY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </Select>
+                </FF>
               </div>
-            ) : (
-              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-dashed text-sm disabled:opacity-60"
+              <FF label="Nom du fournisseur *">
+                <Input value={form.name} onChange={set('name')} placeholder="ex: LES PEPINIERES DE LA TUNISIE" />
+              </FF>
+              <FF label="N° registre de commerce">
+                <Input value={form.registreCommerce} onChange={set('registreCommerce')} placeholder="1172568/ZNM/000" />
+              </FF>
+              <FF label="Statut ISO *">
+                <Select value={form.isoStatus} onChange={set('isoStatus')}>
+                  {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                </Select>
+              </FF>
+
+              <SupStepHeader number="2" title="Contact" />
+              <div className="grid grid-cols-2 gap-3">
+                <FF label="Personne à contacter">
+                  <Input value={form.contactName} onChange={set('contactName')} placeholder="Mohamed Ben Ali" />
+                </FF>
+                <FF label="Téléphone">
+                  <Input value={form.phone} onChange={set('phone')} placeholder="+216 xx xxx xxx" />
+                </FF>
+              </div>
+              <FF label="Email">
+                <Input value={form.email} onChange={set('email')} type="email" placeholder="contact@fournisseur.tn" />
+              </FF>
+              <FF label="Adresse">
+                <textarea value={form.address} onChange={(e) => set('address')(e.target.value)} rows={2}
+                  placeholder="Adresse complète…"
+                  className="w-full px-3 py-2 rounded-xl border text-sm resize-none"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+              </FF>
+
+              <SupStepHeader number="3" title="Contrat & Notes" />
+              <FF label="Contrat PDF">
+                <input ref={fileRef} type="file" accept=".pdf" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadContract(f) }} />
+                {form.contractAssetUrl ? (
+                  <div className="flex items-center gap-3 px-3 py-2 rounded-xl border" style={{ borderColor: 'var(--admin-emerald)', background: 'var(--admin-emerald-dim)' }}>
+                    <span className="text-sm flex-1 truncate" style={{ color: 'var(--admin-emerald)' }}>✓ Contrat téléchargé</span>
+                    <a href={form.contractAssetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>Voir</a>
+                    <button onClick={() => setForm({ ...form, contractAssetId: '', contractAssetUrl: '' })} className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Supprimer</button>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed text-sm disabled:opacity-60"
+                    style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                    {uploading ? 'Téléchargement…' : '↑ Joindre le contrat PDF'}
+                  </button>
+                )}
+              </FF>
+              <FF label="Notes internes">
+                <textarea value={form.notes} onChange={(e) => set('notes')(e.target.value)} rows={3}
+                  placeholder="Notes…"
+                  className="w-full px-3 py-2 rounded-xl border text-sm resize-none"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+              </FF>
+            </>
+          ) : (
+            /* Create mode — step-by-step */
+            <>
+              {formStep === 1 && (
+                <div className="space-y-4">
+                  <SupStepHeader number="1" title="Identité du fournisseur" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FF label="Code fournisseur">
+                      <Input value={form.supplierCode} onChange={set('supplierCode')} placeholder="FR-001" />
+                    </FF>
+                    <FF label="Catégorie *">
+                      <Select value={form.category} onChange={set('category')}>
+                        {CATEGORY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                      </Select>
+                    </FF>
+                  </div>
+                  <FF label="Nom du fournisseur *">
+                    <Input value={form.name} onChange={set('name')} placeholder="ex: LES PEPINIERES DE LA TUNISIE" />
+                  </FF>
+                  <FF label="N° registre de commerce">
+                    <Input value={form.registreCommerce} onChange={set('registreCommerce')} placeholder="1172568/ZNM/000" />
+                  </FF>
+                  <FF label="Statut ISO *">
+                    <Select value={form.isoStatus} onChange={set('isoStatus')}>
+                      {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </Select>
+                  </FF>
+                </div>
+              )}
+
+              {formStep === 2 && (
+                <div className="space-y-4">
+                  <SupStepHeader number="2" title="Contact" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <FF label="Personne à contacter">
+                      <Input value={form.contactName} onChange={set('contactName')} placeholder="Mohamed Ben Ali" />
+                    </FF>
+                    <FF label="Téléphone">
+                      <Input value={form.phone} onChange={set('phone')} placeholder="+216 xx xxx xxx" />
+                    </FF>
+                  </div>
+                  <FF label="Email">
+                    <Input value={form.email} onChange={set('email')} type="email" placeholder="contact@fournisseur.tn" />
+                  </FF>
+                  <FF label="Adresse">
+                    <textarea value={form.address} onChange={(e) => set('address')(e.target.value)} rows={3}
+                      placeholder="Adresse complète…"
+                      className="w-full px-3 py-2 rounded-xl border text-sm resize-none"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                  </FF>
+                </div>
+              )}
+
+              {formStep === 3 && (
+                <div className="space-y-4">
+                  <SupStepHeader number="3" title="Contrat & Notes" />
+                  <FF label="Contrat PDF">
+                    <input ref={fileRef} type="file" accept=".pdf" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadContract(f) }} />
+                    {form.contractAssetUrl ? (
+                      <div className="flex items-center gap-3 px-3 py-2 rounded-xl border" style={{ borderColor: 'var(--admin-emerald)', background: 'var(--admin-emerald-dim)' }}>
+                        <span className="text-sm flex-1 truncate" style={{ color: 'var(--admin-emerald)' }}>✓ Contrat téléchargé</span>
+                        <a href={form.contractAssetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>Voir</a>
+                        <button onClick={() => setForm({ ...form, contractAssetId: '', contractAssetUrl: '' })} className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>Supprimer</button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-dashed text-sm disabled:opacity-60"
+                        style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                        {uploading ? 'Téléchargement…' : '↑ Joindre le contrat PDF'}
+                      </button>
+                    )}
+                  </FF>
+                  <FF label="Notes internes">
+                    <textarea value={form.notes} onChange={(e) => set('notes')(e.target.value)} rows={4}
+                      placeholder="Notes…"
+                      className="w-full px-3 py-2 rounded-xl border text-sm resize-none"
+                      style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
+                  </FF>
+                </div>
+              )}
+            </>
+          )}
+
+          {error && <p className="text-sm px-3 py-2 rounded-xl" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>{error}</p>}
+        </div>
+
+        {/* Sticky footer */}
+        <div className="flex gap-3 px-6 py-4 border-t shrink-0" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+          {editing ? (
+            <>
+              <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-xl border text-sm"
                 style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
-                {uploading ? 'Téléchargement…' : '↑ Joindre le contrat PDF'}
+                Annuler
               </button>
-            )}
-          </FF>
-
-          <FF label="Notes internes">
-            <textarea value={form.notes} onChange={(e) => set('notes')(e.target.value)} rows={2}
-              placeholder="Notes…"
-              className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
-              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }} />
-          </FF>
-
-          {error && <p className="text-sm px-3 py-2 rounded-lg" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>{error}</p>}
-
-          <div className="flex gap-3 pb-4">
-            <button onClick={onClose} className="flex-1 px-4 py-2.5 rounded-lg border text-sm" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>Annuler</button>
-            <button onClick={() => void handleSave()} disabled={saving}
-              className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60"
-              style={{ background: 'var(--admin-emerald)' }}>
-              {saving ? 'Enregistrement…' : editing ? 'Mettre à jour' : 'Créer'}
-            </button>
-          </div>
+              <button onClick={() => void handleSave()} disabled={saving}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+                style={{ background: 'var(--admin-accent)' }}>
+                {saving ? <><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Enregistrement…</> : 'Mettre à jour'}
+              </button>
+            </>
+          ) : (
+            <>
+              {formStep > 1 ? (
+                <button onClick={() => setFormStep(s => s - 1)}
+                  className="px-4 py-2.5 rounded-xl border text-sm"
+                  style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                  ← Précédent
+                </button>
+              ) : (
+                <button onClick={onClose} className="px-4 py-2.5 rounded-xl border text-sm"
+                  style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                  Annuler
+                </button>
+              )}
+              {formStep < 3 ? (
+                <button onClick={() => { setError(''); setFormStep(s => s + 1) }}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+                  style={{ background: 'var(--admin-accent)' }}>
+                  Suivant →
+                </button>
+              ) : (
+                <button onClick={() => void handleSave()} disabled={saving}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-60"
+                  style={{ background: 'var(--admin-accent)' }}>
+                  {saving ? <><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Création…</> : 'Créer le fournisseur'}
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
     </>
