@@ -5,6 +5,7 @@ import {
   varchar,
   text,
   integer,
+  real,
   decimal,
   boolean,
   timestamp,
@@ -777,6 +778,8 @@ export const projectChecklistAnswers = pgTable('project_checklist_answers', {
 export const nonConformances = pgTable('non_conformances', {
   id: uuid('id').primaryKey().defaultRandom(),
   reference: varchar('reference', { length: 50 }).notNull().unique(),
+  ncFicheNum: integer('nc_fiche_num'),           // N° Fiche from FOR-MI-05 (sequential: 1,2,3…)
+  ncMonth: varchar('nc_month', { length: 20 }),  // Mois column ("Janvier", "Février"…)
   projectId: uuid('project_id'),
   detectedAt: timestamp('detected_at').notNull().defaultNow(),
   detectedBy: uuid('detected_by').notNull(),
@@ -799,6 +802,7 @@ export const nonConformances = pgTable('non_conformances', {
   correctionResponsible: text('correction_responsible'),
   correctionDeadlinePlanned: timestamp('correction_deadline_planned'),
   correctionDeadlineActual: timestamp('correction_deadline_actual'),
+  correctionProgress: real('correction_progress'), // Etat d'avancement correction (0–1)
   correctionStatus: varchar('correction_status', { length: 30 }),
   assignedTo: uuid('assigned_to'),
   deadline: timestamp('deadline'),
@@ -810,6 +814,7 @@ export const nonConformances = pgTable('non_conformances', {
   evalDateActual: timestamp('eval_date_actual'),
   // Client / PI response (for reclamation_client / reclamation_pi)
   clientResponse: text('client_response'),
+  clientResponseRef: varchar('client_response_ref', { length: 200 }), // Désignation R/O field
   // Risk / Opportunity
   isRisk: boolean('is_risk').default(false),
   isOpportunity: boolean('is_opportunity').default(false),

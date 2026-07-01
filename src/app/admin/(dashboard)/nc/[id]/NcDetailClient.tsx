@@ -132,11 +132,23 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
+              {nc.ncFicheNum && (
+                <span className="font-mono text-xs font-bold px-2 py-0.5 rounded"
+                  style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>
+                  N°{nc.ncFicheNum}
+                </span>
+              )}
               <h1 className="text-xl font-semibold font-mono" style={{ color: 'var(--admin-text)' }}>{nc.reference}</h1>
               {nc.dept && (
                 <span className="font-mono text-xs font-bold px-2 py-0.5 rounded"
                   style={{ background: 'var(--admin-border)', color: 'var(--admin-text)' }}>
                   {nc.dept}
+                </span>
+              )}
+              {nc.ncMonth && (
+                <span className="text-xs px-2 py-0.5 rounded"
+                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                  {nc.ncMonth}
                 </span>
               )}
               {nc.dmsDocumentCode && (
@@ -228,6 +240,17 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
               <InfoCell label="Date prévue"  value={fmt(nc.correctionDeadlinePlanned)} />
               <InfoCell label="Date réalisée" value={fmt(nc.correctionDeadlineActual)} />
             </div>
+            {nc.correctionProgress !== null && nc.correctionProgress !== undefined && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                  <span>État d&apos;avancement correction</span>
+                  <span style={{ color: 'var(--admin-text)', fontWeight: 600 }}>{Math.round(nc.correctionProgress * 100)}%</span>
+                </div>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--admin-border)' }}>
+                  <div className="h-full rounded-full transition-all" style={{ width: `${Math.round(nc.correctionProgress * 100)}%`, background: nc.correctionProgress >= 1 ? 'var(--admin-emerald)' : 'var(--admin-accent)' }} />
+                </div>
+              </div>
+            )}
             {nc.correctionStatus && (
               <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
                 État d&apos;avancement : <span style={{ color: 'var(--admin-text)' }}>{nc.correctionStatus}</span>
@@ -251,11 +274,18 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
       </Card>
 
       {/* Client response (for complaints) */}
-      {(nc.ncSource === 'reclamation_client' || nc.ncSource === 'reclamation_pi') && (
+      {(nc.ncSource === 'reclamation_client' || nc.ncSource === 'reclamation_pi' || nc.clientResponse || nc.clientResponseRef) && (
         <Card title="Réponse Client / PI">
-          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: nc.clientResponse ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>
-            {nc.clientResponse ?? 'Aucune réponse enregistrée.'}
-          </p>
+          <div className="space-y-3">
+            {nc.clientResponseRef && (
+              <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                Désignation R/O : <span style={{ color: 'var(--admin-text)', fontWeight: 500 }}>{nc.clientResponseRef}</span>
+              </p>
+            )}
+            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: nc.clientResponse ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>
+              {nc.clientResponse ?? 'Aucune réponse enregistrée.'}
+            </p>
+          </div>
         </Card>
       )}
 

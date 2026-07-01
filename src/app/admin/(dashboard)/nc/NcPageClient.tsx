@@ -359,8 +359,10 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
+                            {nc.ncFicheNum && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>N°{nc.ncFicheNum}</span>}
                             <span className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{nc.reference}</span>
                             {nc.dept && <span className="font-mono text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'var(--admin-border)', color: 'var(--admin-text)' }}>{nc.dept}</span>}
+                            {nc.ncMonth && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>{nc.ncMonth}</span>}
                             {nc.dmsDocumentCode && <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>{nc.dmsDocumentCode}</span>}
                             <Badge className={cn('text-[10px] font-medium rounded-full px-2 py-0', STATUS_COLORS[nc.status] ?? STATUS_COLORS.open)}>
                               {STATUS_LABELS[nc.status] ?? nc.status}
@@ -407,13 +409,29 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                         style={{ borderColor: 'var(--admin-border)' }}>
                         <TableCell className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>
                           <div className="flex flex-col gap-0.5">
-                            <span>{nc.reference}</span>
-                            {nc.dmsDocumentCode && (
-                              <span className="text-[10px] font-normal px-1.5 py-0.5 rounded w-fit"
-                                style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
-                                {nc.dmsDocumentCode}
-                              </span>
-                            )}
+                            <div className="flex items-center gap-1.5">
+                              {nc.ncFicheNum && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                                  style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>
+                                  N°{nc.ncFicheNum}
+                                </span>
+                              )}
+                              <span>{nc.reference}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              {nc.ncMonth && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                                  {nc.ncMonth}
+                                </span>
+                              )}
+                              {nc.dmsDocumentCode && (
+                                <span className="text-[10px] font-normal px-1.5 py-0.5 rounded"
+                                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
+                                  {nc.dmsDocumentCode}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         <TableCell>

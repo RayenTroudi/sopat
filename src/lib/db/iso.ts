@@ -54,6 +54,8 @@ export async function generateAuditReference(): Promise<string> {
 export type NcListItem = {
   id: string
   reference: string
+  ncFicheNum: number | null
+  ncMonth: string | null
   status: string
   ncType: string | null
   ncSource: string | null
@@ -64,6 +66,7 @@ export type NcListItem = {
   deadline: Date | null
   correctionDeadlinePlanned: Date | null
   correctionDeadlineActual: Date | null
+  correctionProgress: number | null
   isRisk: boolean | null
   isOpportunity: boolean | null
   projectId: string | null
@@ -96,6 +99,8 @@ export async function listNcs(filters?: {
     .select({
       id:                        nonConformances.id,
       reference:                 nonConformances.reference,
+      ncFicheNum:                nonConformances.ncFicheNum,
+      ncMonth:                   nonConformances.ncMonth,
       status:                    nonConformances.status,
       ncType:                    nonConformances.ncType,
       ncSource:                  nonConformances.ncSource,
@@ -106,6 +111,7 @@ export async function listNcs(filters?: {
       deadline:                  nonConformances.deadline,
       correctionDeadlinePlanned: nonConformances.correctionDeadlinePlanned,
       correctionDeadlineActual:  nonConformances.correctionDeadlineActual,
+      correctionProgress:        nonConformances.correctionProgress,
       isRisk:                    nonConformances.isRisk,
       isOpportunity:             nonConformances.isOpportunity,
       projectId:                 nonConformances.projectId,
@@ -146,6 +152,8 @@ export async function listNcs(filters?: {
 export type NcDetail = {
   id: string
   reference: string
+  ncFicheNum: number | null
+  ncMonth: string | null
   status: string
   ncType: string | null
   ncSource: string | null
@@ -163,10 +171,12 @@ export type NcDetail = {
   correctionResponsible: string | null
   correctionDeadlinePlanned: Date | null
   correctionDeadlineActual: Date | null
+  correctionProgress: number | null
   correctionStatus: string | null
   evalDatePlanned: Date | null
   evalDateActual: Date | null
   clientResponse: string | null
+  clientResponseRef: string | null
   isRisk: boolean | null
   isOpportunity: boolean | null
   needsSecondCapa: boolean | null
@@ -223,6 +233,8 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
     .select({
       id:                        nonConformances.id,
       reference:                 nonConformances.reference,
+      ncFicheNum:                nonConformances.ncFicheNum,
+      ncMonth:                   nonConformances.ncMonth,
       status:                    nonConformances.status,
       ncType:                    nonConformances.ncType,
       ncSource:                  nonConformances.ncSource,
@@ -240,10 +252,12 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       correctionResponsible:     nonConformances.correctionResponsible,
       correctionDeadlinePlanned: nonConformances.correctionDeadlinePlanned,
       correctionDeadlineActual:  nonConformances.correctionDeadlineActual,
+      correctionProgress:        nonConformances.correctionProgress,
       correctionStatus:          nonConformances.correctionStatus,
       evalDatePlanned:           nonConformances.evalDatePlanned,
       evalDateActual:            nonConformances.evalDateActual,
       clientResponse:            nonConformances.clientResponse,
+      clientResponseRef:         nonConformances.clientResponseRef,
       isRisk:                    nonConformances.isRisk,
       isOpportunity:             nonConformances.isOpportunity,
       needsSecondCapa:           nonConformances.needsSecondCapa,
@@ -311,6 +325,8 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
 
 export async function createNc(input: {
   reference:                  string
+  ncFicheNum?:                number
+  ncMonth?:                   string
   projectId?:                 string
   processAffected?:           string
   dept?:                      string
@@ -330,10 +346,12 @@ export async function createNc(input: {
   correctionResponsible?:     string
   correctionDeadlinePlanned?: Date
   correctionDeadlineActual?:  Date
+  correctionProgress?:        number
   correctionStatus?:          string
   evalDatePlanned?:           Date
   evalDateActual?:            Date
   clientResponse?:            string
+  clientResponseRef?:         string
   isRisk?:                    boolean
   isOpportunity?:             boolean
   needsSecondCapa?:           boolean
@@ -349,6 +367,8 @@ export async function createNc(input: {
       .insert(nonConformances)
       .values({
         reference:                  input.reference,
+        ncFicheNum:                 input.ncFicheNum ?? null,
+        ncMonth:                    input.ncMonth ?? null,
         projectId:                  input.projectId || null,
         processAffected:            (input.processAffected as NcProcess) || null,
         dept:                       (input.dept as NcDept) || null,
@@ -368,10 +388,12 @@ export async function createNc(input: {
         correctionResponsible:      input.correctionResponsible,
         correctionDeadlinePlanned:  input.correctionDeadlinePlanned,
         correctionDeadlineActual:   input.correctionDeadlineActual,
+        correctionProgress:         input.correctionProgress ?? null,
         correctionStatus:           input.correctionStatus,
         evalDatePlanned:            input.evalDatePlanned,
         evalDateActual:             input.evalDateActual,
         clientResponse:             input.clientResponse,
+        clientResponseRef:          input.clientResponseRef ?? null,
         isRisk:                     input.isRisk ?? false,
         isOpportunity:              input.isOpportunity ?? false,
         needsSecondCapa:            input.needsSecondCapa ?? false,
