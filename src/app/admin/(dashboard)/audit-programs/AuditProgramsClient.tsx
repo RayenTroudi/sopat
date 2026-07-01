@@ -282,32 +282,35 @@ export function AuditProgramsClient({ initialRows, users, currentUserId, canEdit
         <SheetContent side="right" className="w-full max-w-2xl flex flex-col p-0 border-l"
           style={{ background: 'var(--admin-bg)', borderColor: 'var(--admin-border)' }}>
 
-          <SheetHeader className="px-6 py-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+          <SheetHeader className="px-6 pt-4 pb-3 shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
             <SheetTitle style={{ color: 'var(--admin-text)' }}>Nouveau programme d&apos;audit</SheetTitle>
             <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>FOR-MI-14 · ISO 9001:2015 clause 9.2</p>
-            {/* Step indicator */}
-            <div className="flex items-center gap-2 pt-1">
+          </SheetHeader>
+
+          {/* Step indicator — outside SheetHeader to avoid shadcn clipping */}
+          <div className="px-6 pb-4 border-b shrink-0" style={{ borderColor: 'var(--admin-border)' }}>
+            <div className="flex items-center gap-1.5 flex-wrap">
               {['Département', 'Planification', 'Référentiel', 'Agenda'].map((label, i) => {
                 const step = i + 1
                 const done = formStep > step
                 const active = formStep === step
                 return (
                   <button key={step} onClick={() => setFormStep(step)}
-                    className="flex items-center gap-1.5 text-xs transition-all">
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                    className="flex items-center gap-1.5 text-xs transition-all min-w-0">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                       style={{
                         background: active ? 'var(--admin-accent)' : done ? 'var(--admin-emerald-dim)' : 'var(--admin-border)',
                         color: active ? '#fff' : done ? 'var(--admin-emerald)' : 'var(--admin-text-muted)',
                       }}>
                       {done ? <Check className="w-2.5 h-2.5" /> : step}
                     </span>
-                    <span className="hidden sm:inline" style={{ color: active ? 'var(--admin-text)' : 'var(--admin-text-muted)', fontWeight: active ? 600 : 400 }}>{label}</span>
-                    {step < 4 && <span style={{ color: 'var(--admin-border)' }}>›</span>}
+                    <span className="hidden sm:inline truncate" style={{ color: active ? 'var(--admin-text)' : 'var(--admin-text-muted)', fontWeight: active ? 600 : 400 }}>{label}</span>
+                    {step < 4 && <span className="shrink-0" style={{ color: 'var(--admin-border)' }}>›</span>}
                   </button>
                 )
               })}
             </div>
-          </SheetHeader>
+          </div>
 
           <div className="flex-1 overflow-y-auto px-6 py-6">
 
