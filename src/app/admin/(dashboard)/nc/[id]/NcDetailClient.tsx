@@ -119,7 +119,7 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
   const isOverdue = nc.correctionDeadlinePlanned && new Date(nc.correctionDeadlinePlanned) < new Date() && nc.status !== 'closed' && nc.status !== 'verified'
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl mx-auto">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
         <Link href="/admin/nc" className="hover:underline">Non-Conformités</Link>
