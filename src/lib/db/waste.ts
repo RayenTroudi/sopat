@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+﻿import { db } from '@/db'
 import { wasteRecords, users } from '@/db/schema'
 import { eq, desc } from 'drizzle-orm'
 

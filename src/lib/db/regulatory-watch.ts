@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+﻿import { db } from '@/db'
 import { regulatoryWatch, users } from '@/db/schema'
 import { eq, and, isNull, asc, desc } from 'drizzle-orm'
 

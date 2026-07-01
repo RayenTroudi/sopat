@@ -1,6 +1,6 @@
-'use server'
+﻿'use server'
 
-import { db } from '@/lib/db'
+import { db } from '@/db'
 import { regulatoryWatch } from '@/db/schema'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'

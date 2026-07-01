@@ -1,4 +1,4 @@
-import { db } from '@/lib/db'
+﻿import { db } from '@/db'
 import { risksOpportunities, roActions, users } from '@/db/schema'
 import { eq, and, isNull, desc, count } from 'drizzle-orm'
 
