@@ -11,6 +11,7 @@ import {
 import { runEmailReminderSweep } from '@/lib/tasks/email-reminders'
 import { getRseDashboardData } from '@/lib/db/rse'
 import { getInternationalDashboardData } from '@/lib/db/international'
+import { getSmqKpis } from '@/lib/db/kpi-smq'
 import { MetricCard } from '@/components/dashboard/MetricCard'
 import { MiniPie } from '@/components/dashboard/MiniPie'
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
@@ -66,13 +67,15 @@ export default async function AdminDashboard() {
   // Fire-and-forget: runs at most once every 30 min (rate-gated in the task itself)
   runEmailReminderSweep().catch((e) => console.error('[reminder sweep]', e))
 
-  const [kpis, activity, atRisk, upcomingVisits, rseData, intlData] = await Promise.all([
+  const currentYear = new Date().getFullYear()
+  const [kpis, activity, atRisk, upcomingVisits, rseData, intlData, smqKpis] = await Promise.all([
     getDashboardKpis(),
     getCachedRecentActivity(20),
     getCachedAtRiskProjects(),
     getUpcomingVisits(7),
     getRseDashboardData(),
     getInternationalDashboardData(),
+    getSmqKpis(currentYear),
   ])
 
   const { activeProjects, onTimeDeliveryRate, avgBudgetVariance, openNcs, ncSlaClosureRate, maintenanceThisMonth, satisfactionScore } = kpis
@@ -342,6 +345,8 @@ export default async function AdminDashboard() {
         mainContent={mainDashboard}
         internationalData={intlData.byCountry}
         hasForeignProjects={intlData.totalForeign > 0}
+        smqKpis={smqKpis}
+        smqYear={currentYear}
       />
     </div>
   )

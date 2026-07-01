@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FolderOpen, Building2, AlertTriangle, ClipboardCheck,
   FileText, Leaf, Palette, Layout, Handshake, Sparkles, BarChart2,
   Trophy, BookOpen, Coins, CalendarDays, BarChart3, Users, Settings,
-  ChevronLeft,
+  ChevronLeft, ShieldCheck, Scale, UserCheck, Trash2, HardHat, CalendarRange, Globe2,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -42,6 +42,19 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/audit-programs', label: 'Programmes d\'audit', icon: ClipboardCheck, roles: ['admin','direction'] },
       { href: '/admin/audits',         label: 'Audits',              icon: ClipboardCheck, roles: ['admin','direction'] },
       { href: '/admin/documents',      label: 'Inf. Documentées',    icon: FileText,       roles: ['admin','direction','etudes_chef'] },
+    ],
+  },
+  {
+    label: 'SMQ / Système',
+    roles: ['admin','direction'],
+    items: [
+      { href: '/admin/risks-opportunities', label: 'Risques & Opportunités', icon: ShieldCheck,   roles: ['admin','direction'] },
+      { href: '/admin/stakeholders',        label: 'Parties Intéressées',    icon: Users,          roles: ['admin','direction'] },
+      { href: '/admin/regulatory-watch',    label: 'Veille Réglementaire',   icon: Scale,          roles: ['admin','direction'] },
+      { href: '/admin/auditors',            label: 'Auditeurs Internes',     icon: UserCheck,      roles: ['admin','direction'] },
+      { href: '/admin/management-plan',     label: 'Plan de Management',     icon: CalendarRange,  roles: ['admin','direction'] },
+      { href: '/admin/environment/waste',   label: 'Déchets',                icon: Trash2,         roles: ['admin','direction'] },
+      { href: '/admin/environment/hse-checklist', label: 'Checklist HSE',   icon: HardHat,        roles: ['admin','direction'] },
     ],
   },
   {
