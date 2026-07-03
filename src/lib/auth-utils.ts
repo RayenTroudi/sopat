@@ -7,6 +7,8 @@ export type UserRole =
   | 'realisation_team'
   | 'entretien_chef'
   | 'entretien_team'
+  | 'rh_manager'
+  | 'rh_agent'
 
 export function isAdmin(role: UserRole): boolean {
   return role === 'admin'
@@ -47,6 +49,8 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   realisation_team: 'Équipe réalisation',
   entretien_chef: "Chef d'entretien",
   entretien_team: "Équipe entretien",
+  rh_manager: 'Responsable RH',
+  rh_agent: 'Agent RH',
 }
 
 // Routes each role is allowed to reach — used in middleware
@@ -59,6 +63,8 @@ export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[]> = {
   realisation_team: ['/admin/projects'],
   entretien_chef: ['/admin/projects', '/admin/nc', '/admin/reports'],
   entretien_team: ['/admin/projects'],
+  rh_manager: ['/admin/rh', '/admin/team'],
+  rh_agent: ['/admin/rh'],
 }
 
 export function canAccessPath(role: UserRole, pathname: string): boolean {
@@ -91,6 +97,8 @@ export function getTeamLabel(role: UserRole): string {
     realisation_team: 'Équipe Réalisation',
     entretien_chef: 'Équipe Entretien',
     entretien_team: 'Équipe Entretien',
+    rh_manager: 'Ressources Humaines',
+    rh_agent: 'Ressources Humaines',
   }
   return labels[role]
 }

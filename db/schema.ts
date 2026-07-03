@@ -28,6 +28,8 @@ export const userRoleEnum = pgEnum('user_role', [
   'realisation_team',
   'entretien_chef',
   'entretien_team',
+  'rh_manager',
+  'rh_agent',
 ])
 
 export const projectTypeEnum = pgEnum('project_type', [
@@ -2492,5 +2494,356 @@ export const projectStudyRecords = pgTable('project_study_records', {
 }, (t) => [
   index('project_study_records_project_id_idx').on(t.projectId),
   foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── RH (Ressources Humaines) ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export const contractTypeEnum = pgEnum('contract_type', [
+  'cdi',
+  'cdd',
+  'civp',
+  'stage',
+  'interim',
+  'autre',
+])
+
+export const leaveTypeEnum = pgEnum('leave_type', [
+  'conge_annuel',
+  'conge_maladie',
+  'conge_maternite',
+  'conge_paternite',
+  'conge_sans_solde',
+  'jour_ferie',
+  'autre',
+])
+
+export const leaveStatusEnum = pgEnum('leave_status', [
+  'en_attente',
+  'approuve',
+  'refuse',
+  'annule',
+])
+
+export const trainingStatusEnum = pgEnum('training_status', [
+  'planifie',
+  'en_cours',
+  'realise',
+  'reporte',
+  'annule',
+])
+
+export const recruitmentStatusEnum = pgEnum('recruitment_status', [
+  'ouvert',
+  'en_cours',
+  'pourvu',
+  'annule',
+])
+
+export const evaluationResultEnum = pgEnum('evaluation_result', [
+  'tres_satisfaisant',
+  'satisfaisant',
+  'insuffisant',
+  'tres_insuffisant',
+])
+
+// ─── RH: Job Positions / Fiches de poste (FOR-RH-08) ─────────────────────────
+
+export const jobPositions = pgTable('job_positions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: varchar('code', { length: 30 }),                           // ex: FP-001
+  title: varchar('title', { length: 255 }).notNull(),
+  department: varchar('department', { length: 100 }),
+  hierarchicalSuperior: varchar('hierarchical_superior', { length: 255 }),
+  // Profil
+  initialTraining: text('initial_training'),
+  continuousTraining: text('continuous_training'),
+  // Missions & attributions
+  mainMissions: text('main_missions'),
+  attributions: text('attributions'),
+  // Critères d'évaluation
+  indispensableCriteria: text('indispensable_criteria'),
+  desirableCriteria: text('desirable_criteria'),
+  // Work techniques (sub-criteria for FOR-RH-03)
+  workTechniques: jsonb('work_techniques').default([]),             // [{label: string}]
+  // Meta
+  updatedDate: date('updated_date'),
+  isActive: boolean('is_active').notNull().default(true),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('job_positions_dept_idx').on(t.department),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RH: Employee Profiles (extends users — LIS-RH-02) ───────────────────────
+// Stores HR-specific fields that don't belong on the auth users table
+
+export const employeeProfiles = pgTable('employee_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().unique(),
+  // LIS-RH-02 fields
+  matricule: varchar('matricule', { length: 50 }),
+  cin: varchar('cin', { length: 20 }),
+  matriculeCnss: varchar('matricule_cnss', { length: 50 }),
+  familySituation: varchar('family_situation', { length: 50 }),    // célibataire, marié, …
+  contractType: contractTypeEnum('contract_type'),
+  contractStartDate: date('contract_start_date'),
+  contractEndDate: date('contract_end_date'),
+  jobPositionId: uuid('job_position_id'),
+  jobTitle: varchar('job_title', { length: 255 }),                 // denormalized for speed
+  hierarchicalSuperiorId: uuid('hierarchical_superior_id'),
+  // Attendance KPIs (from LIS-RH-02)
+  plannedDaysPerYear: integer('planned_days_per_year').default(220),
+  // Leave balance (FOR-RH-43)
+  leaveBalanceDays: decimal('leave_balance_days', { precision: 5, scale: 1 }).default('0'),
+  leaveBalancePrevious: decimal('leave_balance_previous', { precision: 5, scale: 1 }).default('0'),
+  // Integration
+  integrationPilot: varchar('integration_pilot', { length: 255 }), // PLA-RH-01
+  integrationStartDate: date('integration_start_date'),
+  integrationEndDate: date('integration_end_date'),
+  // Deputies (LIS-RH-01)
+  deputyId: uuid('deputy_id'),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('employee_profiles_user_id_idx').on(t.userId),
+  index('employee_profiles_matricule_idx').on(t.matricule),
+  foreignKey({ columns: [t.userId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.jobPositionId], foreignColumns: [jobPositions.id] }),
+  foreignKey({ columns: [t.hierarchicalSuperiorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.deputyId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RH: Recruitment Requests (FOR-RH-01) ────────────────────────────────────
+
+export const recruitmentRequests = pgTable('recruitment_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  refCode: varchar('ref_code', { length: 30 }),                    // FOR-RH-01 ref
+  jobPositionId: uuid('job_position_id'),
+  postTitle: varchar('post_title', { length: 255 }).notNull(),
+  requestingDept: varchar('requesting_dept', { length: 100 }),
+  hierarchicalSuperior: varchar('hierarchical_superior', { length: 255 }),
+  proposedStatus: varchar('proposed_status', { length: 50 }),      // Contractuel / Stage / CIVP
+  reason: text('reason'),                                          // Motif
+  studyLevel: varchar('study_level', { length: 255 }),
+  studySpecialty: varchar('study_specialty', { length: 255 }),
+  experienceDuration: varchar('experience_duration', { length: 100 }),
+  mainMissions: text('main_missions'),
+  requiredSkills: text('required_skills'),
+  status: recruitmentStatusEnum('status').notNull().default('ouvert'),
+  openedDate: date('opened_date'),
+  closedDate: date('closed_date'),
+  filledByUserId: uuid('filled_by_user_id'),
+  notes: text('notes'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('recruitment_status_idx').on(t.status),
+  foreignKey({ columns: [t.jobPositionId], foreignColumns: [jobPositions.id] }),
+  foreignKey({ columns: [t.filledByUserId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RH: Training Sessions (PLA-RH-02 + FOR-RH-05) ──────────────────────────
+
+export const trainingSessions = pgTable('training_sessions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  refCode: varchar('ref_code', { length: 30 }),
+  year: integer('year').notNull(),
+  thematic: varchar('thematic', { length: 100 }),                  // RSE / QMS / Métiers…
+  theme: varchar('theme', { length: 500 }).notNull(),
+  requestedByUserId: uuid('requested_by_user_id'),
+  requestedDate: date('requested_date'),
+  objective: text('objective'),
+  trainerName: varchar('trainer_name', { length: 255 }),
+  trainingOrg: varchar('training_org', { length: 255 }),
+  location: varchar('location', { length: 255 }),
+  plannedStartDate: date('planned_start_date'),
+  plannedEndDate: date('planned_end_date'),
+  actualStartDate: date('actual_start_date'),
+  actualEndDate: date('actual_end_date'),
+  status: trainingStatusEnum('status').notNull().default('planifie'),
+  actionType: varchar('action_type', { length: 50 }),              // Réalisée / Reportée / Annulée
+  hotEvalDate: date('hot_eval_date'),                              // FOR-RH-06 date
+  coldEvalDate: date('cold_eval_date'),                            // FOR-RH-07 date
+  // Participants stored as junction in training_participants
+  notes: text('notes'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('training_year_idx').on(t.year),
+  index('training_status_idx').on(t.status),
+  foreignKey({ columns: [t.requestedByUserId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RH: Training Participants (FOR-RH-05 attendance) ───────────────────────
+
+export const trainingParticipants = pgTable('training_participants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  trainingSessionId: uuid('training_session_id').notNull(),
+  userId: uuid('user_id').notNull(),
+  attended: boolean('attended').notNull().default(true),
+  // FOR-RH-06 hot eval
+  hotEvalScore: decimal('hot_eval_score', { precision: 4, scale: 1 }),
+  hotEvalNotes: text('hot_eval_notes'),
+  // FOR-RH-07 cold eval
+  coldEvalScore: decimal('cold_eval_score', { precision: 4, scale: 1 }),
+  coldEvalNotes: text('cold_eval_notes'),
+  coldEvalCompetencies: jsonb('cold_eval_competencies').default([]), // [{label, level, note}]
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('training_participants_session_idx').on(t.trainingSessionId),
+  index('training_participants_user_idx').on(t.userId),
+  foreignKey({ columns: [t.trainingSessionId], foreignColumns: [trainingSessions.id] }),
+  foreignKey({ columns: [t.userId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RH: Leave Requests (FOR-RH-14 + FOR-RH-43) ─────────────────────────────
+
+export const leaveRequests = pgTable('leave_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  leaveType: leaveTypeEnum('leave_type').notNull(),
+  startDate: date('start_date').notNull(),
+  endDate: date('end_date').notNull(),
+  durationDays: decimal('duration_days', { precision: 5, scale: 1 }).notNull(),
+  reason: text('reason'),
+  status: leaveStatusEnum('status').notNull().default('en_attente'),
+  // Approvals
+  supervisorApproval: leaveStatusEnum('supervisor_approval'),
+  supervisorApprovedBy: uuid('supervisor_approved_by'),
+  supervisorApprovedAt: timestamp('supervisor_approved_at'),
+  supervisorNote: text('supervisor_note'),
+  rhApproval: leaveStatusEnum('rh_approval'),
+  rhApprovedBy: uuid('rh_approved_by'),
+  rhApprovedAt: timestamp('rh_approved_at'),
+  directionApproval: leaveStatusEnum('direction_approval'),
+  directionApprovedBy: uuid('direction_approved_by'),
+  directionApprovedAt: timestamp('direction_approved_at'),
+  // Leave balance snapshot at time of request
+  balanceBeforeDays: decimal('balance_before_days', { precision: 5, scale: 1 }),
+  notes: text('notes'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('leave_requests_user_idx').on(t.userId),
+  index('leave_requests_status_idx').on(t.status),
+  index('leave_requests_date_idx').on(t.startDate),
+  foreignKey({ columns: [t.userId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.supervisorApprovedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.rhApprovedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.directionApprovedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RH: Exit Authorizations (FOR-RH-15) ─────────────────────────────────────
+
+export const exitAuthorizations = pgTable('exit_authorizations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  startTime: timestamp('start_time').notNull(),
+  endTime: timestamp('end_time').notNull(),
+  durationHours: decimal('duration_hours', { precision: 4, scale: 1 }),
+  reason: text('reason'),
+  status: leaveStatusEnum('status').notNull().default('en_attente'),
+  supervisorApproval: leaveStatusEnum('supervisor_approval'),
+  supervisorApprovedBy: uuid('supervisor_approved_by'),
+  rhApproval: leaveStatusEnum('rh_approval'),
+  rhApprovedBy: uuid('rh_approved_by'),
+  notes: text('notes'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('exit_auth_user_idx').on(t.userId),
+  index('exit_auth_date_idx').on(t.startTime),
+  foreignKey({ columns: [t.userId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.supervisorApprovedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.rhApprovedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RH: Performance Evaluations (FOR-RH-03) ─────────────────────────────────
+
+export const performanceEvaluations = pgTable('performance_evaluations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),                               // évalué
+  evaluatorId: uuid('evaluator_id').notNull(),                     // supérieur hiérarchique
+  evaluationDate: date('evaluation_date').notNull(),
+  // Context
+  currentPosition: varchar('current_position', { length: 255 }),
+  seniorityCompany: varchar('seniority_company', { length: 50 }),
+  seniorityPosition: varchar('seniority_position', { length: 50 }),
+  // Scores (1=TI, 2=I, 3=S, 4=TS) per category
+  // 1. Work techniques (from fiche de poste sub-criteria)
+  workTechniquesCriteria: jsonb('work_techniques_criteria').default([]), // [{label, score, desired}]
+  workTechniquesScore: decimal('work_techniques_score', { precision: 4, scale: 2 }),
+  workTechniquesDesired: decimal('work_techniques_desired', { precision: 4, scale: 2 }),
+  // 2. Discipline
+  attendanceScore: decimal('attendance_score', { precision: 4, scale: 2 }),
+  rigorScore: decimal('rigor_score', { precision: 4, scale: 2 }),
+  disciplineScore: decimal('discipline_score', { precision: 4, scale: 2 }),
+  disciplineDesired: decimal('discipline_desired', { precision: 4, scale: 2 }),
+  // 3. Quality
+  improvementScore: decimal('improvement_score', { precision: 4, scale: 2 }),
+  smqRespectScore: decimal('smq_respect_score', { precision: 4, scale: 2 }),
+  riskAnalysisScore: decimal('risk_analysis_score', { precision: 4, scale: 2 }),
+  qualityScore: decimal('quality_score', { precision: 4, scale: 2 }),
+  qualityDesired: decimal('quality_desired', { precision: 4, scale: 2 }),
+  // 4. Integration
+  communicationScore: decimal('communication_score', { precision: 4, scale: 2 }),
+  teamworkScore: decimal('teamwork_score', { precision: 4, scale: 2 }),
+  managementScore: decimal('management_score', { precision: 4, scale: 2 }),
+  learningScore: decimal('learning_score', { precision: 4, scale: 2 }),
+  integrationScore: decimal('integration_score', { precision: 4, scale: 2 }),
+  integrationDesired: decimal('integration_desired', { precision: 4, scale: 2 }),
+  // Final
+  globalScore: decimal('global_score', { precision: 4, scale: 2 }),
+  globalScorePct: decimal('global_score_pct', { precision: 5, scale: 2 }),
+  previousScore: decimal('previous_score', { precision: 4, scale: 2 }),
+  // Needs & actions (jsonb: [{action, deadline, responsible}])
+  evalueeNeeds: text('evaluee_needs'),
+  trainingActions: jsonb('training_actions').default([]),
+  nextObjectives: text('next_objectives'),
+  remarks: text('remarks'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('perf_eval_user_idx').on(t.userId),
+  index('perf_eval_date_idx').on(t.evaluationDate),
+  foreignKey({ columns: [t.userId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.evaluatorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── RH: Integration Plans (PLA-RH-01) ───────────────────────────────────────
+
+export const integrationPlans = pgTable('integration_plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull(),
+  pilotId: uuid('pilot_id'),
+  plannedStartDate: date('planned_start_date'),
+  plannedEndDate: date('planned_end_date'),
+  // Items: jsonb [{theme, responsible, plannedDate, actualDate, status, comment}]
+  items: jsonb('items').default([]),
+  notes: text('notes'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('integration_plan_user_idx').on(t.userId),
+  foreignKey({ columns: [t.userId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.pilotId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
