@@ -21,11 +21,12 @@ function Row({ label, value }: { label: string; value?: string | null }) {
   )
 }
 
-export default async function RecruitmentDetailPage({ params }: { params: { id: string } }) {
+export default async function RecruitmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const req = await getRecruitmentRequestById(params.id)
+  const { id } = await params
+  const req = await getRecruitmentRequestById(id)
   if (!req) notFound()
 
   return (

@@ -21,11 +21,12 @@ function Row({ label, value }: { label: string; value?: string | null }) {
   )
 }
 
-export default async function TrainingDetailPage({ params }: { params: { id: string } }) {
+export default async function TrainingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const { session: s, participants } = await getTrainingSessionById(params.id)
+  const { id } = await params
+  const { session: s, participants } = await getTrainingSessionById(id)
   if (!s) notFound()
 
   return (

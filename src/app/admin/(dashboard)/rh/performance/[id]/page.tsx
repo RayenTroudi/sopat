@@ -24,11 +24,12 @@ function ScoreBar({ label, score, max = 4 }: { label: string; score?: number | n
   )
 }
 
-export default async function PerformanceDetailPage({ params }: { params: { id: string } }) {
+export default async function PerformanceDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const ev = await getPerformanceEvaluationById(params.id)
+  const { id } = await params
+  const ev = await getPerformanceEvaluationById(id)
   if (!ev) notFound()
 
   const [evUser] = await db.select({ name: users.name }).from(users).where(eq(users.id, ev.userId)).limit(1)

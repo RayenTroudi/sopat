@@ -14,11 +14,12 @@ function Row({ label, value }: { label: string; value?: string | null }) {
   )
 }
 
-export default async function JobPositionDetailPage({ params }: { params: { id: string } }) {
+export default async function JobPositionDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const pos = await getJobPositionById(params.id)
+  const { id } = await params
+  const pos = await getJobPositionById(id)
   if (!pos) notFound()
 
   const techniques = (pos.workTechniques as { label: string }[]) ?? []
@@ -38,7 +39,7 @@ export default async function JobPositionDetailPage({ params }: { params: { id: 
             {pos.code && <span className="font-mono text-xs px-2 py-0.5 rounded" style={{ background: 'var(--admin-bg)', color: 'var(--admin-muted)', border: '1px solid var(--admin-border)' }}>{pos.code}</span>}
           </div>
         </div>
-        <Link href={`/admin/rh/job-positions/${pos.id}/edit`}
+        <Link href={`/admin/rh/job-positions/${id}/edit`}
           className="px-4 py-2 rounded-lg text-sm font-medium"
           style={{ background: 'var(--admin-bg)', color: 'var(--admin-fg)', border: '1px solid var(--admin-border)' }}>
           Modifier
