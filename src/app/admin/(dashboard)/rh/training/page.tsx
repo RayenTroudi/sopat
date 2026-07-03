@@ -13,12 +13,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 const CURRENT_YEAR = new Date().getFullYear()
 
-export default async function TrainingPage({ searchParams }: { searchParams: { year?: string; status?: string } }) {
+export default async function TrainingPage({ searchParams }: { searchParams: Promise<{ year?: string; status?: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const year = searchParams.year ? parseInt(searchParams.year) : CURRENT_YEAR
-  const status = searchParams.status || ''
+  const { year: yearParam, status: statusParam } = await searchParams
+  const year = yearParam ? parseInt(yearParam) : CURRENT_YEAR
+  const status = statusParam || ''
   const sessions = await listTrainingSessions(year, status || undefined)
 
   const years = [CURRENT_YEAR + 1, CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2]

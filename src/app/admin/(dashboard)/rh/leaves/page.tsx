@@ -20,11 +20,12 @@ const ApprovalIcon = ({ val }: { val: string | null }) => {
   return <Clock size={14} style={{ color: '#f59e0b' }} />
 }
 
-export default async function LeavesPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function LeavesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const status = searchParams.status || ''
+  const { status: statusParam } = await searchParams
+  const status = statusParam || ''
   const requests = await listLeaveRequests(undefined, status || undefined)
 
   return (

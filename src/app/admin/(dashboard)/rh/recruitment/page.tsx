@@ -18,11 +18,12 @@ const TABS = [
   { key: 'pourvu', label: 'Pourvus' },
 ]
 
-export default async function RecruitmentPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function RecruitmentPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const session = await auth()
   if (!session?.user) redirect('/login')
 
-  const status = searchParams.status || ''
+  const { status: statusParam } = await searchParams
+  const status = statusParam || ''
   const requests = await listRecruitmentRequests(status || undefined)
 
   return (
