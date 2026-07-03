@@ -587,6 +587,32 @@ export const plantSpecies = pgTable('plant_species', {
   commonNameFr: varchar('common_name_fr', { length: 255 }),
   category: plantCategoryEnum('category').notNull(),
   defaultUnit: plantUnitEnum('default_unit').notNull().default('unit'),
+  // LIS-ET-03 extended fields
+  lisCode: varchar('lis_code', { length: 30 }),                    // ex: "P001"
+  isCaducous: boolean('is_caducous'),                              // Caduque
+  isToxic: boolean('is_toxic'),
+  hasSpines: boolean('has_spines'),                                // Épines
+  hasFlowers: boolean('has_flowers'),
+  flowerColor: varchar('flower_color', { length: 100 }),
+  floweringPeriod: varchar('flowering_period', { length: 100 }),  // "Avr–Juin"
+  hasFruit: boolean('has_fruit'),
+  fruitingPeriod: varchar('fruiting_period', { length: 100 }),
+  adaptedEnvironment: text('adapted_environment'),                 // "Zones arides, côtières…"
+  diseases: text('diseases'),                                      // Maladies et insectes
+  heightAdultMin: decimal('height_adult_min', { precision: 5, scale: 2 }), // M
+  heightAdultMax: decimal('height_adult_max', { precision: 5, scale: 2 }),
+  diameterAdultMin: decimal('diameter_adult_min', { precision: 5, scale: 2 }),
+  diameterAdultMax: decimal('diameter_adult_max', { precision: 5, scale: 2 }),
+  storageExposure: varchar('storage_exposure', { length: 100 }),   // Exposition de stockage
+  storagePlace: varchar('storage_place', { length: 100 }),
+  plantingPeriod: varchar('planting_period', { length: 100 }),
+  soilType: varchar('soil_type', { length: 255 }),
+  plantingExposure: varchar('planting_exposure', { length: 100 }),
+  wateringCold: varchar('watering_cold', { length: 100 }),         // Période froide
+  wateringHot: varchar('watering_hot', { length: 100 }),           // Période sèche
+  pruning: text('pruning'),                                        // Taille
+  phytosanitaryTreatment: text('phytosanitary_treatment'),
+  photoUrl: text('photo_url'),
   notes: text('notes'),
   ...timestamps,
   createdBy: uuid('created_by'),
@@ -2349,4 +2375,122 @@ export const communicationPlan = pgTable('communication_plan', {
   index('comm_plan_direction_idx').on(t.direction),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.doneBy], foreignColumns: [users.id] }),
+])
+
+// ─── Étude: Decorative Materials (FOR-ET-03) ─────────────────────────────────
+
+export const decorativeMaterials = pgTable('decorative_materials', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  // Identity
+  code: varchar('code', { length: 30 }),                           // auto-generated ref
+  name: varchar('name', { length: 255 }).notNull(),
+  photoUrl: text('photo_url'),
+  // 1. Description
+  mainMaterial: varchar('main_material', { length: 255 }),
+  aspect: varchar('aspect', { length: 255 }),                      // Aspect (de la roche…)
+  color: varchar('color', { length: 100 }),
+  // 2. Technical characteristics
+  caliber: varchar('caliber', { length: 100 }),                    // Calibre
+  waterAbsorption: varchar('water_absorption', { length: 100 }),
+  packaging: varchar('packaging', { length: 255 }),                // Conditionnement
+  // 3. Use
+  usedInterior: boolean('used_interior').notNull().default(false),
+  usedExterior: boolean('used_exterior').notNull().default(true),
+  // 4–7 free text
+  handling: text('handling'),                                      // Manutention
+  packagingDetails: text('packaging_details'),                     // Conditionnement détail
+  storageConditions: text('storage_conditions'),
+  maintenance: text('maintenance'),                                // Entretien
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('decorative_materials_name_idx').on(t.name),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Étude: Phytosanitary Products (FOR-ET-05) ───────────────────────────────
+
+export const phytosanitaryProductTypeEnum = pgEnum('phytosanitary_product_type', [
+  'insecticide',
+  'acaricide',
+  'fongicide',
+  'herbicide',
+  'engrais',
+  'autre',
+])
+
+export const phytosanitaryProducts = pgTable('phytosanitary_products', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  code: varchar('code', { length: 30 }),
+  productType: phytosanitaryProductTypeEnum('product_type').notNull(),
+  commercialName: varchar('commercial_name', { length: 255 }).notNull(),
+  approvalNumber: varchar('approval_number', { length: 100 }),     // N° homologation
+  activeIngredient: varchar('active_ingredient', { length: 255 }),
+  formulation: varchar('formulation', { length: 255 }),
+  concentration: varchar('concentration', { length: 100 }),
+  usageDose: varchar('usage_dose', { length: 255 }),
+  targetPests: text('target_pests'),                               // Dépredateurs
+  targetCrop: varchar('target_crop', { length: 255 }),             // Culture
+  reEntryDelay: varchar('re_entry_delay', { length: 100 }),        // Délai de rentrée
+  technicalDocs: text('technical_docs'),
+  packaging: varchar('packaging', { length: 255 }),
+  toxicologicalClass: varchar('toxicological_class', { length: 100 }),
+  ppe: text('ppe'),                                                // Équipements de protection
+  storageConditions: text('storage_conditions'),
+  preUseInstructions: text('pre_use_instructions'),
+  duringUseInstructions: text('during_use_instructions'),
+  wasteDisposal: text('waste_disposal'),
+  photoUrl: text('photo_url'),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('phytosanitary_type_idx').on(t.productType),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Étude: Project Study Record (FOR-ET-02 Fiche Projet) ────────────────────
+
+export const projectStudyPhaseEnum = pgEnum('project_study_phase', [
+  'avant_projet_sommaire',    // APS
+  'avant_projet_detaille',    // APD
+])
+
+export const projectStudyRecords = pgTable('project_study_records', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  projectId: uuid('project_id').notNull().unique(),
+  // Header
+  updatedDate: date('updated_date'),
+  projectTitle: varchar('project_title', { length: 500 }),
+  location: varchar('location', { length: 255 }),
+  clientName: varchar('client_name', { length: 255 }),
+  reference: varchar('reference', { length: 100 }),
+  projectDetails: text('project_details'),                         // Détails: aménagement type
+  deadlineProposed: date('deadline_proposed'),
+  // Documents received from client (jsonb array: {name, receivedDate, required, observation})
+  documentsReceived: jsonb('documents_received').default([]),
+  clientRequests: text('client_requests'),
+  // Timeline
+  durationPlannedDays: integer('duration_planned_days'),
+  durationActualDays: integer('duration_actual_days'),
+  startDatePlanned: date('start_date_planned'),
+  startDateActual: date('start_date_actual'),
+  endDatePlanned: date('end_date_planned'),
+  endDateActual: date('end_date_actual'),
+  // Phases (jsonb: [{phase, plannedDays, actualDays, progressState, validationMeans, validationDate, observations}])
+  phases: jsonb('phases').default([]),
+  // KPI FOR-ET-02: % of drought-resistant plants
+  droughtResistantRate: decimal('drought_resistant_rate', { precision: 5, scale: 2 }),
+  droughtResistantNote: text('drought_resistant_note'),           // Cause de non-atteinte
+  // Responsible
+  responsableEtude: varchar('responsable_etude', { length: 255 }),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('project_study_records_project_id_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])

@@ -92,6 +92,13 @@
       "when": 1782894036236,
       "tag": "0012_nc_fiche_num_month_progress",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1783090939540,
+      "tag": "0013_narrow_prism",
+      "breakpoints": true
     }
   ]
 }
