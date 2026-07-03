@@ -16,6 +16,10 @@ const TYPES = [
   { value: 'autre', label: 'Autre' },
 ]
 
+const inputClass = 'w-full px-3 py-2 rounded-lg border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const inputStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }
+const labelClass = 'block text-[12px] font-medium mb-1'
+
 export default function NewStakeholderPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -53,31 +57,24 @@ export default function NewStakeholderPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/admin/stakeholders" className="text-gray-400 hover:text-gray-600 text-sm">
+        <Link href="/admin/stakeholders" className="text-[13px] hover:opacity-70 transition-opacity" style={{ color: 'var(--admin-text-muted)' }}>
           ← Retour
         </Link>
-        <h1 className="text-xl font-bold text-gray-900">Nouvelle Partie Intéressée</h1>
+        <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
+          Nouvelle Partie Intéressée
+        </h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="rounded-xl border p-6 space-y-5" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
-            <input
-              name="name"
-              required
-              type="text"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Nom *</label>
+            <input name="name" required type="text" className={inputClass} style={inputStyle} />
           </div>
 
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
-            <select
-              name="type"
-              required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Type *</label>
+            <select name="type" required className={inputClass} style={inputStyle}>
               <option value="">Sélectionner…</option>
               {TYPES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -86,35 +83,30 @@ export default function NewStakeholderPage() {
           </div>
 
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Besoins &amp; Attentes</label>
-            <textarea
-              name="needs"
-              rows={3}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Besoins &amp; Attentes</label>
+            <textarea name="needs" rows={3} className={inputClass} style={inputStyle} />
           </div>
         </div>
 
-        {/* PIP scoring */}
-        <div className="border rounded-lg p-4 bg-gray-50">
-          <p className="text-sm font-medium text-gray-700 mb-3">Évaluation influence / interaction</p>
+        <div className="rounded-lg p-4" style={{ background: 'var(--admin-bg)', border: '1px solid var(--admin-border)' }}>
+          <p className="text-[12px] font-medium mb-3" style={{ color: 'var(--admin-text-muted)' }}>Évaluation influence / interaction</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Influence (1–4)</label>
+              <label className="block text-[11px] mb-1" style={{ color: 'var(--admin-text-muted)' }}>Influence (1–4)</label>
               <select
                 value={influence}
                 onChange={(e) => setInfluence(Number(e.target.value))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className={inputClass} style={inputStyle}
               >
                 {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Interaction (1–4)</label>
+              <label className="block text-[11px] mb-1" style={{ color: 'var(--admin-text-muted)' }}>Interaction (1–4)</label>
               <select
                 value={interaction}
                 onChange={(e) => setInteraction(Number(e.target.value))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                className={inputClass} style={inputStyle}
               >
                 {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
               </select>
@@ -122,36 +114,47 @@ export default function NewStakeholderPage() {
           </div>
           <div className="mt-3 flex items-center gap-2">
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-              isPip ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-500'
+              isPip ? 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]' : 'bg-[var(--admin-surface)] text-[var(--admin-text-muted)]'
             }`}>
               {isPip ? 'PIP — Partie à Influence Particulière' : 'Non PIP'}
             </span>
-            <span className="text-xs text-gray-400">(influence ≥ 2 ET interaction ≥ 2)</span>
+            <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>(influence ≥ 2 ET interaction ≥ 2)</span>
           </div>
         </div>
 
-        {/* Contact */}
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-3">Contact (optionnel)</p>
+          <p className="text-[12px] font-medium mb-3" style={{ color: 'var(--admin-text-muted)' }}>Contact (optionnel)</p>
           <div className="grid grid-cols-3 gap-3">
-            <input name="contactName" type="text" placeholder="Nom" className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-            <input name="contactEmail" type="email" placeholder="Email" className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
-            <input name="contactPhone" type="text" placeholder="Tél." className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+            <input name="contactName" type="text" placeholder="Nom" className={inputClass} style={inputStyle} />
+            <input name="contactEmail" type="email" placeholder="Email" className={inputClass} style={inputStyle} />
+            <input name="contactPhone" type="text" placeholder="Tél." className={inputClass} style={inputStyle} />
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-          <textarea name="notes" rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+          <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Notes</label>
+          <textarea name="notes" rows={2} className={inputClass} style={inputStyle} />
         </div>
 
-        {error && <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded p-2">{error}</p>}
+        {error && (
+          <div className="flex items-center gap-1.5 text-sm px-3 py-2.5 rounded-xl" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+            {error}
+          </div>
+        )}
 
         <div className="flex gap-3 pt-2">
-          <Link href="/admin/stakeholders" className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-center text-gray-600 hover:bg-gray-50">
+          <Link
+            href="/admin/stakeholders"
+            className="flex-1 py-2.5 rounded-lg border text-sm text-center font-medium transition-colors hover:opacity-80"
+            style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
+          >
             Annuler
           </Link>
-          <button type="submit" disabled={loading} className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+          <button
+            type="submit" disabled={loading}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
             {loading ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>

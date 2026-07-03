@@ -14,6 +14,10 @@ const CATEGORIES = [
   { value: 'autre', label: 'Autre' },
 ]
 
+const inputClass = 'w-full px-3 py-2 rounded-lg border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const inputStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }
+const labelClass = 'block text-[12px] font-medium mb-1'
+
 export default function NewRiskOpportunityPage() {
   const router = useRouter()
   const [type, setType] = useState<'risk' | 'opportunity'>('risk')
@@ -51,211 +55,149 @@ export default function NewRiskOpportunityPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/admin/risks-opportunities" className="text-gray-400 hover:text-gray-600 text-sm">
+        <Link href="/admin/risks-opportunities" className="text-[13px] hover:opacity-70 transition-opacity" style={{ color: 'var(--admin-text-muted)' }}>
           ← Retour
         </Link>
-        <h1 className="text-xl font-bold text-gray-900">Nouveau Risque / Opportunité</h1>
+        <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
+          Nouveau Risque / Opportunité
+        </h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-6 space-y-5">
-        {/* Type toggle */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Type *</label>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setType('risk')}
-              className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                type === 'risk'
-                  ? 'bg-red-600 text-white border-red-600'
-                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
-              }`}
-            >
-              Risque
-            </button>
-            <button
-              type="button"
-              onClick={() => setType('opportunity')}
-              className={`flex-1 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
-                type === 'opportunity'
-                  ? 'bg-green-600 text-white border-green-600'
-                  : 'border-gray-300 text-gray-600 hover:border-gray-400'
-              }`}
-            >
-              Opportunité
-            </button>
-          </div>
-        </div>
-
-        {/* Category */}
-        <div>
-          <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-            Catégorie *
-          </label>
-          <select
-            id="category"
-            name="category"
-            required
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">Sélectionner…</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Description */}
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-            Description *
-          </label>
-          <textarea
-            id="description"
-            name="description"
-            required
-            rows={3}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Décrire le risque ou l'opportunité…"
-          />
-        </div>
-
-        {/* Context */}
-        <div>
-          <label htmlFor="context" className="block text-sm font-medium text-gray-700 mb-1">
-            Source / Contexte
-          </label>
-          <input
-            id="context"
-            name="context"
-            type="text"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Origine du risque ou de l'opportunité"
-          />
-        </div>
-
-        {/* Scoring — risk */}
-        {type === 'risk' && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="gravity" className="block text-sm font-medium text-gray-700 mb-1">
-                Gravité (1–4)
-              </label>
-              <select
-                id="gravity"
-                name="gravity"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">—</option>
-                {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="probability" className="block text-sm font-medium text-gray-700 mb-1">
-                Probabilité (1–4)
-              </label>
-              <select
-                id="probability"
-                name="probability"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">—</option>
-                {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Scoring — opportunity */}
-        {type === 'opportunity' && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
-                Priorité (1–4)
-              </label>
-              <select
-                id="priority"
-                name="priority"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">—</option>
-                {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="importance" className="block text-sm font-medium text-gray-700 mb-1">
-                Importance (1–4)
-              </label>
-              <select
-                id="importance"
-                name="importance"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">—</option>
-                {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Owner + date */}
-        <div className="grid grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="rounded-xl border p-6 space-y-5" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+          {/* Type toggle */}
           <div>
-            <label htmlFor="owner" className="block text-sm font-medium text-gray-700 mb-1">
-              Responsable
-            </label>
-            <input
-              id="owner"
-              name="owner"
-              type="text"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Nom ou fonction"
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Type *</label>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setType('risk')}
+                className="flex-1 py-2.5 rounded-lg border text-sm font-medium transition-opacity hover:opacity-90"
+                style={type === 'risk'
+                  ? { background: 'var(--admin-red)', color: '#fff', borderColor: 'transparent' }
+                  : { borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }
+                }
+              >
+                Risque
+              </button>
+              <button
+                type="button"
+                onClick={() => setType('opportunity')}
+                className="flex-1 py-2.5 rounded-lg border text-sm font-medium transition-opacity hover:opacity-90"
+                style={type === 'opportunity'
+                  ? { background: 'var(--green)', color: 'var(--ivory)', borderColor: 'transparent' }
+                  : { borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }
+                }
+              >
+                Opportunité
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="category" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Catégorie *</label>
+            <select id="category" name="category" required className={inputClass} style={inputStyle}>
+              <option value="">Sélectionner…</option>
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="description" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Description *</label>
+            <textarea
+              id="description" name="description" required rows={3}
+              className={inputClass} style={inputStyle}
+              placeholder="Décrire le risque ou l'opportunité…"
             />
           </div>
+
           <div>
-            <label htmlFor="targetDate" className="block text-sm font-medium text-gray-700 mb-1">
-              Date cible
-            </label>
+            <label htmlFor="context" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Source / Contexte</label>
             <input
-              id="targetDate"
-              name="targetDate"
-              type="date"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              id="context" name="context" type="text"
+              className={inputClass} style={inputStyle}
+              placeholder="Origine du risque ou de l'opportunité"
             />
           </div>
-        </div>
 
-        {/* Notes */}
-        <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-            Notes
-          </label>
-          <textarea
-            id="notes"
-            name="notes"
-            rows={2}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+          {type === 'risk' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="gravity" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Gravité (1–4)</label>
+                <select id="gravity" name="gravity" className={inputClass} style={inputStyle}>
+                  <option value="">—</option>
+                  {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="probability" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Probabilité (1–4)</label>
+                <select id="probability" name="probability" className={inputClass} style={inputStyle}>
+                  <option value="">—</option>
+                  {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
 
-        {error && (
-          <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded p-2">{error}</p>
-        )}
+          {type === 'opportunity' && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="priority" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Priorité (1–4)</label>
+                <select id="priority" name="priority" className={inputClass} style={inputStyle}>
+                  <option value="">—</option>
+                  {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="importance" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Importance (1–4)</label>
+                <select id="importance" name="importance" className={inputClass} style={inputStyle}>
+                  <option value="">—</option>
+                  {[1,2,3,4].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
 
-        <div className="flex gap-3 pt-2">
-          <Link
-            href="/admin/risks-opportunities"
-            className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-center text-gray-600 hover:bg-gray-50"
-          >
-            Annuler
-          </Link>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="owner" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Responsable</label>
+              <input id="owner" name="owner" type="text" className={inputClass} style={inputStyle} placeholder="Nom ou fonction" />
+            </div>
+            <div>
+              <label htmlFor="targetDate" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Date cible</label>
+              <input id="targetDate" name="targetDate" type="date" className={inputClass} style={inputStyle} />
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="notes" className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Notes</label>
+            <textarea id="notes" name="notes" rows={2} className={inputClass} style={inputStyle} />
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-1.5 text-sm px-3 py-2.5 rounded-xl" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Link
+              href="/admin/risks-opportunities"
+              className="flex-1 py-2.5 rounded-lg border text-sm text-center font-medium transition-colors hover:opacity-80"
+              style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
+            >
+              Annuler
+            </Link>
+            <button
+              type="submit" disabled={loading}
+              className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+            >
+              {loading ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </div>
         </div>
       </form>
     </div>

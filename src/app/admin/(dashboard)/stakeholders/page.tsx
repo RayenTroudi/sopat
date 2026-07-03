@@ -32,78 +32,77 @@ export default async function StakeholdersPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Parties Intéressées</h1>
-          <p className="text-sm text-gray-500 mt-1">FOR-MI-08/09 — Écoute des parties intéressées</p>
+          <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
+            Parties Intéressées
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            FOR-MI-08/09 — Écoute des parties intéressées
+          </p>
         </div>
         <Link
           href="/admin/stakeholders/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
         >
           + Nouvelle PI
         </Link>
       </div>
 
-      {/* Summary */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Total PI</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{rows.length}</p>
-        </div>
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">PIP (forte influence)</p>
-          <p className={`text-3xl font-bold mt-1 ${pipCount > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
-            {pipCount}
-          </p>
-        </div>
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Suggestions personnel</p>
-          <p className="text-3xl font-bold text-blue-600 mt-1">{suggestions.length}</p>
-        </div>
+        {[
+          { label: 'Total PI', value: rows.length, color: 'var(--admin-text)' },
+          { label: 'PIP (forte influence)', value: pipCount, color: pipCount > 0 ? 'var(--admin-amber)' : 'var(--admin-text)' },
+          { label: 'Suggestions personnel', value: suggestions.length, color: 'var(--admin-accent)' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="rounded-xl border p-4" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+            <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{label}</p>
+            <p className="text-3xl font-bold mt-1" style={{ color }}>{value}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Stakeholders table */}
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between">
-          <h2 className="font-medium text-gray-900">Registre des parties intéressées</h2>
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
+          <h2 className="text-[13px] font-medium" style={{ color: 'var(--admin-text)' }}>Registre des parties intéressées</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Réf.</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Nom</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Besoins / Attentes</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">Influence</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">Interaction</th>
-                <th className="text-center px-4 py-3 font-medium text-gray-600">PIP</th>
-                <th className="px-4 py-3"></th>
+              <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
+                {['Réf.', 'Nom', 'Type', 'Besoins / Attentes', 'Influence', 'Interaction', 'PIP', ''].map((h) => (
+                  <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {rows.map(({ sh }) => (
-                <tr key={sh.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{sh.reference}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{sh.name}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{typeLabels[sh.type] ?? sh.type}</td>
-                  <td className="px-4 py-3 max-w-xs">
-                    <p className="truncate text-gray-600 text-xs">{sh.needs ?? '—'}</p>
+                <tr key={sh.id} className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors" style={{ borderTop: '1px solid var(--admin-border)' }}>
+                  <td className="px-4 py-3">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>
+                      {sh.reference}
+                    </span>
                   </td>
-                  <td className="px-4 py-3 text-center font-semibold">{sh.influence}</td>
-                  <td className="px-4 py-3 text-center font-semibold">{sh.interaction}</td>
+                  <td className="px-4 py-3 font-medium text-[13px]" style={{ color: 'var(--admin-text)' }}>{sh.name}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{typeLabels[sh.type] ?? sh.type}</td>
+                  <td className="px-4 py-3 max-w-xs">
+                    <p className="truncate text-xs" style={{ color: 'var(--admin-text-muted)' }}>{sh.needs ?? '—'}</p>
+                  </td>
+                  <td className="px-4 py-3 text-center font-semibold text-[13px]" style={{ color: 'var(--admin-text)' }}>{sh.influence}</td>
+                  <td className="px-4 py-3 text-center font-semibold text-[13px]" style={{ color: 'var(--admin-text)' }}>{sh.interaction}</td>
                   <td className="px-4 py-3 text-center">
                     {sh.isPip ? (
-                      <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                      <span className="px-2 py-0.5 bg-[var(--admin-amber-dim)] text-[var(--admin-amber)] rounded-full text-xs font-medium">
                         PIP
                       </span>
                     ) : (
-                      <span className="text-gray-300 text-xs">—</span>
+                      <span className="text-xs" style={{ color: 'var(--admin-border)' }}>—</span>
                     )}
                   </td>
                   <td className="px-4 py-3">
                     <Link
                       href={`/admin/stakeholders/${sh.id}`}
-                      className="text-blue-600 hover:underline text-xs font-medium"
+                      className="text-[13px] font-medium hover:opacity-70 transition-opacity"
+                      style={{ color: 'var(--admin-accent)' }}
                     >
                       Voir →
                     </Link>
@@ -112,9 +111,9 @@ export default async function StakeholdersPage() {
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={8} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
                     Aucune partie intéressée.{' '}
-                    <Link href="/admin/stakeholders/new" className="text-blue-600 hover:underline">
+                    <Link href="/admin/stakeholders/new" style={{ color: 'var(--admin-accent)' }} className="hover:underline">
                       Créer la première
                     </Link>
                   </td>
@@ -125,33 +124,33 @@ export default async function StakeholdersPage() {
         </div>
       </div>
 
-      {/* Staff suggestions */}
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between">
-          <h2 className="font-medium text-gray-900">Suggestions du personnel</h2>
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
+          <h2 className="text-[13px] font-medium" style={{ color: 'var(--admin-text)' }}>Suggestions du personnel</h2>
           <Link
             href="/admin/stakeholders/suggestions/new"
-            className="text-blue-600 text-sm hover:underline"
+            className="text-[13px] font-medium hover:opacity-70 transition-opacity"
+            style={{ color: 'var(--admin-accent)' }}
           >
             + Nouvelle suggestion
           </Link>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div>
           {suggestions.slice(0, 10).map(({ s, creatorName }) => (
-            <div key={s.id} className="px-4 py-3">
+            <div key={s.id} className="px-4 py-3" style={{ borderTop: '1px solid var(--admin-border)' }}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <p className="text-sm text-gray-900">{s.suggestionText}</p>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-sm" style={{ color: 'var(--admin-text)' }}>{s.suggestionText}</p>
+                  <p className="text-xs mt-1" style={{ color: 'var(--admin-text-muted)' }}>
                     {s.dept} · {s.date} · {creatorName}
                   </p>
                 </div>
                 {s.responseText ? (
-                  <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs ml-3 flex-shrink-0">
+                  <span className="px-2 py-0.5 bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)] rounded-full text-xs ml-3 flex-shrink-0 font-medium">
                     Répondu
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs ml-3 flex-shrink-0">
+                  <span className="px-2 py-0.5 bg-[var(--admin-amber-dim)] text-[var(--admin-amber)] rounded-full text-xs ml-3 flex-shrink-0 font-medium">
                     En attente
                   </span>
                 )}
@@ -159,7 +158,7 @@ export default async function StakeholdersPage() {
             </div>
           ))}
           {suggestions.length === 0 && (
-            <div className="px-4 py-8 text-center text-gray-400 text-sm">
+            <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
               Aucune suggestion enregistrée.
             </div>
           )}

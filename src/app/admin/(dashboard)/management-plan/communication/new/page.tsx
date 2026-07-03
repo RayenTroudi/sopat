@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation'
 import { createCommunicationEntry } from '@/lib/actions/management-plan'
 import Link from 'next/link'
 
+const inputClass = 'w-full px-3 py-2 rounded-lg border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-border-light)]'
+const inputStyle = { borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }
+const labelClass = 'block text-[12px] font-medium mb-1'
+
 export default function NewCommunicationEntryPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -40,70 +44,80 @@ export default function NewCommunicationEntryPage() {
   return (
     <div className="p-6 max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/admin/management-plan" className="text-gray-400 hover:text-gray-600 text-sm">← Retour</Link>
-        <h1 className="text-xl font-bold text-gray-900">Nouvelle entrée — Plan de communication</h1>
+        <Link href="/admin/management-plan" className="text-[13px] hover:opacity-70 transition-opacity" style={{ color: 'var(--admin-text-muted)' }}>
+          ← Retour
+        </Link>
+        <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
+          Nouvelle entrée — Plan de communication
+        </h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white border rounded-lg p-6 space-y-4">
+      <form onSubmit={handleSubmit} className="rounded-xl border p-6 space-y-4" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Année *</label>
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Année *</label>
             <input name="year" type="number" required defaultValue={currentYear} min={2020} max={2030}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className={inputClass} style={inputStyle} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Direction *</label>
-            <select name="direction" required
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Direction *</label>
+            <select name="direction" required className={inputClass} style={inputStyle}>
               <option value="interne">Interne</option>
               <option value="externe">Externe</option>
             </select>
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Sujet *</label>
+          <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Sujet *</label>
           <input name="subject" type="text" required placeholder="Ex: Réunion de revue de direction"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            className={inputClass} style={inputStyle} />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Cible / Destinataire</label>
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Cible / Destinataire</label>
             <input name="target" type="text" placeholder="Ex: Équipe, Direction, Clients..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className={inputClass} style={inputStyle} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Canal</label>
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Canal</label>
             <input name="channel" type="text" placeholder="Ex: Réunion, Email, Affichage..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className={inputClass} style={inputStyle} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Fréquence</label>
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Fréquence</label>
             <input name="frequency" type="text" placeholder="Ex: Mensuel, Trimestriel..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className={inputClass} style={inputStyle} />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Responsable</label>
-            <input name="responsible" type="text"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Responsable</label>
+            <input name="responsible" type="text" className={inputClass} style={inputStyle} />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Date prévue</label>
-          <input name="plannedDate" type="date"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Date prévue</label>
+          <input name="plannedDate" type="date" className={inputClass} style={inputStyle} />
         </div>
 
-        {error && <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded p-2">{error}</p>}
+        {error && (
+          <div className="flex items-center gap-1.5 text-sm px-3 py-2.5 rounded-xl" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+            {error}
+          </div>
+        )}
 
         <div className="flex gap-3 pt-2">
-          <Link href="/admin/management-plan"
-            className="flex-1 py-2.5 border border-gray-300 rounded-lg text-sm text-center text-gray-600 hover:bg-gray-50">
+          <Link
+            href="/admin/management-plan"
+            className="flex-1 py-2.5 rounded-lg border text-sm text-center font-medium hover:opacity-80 transition-opacity"
+            style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
+          >
             Annuler
           </Link>
           <button type="submit" disabled={loading}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
             {loading ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>

@@ -7,7 +7,7 @@ function KpiCard({
   label,
   value,
   subtext,
-  color = 'text-gray-900',
+  color = 'var(--admin-text)',
   href,
 }: {
   label: string
@@ -17,10 +17,10 @@ function KpiCard({
   href?: string
 }) {
   const content = (
-    <div className="border rounded-lg p-4 bg-white hover:shadow-sm transition-shadow">
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className={`text-3xl font-bold mt-1 ${color}`}>{value}</p>
-      {subtext && <p className="text-xs text-gray-400 mt-1">{subtext}</p>}
+    <div className="rounded-xl border p-4 transition-shadow hover:shadow-sm" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+      <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{label}</p>
+      <p className="text-3xl font-bold mt-1" style={{ color }}>{value}</p>
+      {subtext && <p className="text-[11px] mt-1" style={{ color: 'var(--admin-text-muted)' }}>{subtext}</p>}
     </div>
   )
   if (href) return <Link href={href}>{content}</Link>
@@ -32,66 +32,64 @@ export function SmqDashboard({ kpis, year }: { kpis: SmqKpis; year: number }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Tableau de bord SMQ</h2>
-          <p className="text-sm text-gray-500">FOR-MI-10 — Indicateurs qualité {year}</p>
+          <h2 className="text-[15px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>Tableau de bord SMQ</h2>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>FOR-MI-10 — Indicateurs qualité {year}</p>
         </div>
       </div>
 
-      {/* KPI grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <KpiCard
           label="NC ouvertes"
           value={kpis.ncOpen}
           subtext={`${kpis.ncTotal} total cette année`}
-          color={kpis.ncOpen > 5 ? 'text-red-600' : kpis.ncOpen > 0 ? 'text-orange-500' : 'text-green-600'}
+          color={kpis.ncOpen > 5 ? 'var(--admin-red)' : kpis.ncOpen > 0 ? 'var(--admin-amber)' : 'var(--admin-emerald)'}
           href="/admin/nc"
         />
         <KpiCard
           label="Taux clôture NC"
           value={`${kpis.ncRate}%`}
           subtext={`${kpis.ncClosed} / ${kpis.ncTotal} clôturées`}
-          color={kpis.ncRate >= 80 ? 'text-green-600' : kpis.ncRate >= 50 ? 'text-orange-500' : 'text-red-600'}
+          color={kpis.ncRate >= 80 ? 'var(--admin-emerald)' : kpis.ncRate >= 50 ? 'var(--admin-amber)' : 'var(--admin-red)'}
           href="/admin/nc"
         />
         <KpiCard
           label="Efficacité CAPA"
           value={`${kpis.capaRate}%`}
           subtext={`${kpis.capaEffective} / ${kpis.capaTotal} clôturées`}
-          color={kpis.capaRate >= 80 ? 'text-green-600' : kpis.capaRate >= 50 ? 'text-orange-500' : 'text-red-600'}
+          color={kpis.capaRate >= 80 ? 'var(--admin-emerald)' : kpis.capaRate >= 50 ? 'var(--admin-amber)' : 'var(--admin-red)'}
         />
         <KpiCard
           label="Réalisation audits"
           value={`${kpis.auditRate}%`}
           subtext={`${kpis.auditDone} / ${kpis.auditTotal} réalisés`}
-          color={kpis.auditRate >= 80 ? 'text-green-600' : kpis.auditRate >= 50 ? 'text-orange-500' : 'text-red-600'}
+          color={kpis.auditRate >= 80 ? 'var(--admin-emerald)' : kpis.auditRate >= 50 ? 'var(--admin-amber)' : 'var(--admin-red)'}
           href="/admin/audit-programs"
         />
         <KpiCard
           label="Risques critiques (≥12)"
           value={kpis.risksHigh}
           subtext="Criticité gravité×probabilité"
-          color={kpis.risksHigh > 3 ? 'text-red-600' : kpis.risksHigh > 0 ? 'text-orange-500' : 'text-green-600'}
+          color={kpis.risksHigh > 3 ? 'var(--admin-red)' : kpis.risksHigh > 0 ? 'var(--admin-amber)' : 'var(--admin-emerald)'}
           href="/admin/risks-opportunities?type=risk"
         />
         <KpiCard
           label="Déchets tracés"
           value={`${kpis.wasteKg.toFixed(0)} kg`}
           subtext={`Année ${year}`}
-          color="text-gray-700"
+          color="var(--admin-text)"
           href="/admin/environment/waste"
         />
         <KpiCard
           label="Conformité HSE"
           value={kpis.hseTotal > 0 ? `${kpis.hseRate}%` : '—'}
           subtext={`${kpis.hseTotal} soumissions`}
-          color={kpis.hseRate >= 90 ? 'text-green-600' : kpis.hseRate >= 70 ? 'text-orange-500' : 'text-red-600'}
+          color={kpis.hseRate >= 90 ? 'var(--admin-emerald)' : kpis.hseRate >= 70 ? 'var(--admin-amber)' : 'var(--admin-red)'}
           href="/admin/environment/hse-checklist"
         />
       </div>
 
-      {/* Quick links */}
-      <div className="border rounded-lg p-4 bg-white">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Modules SMQ</p>
+      <div className="rounded-xl border p-4" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        <p className="text-[11px] font-semibold uppercase tracking-wide mb-3" style={{ color: 'var(--admin-text-muted)' }}>Modules SMQ</p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
           {[
             { label: 'Risques & Opportunités', href: '/admin/risks-opportunities' },
@@ -104,7 +102,8 @@ export function SmqDashboard({ kpis, year }: { kpis: SmqKpis; year: number }) {
             { label: 'Non-Conformités', href: '/admin/nc' },
           ].map(({ label, href }) => (
             <Link key={href} href={href}
-              className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-colors">
+              className="px-3 py-2 rounded-lg border text-[13px] transition-colors hover:opacity-80"
+              style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)', background: 'var(--admin-bg)' }}>
               {label} →
             </Link>
           ))}

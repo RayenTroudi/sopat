@@ -17,65 +17,72 @@ export default async function HseChecklistPage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Checklist HSE</h1>
-          <p className="text-sm text-gray-500 mt-1">FOR-MI-12 — Suivi hygiène, sécurité et environnement</p>
+          <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
+            Checklist HSE
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            FOR-MI-12 — Suivi hygiène, sécurité et environnement
+          </p>
         </div>
-        <Link href="/admin/environment/hse-checklist/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium">
+        <Link
+          href="/admin/environment/hse-checklist/new"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+        >
           + Nouvelle soumission
         </Link>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Total soumissions</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{submissions.length}</p>
-        </div>
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Conformes</p>
-          <p className="text-3xl font-bold text-green-600 mt-1">{conformes}</p>
-        </div>
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Taux conformité</p>
-          <p className={`text-3xl font-bold mt-1 ${
-            submissions.length === 0 ? 'text-gray-400' :
-            conformes / submissions.length >= 0.9 ? 'text-green-600' : 'text-orange-500'
-          }`}>
-            {submissions.length > 0 ? `${Math.round((conformes / submissions.length) * 100)}%` : '—'}
-          </p>
-        </div>
+        {[
+          { label: 'Total soumissions', value: submissions.length, color: 'var(--admin-text)' },
+          { label: 'Conformes', value: conformes, color: 'var(--admin-emerald)' },
+          {
+            label: 'Taux conformité',
+            value: submissions.length > 0 ? `${Math.round((conformes / submissions.length) * 100)}%` : '—',
+            color: submissions.length === 0 ? 'var(--admin-text-muted)'
+              : conformes / submissions.length >= 0.9 ? 'var(--admin-emerald)'
+              : 'var(--admin-amber)',
+          },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="rounded-xl border p-4" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+            <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{label}</p>
+            <p className="text-3xl font-bold mt-1" style={{ color }}>{value}</p>
+          </div>
+        ))}
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b">
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Département</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Statut global</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Soumis par</th>
-              <th className="px-4 py-3"></th>
+            <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
+              {['Date', 'Département', 'Statut global', 'Soumis par', ''].map((h) => (
+                <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {submissions.map(({ submission, creatorName }) => (
-              <tr key={submission.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-900">{submission.submittedDate}</td>
-                <td className="px-4 py-3 text-gray-600">{submission.dept}</td>
+              <tr key={submission.id} className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors" style={{ borderTop: '1px solid var(--admin-border)' }}>
+                <td className="px-4 py-3 text-[13px]" style={{ color: 'var(--admin-text)' }}>{submission.submittedDate}</td>
+                <td className="px-4 py-3 text-[13px]" style={{ color: 'var(--admin-text-muted)' }}>{submission.dept}</td>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    submission.overallStatus === 'conforme' ? 'bg-green-100 text-green-700' :
-                    submission.overallStatus === 'partiel' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-red-100 text-red-700'
+                    submission.overallStatus === 'conforme' ? 'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]' :
+                    submission.overallStatus === 'partiel' ? 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]' :
+                    'bg-[var(--admin-red-dim)] text-[var(--admin-red)]'
                   }`}>
                     {submission.overallStatus === 'conforme' ? 'Conforme' :
                      submission.overallStatus === 'partiel' ? 'Partiel' : 'Non conforme'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-600 text-xs">{creatorName}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{creatorName}</td>
                 <td className="px-4 py-3">
-                  <Link href={`/admin/environment/hse-checklist/${submission.id}`}
-                    className="text-blue-600 hover:underline text-xs font-medium">
+                  <Link
+                    href={`/admin/environment/hse-checklist/${submission.id}`}
+                    className="text-[13px] font-medium hover:opacity-70 transition-opacity"
+                    style={{ color: 'var(--admin-accent)' }}
+                  >
                     Voir →
                   </Link>
                 </td>
@@ -83,9 +90,9 @@ export default async function HseChecklistPage() {
             ))}
             {submissions.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                <td colSpan={5} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
                   Aucune soumission.{' '}
-                  <Link href="/admin/environment/hse-checklist/new" className="text-blue-600 hover:underline">
+                  <Link href="/admin/environment/hse-checklist/new" style={{ color: 'var(--admin-accent)' }} className="hover:underline">
                     Créer la première
                   </Link>
                 </td>

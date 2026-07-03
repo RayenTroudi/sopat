@@ -13,11 +13,11 @@ export const metadata = { title: 'Plan de Management | SOPAT Admin' }
 type SearchParams = Promise<Record<string, string | string[] | undefined>>
 
 const STATUS_COLORS: Record<string, string> = {
-  planifie: 'bg-blue-100',
-  realise_dans_delai: 'bg-green-400',
-  realise_avec_retard: 'bg-orange-400',
-  non_realise: 'bg-red-400',
-  cloture: 'bg-gray-400',
+  planifie: 'var(--admin-accent-dim)',
+  realise_dans_delai: 'var(--admin-emerald)',
+  realise_avec_retard: 'var(--admin-amber)',
+  non_realise: 'var(--admin-red)',
+  cloture: 'var(--admin-text-muted)',
 }
 
 export default async function ManagementPlanPage({ searchParams }: { searchParams: SearchParams }) {
@@ -43,28 +43,36 @@ export default async function ManagementPlanPage({ searchParams }: { searchParam
     <div className="p-6 space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Plan de Management Annuel</h1>
-          <p className="text-sm text-gray-500 mt-1">PLA-MI-01 / PLA-MI-02 — Plan et communication</p>
+          <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
+            Plan de Management Annuel
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            PLA-MI-01 / PLA-MI-02 — Plan et communication
+          </p>
         </div>
-        <Link href="/admin/management-plan/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium">
+        <Link
+          href="/admin/management-plan/new"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+        >
           + Nouvelle activité
         </Link>
       </div>
 
-      {/* Year selector */}
       <div className="flex gap-2">
         {[year - 1, year, year + 1].map((y) => (
           <Link key={y} href={`?year=${y}`}
-            className={`px-3 py-1.5 rounded-lg border text-sm font-medium transition-colors ${
-              y === year ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:border-gray-400'
-            }`}>
+            className="px-3 py-1.5 rounded-lg border text-[13px] font-medium transition-colors"
+            style={y === year
+              ? { background: 'var(--admin-text)', color: 'var(--admin-surface)', borderColor: 'transparent' }
+              : { borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }
+            }
+          >
             {y}
           </Link>
         ))}
       </div>
 
-      {/* Legend */}
       <div className="flex gap-4 text-xs">
         {[
           { key: 'planifie', label: 'Planifié' },
@@ -74,49 +82,53 @@ export default async function ManagementPlanPage({ searchParams }: { searchParam
           { key: 'cloture', label: 'Clôturé' },
         ].map(({ key, label }) => (
           <div key={key} className="flex items-center gap-1">
-            <div className={`w-3 h-3 rounded-sm ${STATUS_COLORS[key]}`} />
-            <span className="text-gray-600">{label}</span>
+            <div className="w-3 h-3 rounded-sm" style={{ background: STATUS_COLORS[key] }} />
+            <span style={{ color: 'var(--admin-text-muted)' }}>{label}</span>
           </div>
         ))}
       </div>
 
-      {/* Gantt table */}
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         <div className="overflow-x-auto">
           <table className="text-xs border-collapse" style={{ minWidth: '1800px' }}>
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="text-left px-3 py-2 font-medium text-gray-600 min-w-[220px] sticky left-0 bg-gray-50 z-10">Objectif / Action</th>
-                <th className="text-left px-3 py-2 font-medium text-gray-600 min-w-[60px]">Dept</th>
-                <th className="text-left px-3 py-2 font-medium text-gray-600 min-w-[100px]">Responsable</th>
+              <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
+                <th className="text-left px-3 py-2 text-[11px] font-medium min-w-[220px] sticky left-0 z-10"
+                  style={{ color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}>
+                  Objectif / Action
+                </th>
+                <th className="text-left px-3 py-2 text-[11px] font-medium min-w-[60px]" style={{ color: 'var(--admin-text-muted)' }}>Dept</th>
+                <th className="text-left px-3 py-2 text-[11px] font-medium min-w-[100px]" style={{ color: 'var(--admin-text-muted)' }}>Responsable</th>
                 {weeks.map((w) => (
-                  <th key={w} className={`px-0.5 py-2 font-medium text-gray-500 w-6 text-center ${w % 4 === 0 ? 'border-r border-gray-200' : ''}`}>
+                  <th key={w} className={`px-0.5 py-2 text-[11px] font-medium w-6 text-center ${w % 4 === 0 ? 'border-r' : ''}`}
+                    style={{ color: 'var(--admin-text-muted)', borderColor: 'var(--admin-border)' }}>
                     {w}
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {activities.map(({ activity }) => {
                 const planned = (activity.plannedWeeks as number[]) ?? []
                 return (
-                  <tr key={activity.id} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 sticky left-0 bg-white hover:bg-gray-50 z-10 border-r border-gray-100">
-                      <p className="font-medium text-gray-900 truncate max-w-[200px]">{activity.objective}</p>
-                      <p className="text-gray-500 truncate max-w-[200px]">{activity.action}</p>
+                  <tr key={activity.id} className="hover:bg-[var(--admin-bg)] transition-colors" style={{ borderTop: '1px solid var(--admin-border)' }}>
+                    <td className="px-3 py-2 sticky left-0 z-10 border-r" style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)' }}>
+                      <p className="font-medium truncate max-w-[200px]" style={{ color: 'var(--admin-text)' }}>{activity.objective}</p>
+                      <p className="truncate max-w-[200px]" style={{ color: 'var(--admin-text-muted)' }}>{activity.action}</p>
                     </td>
-                    <td className="px-3 py-2 text-gray-500">{activity.dept}</td>
-                    <td className="px-3 py-2 text-gray-500 truncate max-w-[90px]">{activity.responsible ?? '—'}</td>
+                    <td className="px-3 py-2" style={{ color: 'var(--admin-text-muted)' }}>{activity.dept}</td>
+                    <td className="px-3 py-2 truncate max-w-[90px]" style={{ color: 'var(--admin-text-muted)' }}>{activity.responsible ?? '—'}</td>
                     {weeks.map((w) => {
                       const isPlanned = planned.includes(w)
                       const execStatus = execMap[`${activity.id}-${w}`]
-                      const colorClass = execStatus
+                      const bg = execStatus
                         ? STATUS_COLORS[execStatus]
                         : isPlanned
-                        ? 'bg-blue-200'
-                        : ''
+                        ? 'var(--admin-accent-dim)'
+                        : undefined
                       return (
-                        <td key={w} className={`h-8 ${colorClass} ${w % 4 === 0 ? 'border-r border-gray-200' : ''}`} />
+                        <td key={w} className={`h-8 ${w % 4 === 0 ? 'border-r' : ''}`}
+                          style={{ background: bg, borderColor: 'var(--admin-border)' }} />
                       )
                     })}
                   </tr>
@@ -124,9 +136,11 @@ export default async function ManagementPlanPage({ searchParams }: { searchParam
               })}
               {activities.length === 0 && (
                 <tr>
-                  <td colSpan={55} className="px-4 py-10 text-center text-gray-400">
+                  <td colSpan={55} className="px-4 py-10 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
                     Aucune activité pour {year}.{' '}
-                    <Link href="/admin/management-plan/new" className="text-blue-600 hover:underline">Créer la première</Link>
+                    <Link href="/admin/management-plan/new" style={{ color: 'var(--admin-accent)' }} className="hover:underline">
+                      Créer la première
+                    </Link>
                   </td>
                 </tr>
               )}
@@ -135,49 +149,46 @@ export default async function ManagementPlanPage({ searchParams }: { searchParam
         </div>
       </div>
 
-      {/* Communication plan */}
-      <div className="bg-white border rounded-lg overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between">
-          <h2 className="font-semibold text-gray-900">Plan de Communication (PLA-MI-02)</h2>
-          <Link href="/admin/management-plan/communication/new" className="text-blue-600 text-sm hover:underline">
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
+          <h2 className="text-[13px] font-semibold" style={{ color: 'var(--admin-text)' }}>Plan de Communication (PLA-MI-02)</h2>
+          <Link href="/admin/management-plan/communication/new" className="text-[13px] font-medium hover:opacity-70 transition-opacity" style={{ color: 'var(--admin-accent)' }}>
             + Ajouter
           </Link>
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b">
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Direction</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Sujet</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Cible</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Moyen</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Fréquence</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Responsable</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Date prévue</th>
+            <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
+              {['Direction', 'Sujet', 'Cible', 'Moyen', 'Fréquence', 'Responsable', 'Date prévue'].map((h) => (
+                <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {commEntries.map(({ comm }) => (
-              <tr key={comm.id} className="hover:bg-gray-50">
+              <tr key={comm.id} className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors" style={{ borderTop: '1px solid var(--admin-border)' }}>
                 <td className="px-4 py-3">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    comm.direction === 'interne' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'
+                    comm.direction === 'interne'
+                      ? 'bg-[var(--admin-accent-dim)] text-[var(--admin-accent)]'
+                      : 'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]'
                   }`}>
                     {comm.direction === 'interne' ? 'Interne' : 'Externe'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-gray-900 max-w-xs">
-                  <p className="truncate">{comm.subject}</p>
+                <td className="px-4 py-3 max-w-xs">
+                  <p className="truncate text-[13px]" style={{ color: 'var(--admin-text)' }}>{comm.subject}</p>
                 </td>
-                <td className="px-4 py-3 text-gray-600 text-xs">{comm.target ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-600 text-xs">{comm.channel ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-600 text-xs">{comm.frequency ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-600 text-xs">{comm.responsible ?? '—'}</td>
-                <td className="px-4 py-3 text-gray-600 text-xs">{comm.plannedDate ?? '—'}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{comm.target ?? '—'}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{comm.channel ?? '—'}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{comm.frequency ?? '—'}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{comm.responsible ?? '—'}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{comm.plannedDate ?? '—'}</td>
               </tr>
             ))}
             {commEntries.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">
+                <td colSpan={7} className="px-4 py-8 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
                   Aucune entrée pour {year}.
                 </td>
               </tr>

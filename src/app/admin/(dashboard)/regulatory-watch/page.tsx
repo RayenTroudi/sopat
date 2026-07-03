@@ -26,30 +26,33 @@ export default async function RegulatoryWatchPage({
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Veille Réglementaire</h1>
-          <p className="text-sm text-gray-500 mt-1">LIS-MI-07 — Registre des exigences légales et réglementaires</p>
+          <h1 className="text-[18px] font-semibold" style={{ color: 'var(--admin-text)', letterSpacing: '-0.01em' }}>
+            Veille Réglementaire
+          </h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            LIS-MI-07 — Registre des exigences légales et réglementaires
+          </p>
         </div>
         <Link
           href="/admin/regulatory-watch/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm font-medium"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
         >
           + Nouveau texte
         </Link>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Total</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{entries.length}</p>
-        </div>
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Applicables</p>
-          <p className="text-3xl font-bold text-green-600 mt-1">{applicable}</p>
-        </div>
-        <div className="border rounded-lg p-4 bg-white">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">En veille</p>
-          <p className="text-3xl font-bold text-yellow-600 mt-1">{enVeille}</p>
-        </div>
+        {[
+          { label: 'Total', value: entries.length, color: 'var(--admin-text)' },
+          { label: 'Applicables', value: applicable, color: 'var(--admin-emerald)' },
+          { label: 'En veille', value: enVeille, color: 'var(--admin-amber)' },
+        ].map(({ label, value, color }) => (
+          <div key={label} className="rounded-xl border p-4" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+            <p className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{label}</p>
+            <p className="text-3xl font-bold mt-1" style={{ color }}>{value}</p>
+          </div>
+        ))}
       </div>
 
       <div className="flex gap-2">
@@ -62,60 +65,60 @@ export default async function RegulatoryWatchPage({
           <Link
             key={label}
             href={value ? `/admin/regulatory-watch?status=${value}` : '/admin/regulatory-watch'}
-            className={`px-4 py-1.5 rounded-full text-sm border font-medium transition-colors ${
-              status === value
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'border-gray-300 text-gray-600 hover:border-gray-400'
-            }`}
+            className="px-3 py-1.5 rounded-lg border text-[13px] font-medium transition-colors"
+            style={status === value
+              ? { background: 'var(--admin-text)', color: 'var(--admin-surface)', borderColor: 'transparent' }
+              : { borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }
+            }
           >
             {label}
           </Link>
         ))}
       </div>
 
-      <div className="bg-white border rounded-lg overflow-hidden">
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 border-b">
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Réf.</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Titre</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Domaine</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Organisme</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Date effet</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Statut</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Prochaine révision</th>
+              <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
+                {['Réf.', 'Titre', 'Domaine', 'Organisme', 'Date effet', 'Statut', 'Prochaine révision'].map((h) => (
+                  <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {entries.map(({ entry }) => (
-                <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{entry.reference ?? '—'}</td>
-                  <td className="px-4 py-3 max-w-xs">
-                    <p className="font-medium text-gray-900 truncate">{entry.title}</p>
+                <tr key={entry.id} className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors" style={{ borderTop: '1px solid var(--admin-border)' }}>
+                  <td className="px-4 py-3">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>
+                      {entry.reference ?? '—'}
+                    </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{entry.domain ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{entry.issuingBody ?? '—'}</td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{entry.effectiveDate ?? '—'}</td>
+                  <td className="px-4 py-3 max-w-xs">
+                    <p className="font-medium text-[13px] truncate" style={{ color: 'var(--admin-text)' }}>{entry.title}</p>
+                  </td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{entry.domain ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{entry.issuingBody ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{entry.effectiveDate ?? '—'}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                       entry.status === 'applicable'
-                        ? 'bg-green-100 text-green-700'
+                        ? 'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]'
                         : entry.status === 'en_veille'
-                        ? 'bg-yellow-100 text-yellow-700'
-                        : 'bg-gray-100 text-gray-500'
+                        ? 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]'
+                        : 'bg-[var(--admin-bg)] text-[var(--admin-text-muted)]'
                     }`}>
                       {entry.status === 'applicable' ? 'Applicable' : entry.status === 'en_veille' ? 'En veille' : 'Non applicable'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600 text-xs">{entry.nextReviewDate ?? '—'}</td>
+                  <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{entry.nextReviewDate ?? '—'}</td>
                 </tr>
               ))}
               {entries.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-400">
+                  <td colSpan={7} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
                     Aucun texte réglementaire enregistré.{' '}
-                    <Link href="/admin/regulatory-watch/new" className="text-blue-600 hover:underline">
+                    <Link href="/admin/regulatory-watch/new" style={{ color: 'var(--admin-accent)' }} className="hover:underline">
                       Ajouter le premier
                     </Link>
                   </td>
