@@ -11,6 +11,7 @@ import {
   Trophy, BookOpen, Coins, CalendarDays, BarChart3, Users, Settings,
   ChevronLeft, ShieldCheck, Scale, UserCheck, Trash2, HardHat, CalendarRange, Globe2,
   FlaskConical, Layers, Briefcase, GraduationCap, Calendar, Star, UserPlus,
+  Clock, MapPin, Package, RefreshCw, LogOut, ScrollText, ClipboardList,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -73,12 +74,19 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Ressources humaines',
     roles: ['admin','direction','rh_manager','rh_agent'],
     items: [
-      { href: '/admin/rh/employees',     label: 'Personnel',         icon: Users,          roles: ['admin','direction','rh_manager','rh_agent'] },
-      { href: '/admin/rh/job-positions', label: 'Fiches de poste',   icon: Briefcase,      roles: ['admin','direction','rh_manager'] },
-      { href: '/admin/rh/recruitment',   label: 'Recrutement',       icon: UserPlus,       roles: ['admin','direction','rh_manager','rh_agent'] },
-      { href: '/admin/rh/training',      label: 'Plan de formation', icon: GraduationCap,  roles: ['admin','direction','rh_manager','rh_agent'] },
-      { href: '/admin/rh/leaves',        label: 'Congés',            icon: Calendar,       roles: ['admin','direction','rh_manager','rh_agent'] },
-      { href: '/admin/rh/performance',   label: 'Évaluations',       icon: Star,           roles: ['admin','direction','rh_manager'] },
+      { href: '/admin/rh/employees',          label: 'Personnel',            icon: Users,          roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/job-positions',      label: 'Fiches de poste',      icon: Briefcase,      roles: ['admin','direction','rh_manager'] },
+      { href: '/admin/rh/recruitment',        label: 'Recrutement',          icon: UserPlus,       roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/training',           label: 'Plan de formation',    icon: GraduationCap,  roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/leaves',             label: 'Congés',               icon: Calendar,       roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/exit-authorizations',label: 'Autorisations sortie', icon: LogOut,         roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/attendance',         label: 'Pointage',             icon: Clock,          roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/mission-orders',     label: 'Ordres de mission',    icon: MapPin,         roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/equipment',          label: 'Matériel de travail',  icon: Package,        roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/substitutes',        label: 'Suppléants',           icon: RefreshCw,      roles: ['admin','direction','rh_manager'] },
+      { href: '/admin/rh/integration',        label: "Plans d'intégration",  icon: ClipboardList,  roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/performance',        label: 'Évaluations',          icon: Star,           roles: ['admin','direction','rh_manager'] },
+      { href: '/admin/rh/regulations',        label: 'Règlement interne',    icon: ScrollText,     roles: ['admin','direction','rh_manager','rh_agent'] },
     ],
   },
   {

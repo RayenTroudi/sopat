@@ -2847,3 +2847,118 @@ export const integrationPlans = pgTable('integration_plans', {
   foreignKey({ columns: [t.pilotId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
+
+// ─── RH: Attendance Sheets (FOR-RH-13) ───────────────────────────────────────
+
+export const attendanceSheets = pgTable('attendance_sheets', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  userId:         uuid('user_id').notNull(),
+  month:          integer('month').notNull(),
+  year:           integer('year').notNull(),
+  entries:        jsonb('entries').default([]).notNull(),
+  daysWorked:     integer('days_worked'),
+  salaryAdvance:  numeric('salary_advance', { precision: 10, scale: 3 }),
+  supervisorId:   uuid('supervisor_id'),
+  notes:          text('notes'),
+  ...timestamps,
+  createdBy:      uuid('created_by').notNull(),
+}, (t) => [
+  index('attendance_user_month_idx').on(t.userId, t.month, t.year),
+  foreignKey({ columns: [t.userId],       foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.supervisorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],    foreignColumns: [users.id] }),
+])
+
+// ─── RH: Mission Orders (FOR-RH-41) ──────────────────────────────────────────
+
+export const missionOrders = pgTable('mission_orders', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  userId:          uuid('user_id').notNull(),
+  cinNumber:       varchar('cin_number', { length: 20 }),
+  cinIssuedAt:     varchar('cin_issued_at', { length: 100 }),
+  destination:     text('destination'),
+  missionPurpose:  text('mission_purpose'),
+  startDate:       date('start_date'),
+  endDate:         date('end_date'),
+  status:          varchar('status', { length: 20 }).notNull().default('draft'),
+  gmApprovedAt:    timestamp('gm_approved_at'),
+  gmApprovedBy:    uuid('gm_approved_by'),
+  rhApprovedAt:    timestamp('rh_approved_at'),
+  rhApprovedBy:    uuid('rh_approved_by'),
+  deletedAt:       timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:       uuid('created_by').notNull(),
+}, (t) => [
+  index('mission_order_user_idx').on(t.userId),
+  foreignKey({ columns: [t.userId],       foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.gmApprovedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.rhApprovedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],    foreignColumns: [users.id] }),
+])
+
+// ─── RH: Equipment Receipts (FOR-RH-28) ──────────────────────────────────────
+
+export const equipmentReceipts = pgTable('equipment_receipts', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  userId:         uuid('user_id').notNull(),
+  issuedDate:     date('issued_date'),
+  items:          jsonb('items').default([]).notNull(),
+  deliveredBy:    uuid('delivered_by'),
+  returnedDate:   date('returned_date'),
+  returnedNotes:  text('returned_notes'),
+  deletedAt:      timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:      uuid('created_by').notNull(),
+}, (t) => [
+  index('equipment_receipt_user_idx').on(t.userId),
+  foreignKey({ columns: [t.userId],      foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.deliveredBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],   foreignColumns: [users.id] }),
+])
+
+// ─── RH: Personnel File Checklists (FOR-RH-34) ───────────────────────────────
+
+export const personnelFileChecklists = pgTable('personnel_file_checklists', {
+  id:                    uuid('id').primaryKey().defaultRandom(),
+  userId:                uuid('user_id').notNull().unique(),
+  hasCin:                boolean('has_cin').default(false),
+  hasBirthCertificate:   boolean('has_birth_certificate').default(false),
+  hasPhotos:             boolean('has_photos').default(false),
+  hasInfoSheet:          boolean('has_info_sheet').default(false),
+  hasBulletin3:          boolean('has_bulletin3').default(false),
+  hasCnss:               boolean('has_cnss').default(false),
+  hasRib:                boolean('has_rib').default(false),
+  hasMedicalCert:        boolean('has_medical_cert').default(false),
+  hasDiplomas:           boolean('has_diplomas').default(false),
+  hasPrevPayslip:        boolean('has_prev_payslip').default(false),
+  hasDriversLicense:     boolean('has_drivers_license').default(false),
+  hasPrevEmploymentCert: boolean('has_prev_employment_cert').default(false),
+  supervisorId:          uuid('supervisor_id'),
+  rhSignedAt:            timestamp('rh_signed_at'),
+  supervisorSignedAt:    timestamp('supervisor_signed_at'),
+  employeeSignedAt:      timestamp('employee_signed_at'),
+  notes:                 text('notes'),
+  ...timestamps,
+  createdBy:             uuid('created_by').notNull(),
+}, (t) => [
+  foreignKey({ columns: [t.userId],       foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.supervisorId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],    foreignColumns: [users.id] }),
+])
+
+// ─── RH: Substitutes (LIS-RH-01) ─────────────────────────────────────────────
+
+export const substitutes = pgTable('substitutes', {
+  id:                uuid('id').primaryKey().defaultRandom(),
+  positionLabel:     varchar('position_label', { length: 255 }).notNull(),
+  holderUserId:      uuid('holder_user_id'),
+  substituteUserId:  uuid('substitute_user_id'),
+  updatedDate:       date('updated_date'),
+  isActive:          boolean('is_active').notNull().default(true),
+  ...timestamps,
+  createdBy:         uuid('created_by').notNull(),
+}, (t) => [
+  foreignKey({ columns: [t.holderUserId],     foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.substituteUserId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],        foreignColumns: [users.id] }),
+])
