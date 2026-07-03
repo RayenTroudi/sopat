@@ -166,6 +166,11 @@ export async function listLeaveRequests(userId?: string, status?: string) {
     .orderBy(desc(leaveRequests.createdAt))
 }
 
+export async function getLeaveRequestById(id: string) {
+  const [row] = await db.select().from(leaveRequests).where(eq(leaveRequests.id, id)).limit(1)
+  return row ?? null
+}
+
 export async function createLeaveRequest(data: Record<string, unknown>, createdBy: string) {
   const [row] = await db.insert(leaveRequests).values({ ...data as any, leaveType: data.leaveType as any, status: 'en_attente', createdBy }).returning()
   return row
