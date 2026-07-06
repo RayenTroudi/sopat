@@ -60,14 +60,23 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'Études',
+    roles: ['admin','direction','etudes_chef','etudes_team'],
+    items: [
+      { href: '/admin/etude',                         label: 'Tableau de bord Études',   icon: BookOpen,     roles: ['admin','direction','etudes_chef','etudes_team'], exact: true },
+      { href: '/admin/etude/study-register',          label: 'Registre projets',         icon: ScrollText,   roles: ['admin','direction','etudes_chef','etudes_team'] },
+      { href: '/admin/etude/project-articles',        label: 'Articles par projet',      icon: ClipboardList,roles: ['admin','direction','etudes_chef','etudes_team'] },
+      { href: '/admin/etude/plant-species',           label: 'Palette végétale',         icon: Leaf,         roles: ['admin','direction','etudes_chef','etudes_team'] },
+      { href: '/admin/etude/decorative-materials',    label: 'Matières décoratives',     icon: Layers,       roles: ['admin','direction','etudes_chef','etudes_team'] },
+      { href: '/admin/etude/phytosanitary',           label: 'Produits phytosanitaires', icon: FlaskConical, roles: ['admin','direction','etudes_chef','etudes_team'] },
+    ],
+  },
+  {
     label: 'Études & terrain',
     items: [
       { href: '/admin/suppliers',                     label: 'Fournisseurs',             icon: Leaf,         roles: ['admin','direction','etudes_chef','realisation_chef'] },
       { href: '/admin/design/concepts',               label: 'Bibliothèque de concepts', icon: Palette,      roles: ['admin','direction','etudes_chef','etudes_team'] },
       { href: '/admin/design/templates',              label: 'Modèles de concepts',      icon: Layout,       roles: ['admin','direction','etudes_chef'] },
-      { href: '/admin/etude/plant-species',           label: 'Palette végétale',         icon: Leaf,         roles: ['admin','direction','etudes_chef','etudes_team'] },
-      { href: '/admin/etude/decorative-materials',    label: 'Matières décoratives',     icon: Layers,       roles: ['admin','direction','etudes_chef','etudes_team'] },
-      { href: '/admin/etude/phytosanitary',           label: 'Produits phytosanitaires', icon: FlaskConical, roles: ['admin','direction','etudes_chef','etudes_team'] },
     ],
   },
   {
