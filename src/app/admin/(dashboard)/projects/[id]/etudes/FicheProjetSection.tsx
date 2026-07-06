@@ -24,19 +24,24 @@ type StudyPhase = {
   observations?: string
 }
 
+type AmenagementType = 'amenagement' | 'reamenagement' | 'autre'
+
 type Props = {
   projectId: string
   canEdit: boolean
   initial: {
+    updatedDate?: string | null
     projectTitle?: string | null
     location?: string | null
     clientName?: string | null
     reference?: string | null
     projectDetails?: string | null
+    amenagementType?: AmenagementType | null
     deadlineProposed?: string | null
     documentsReceived?: DocumentReceived[]
     clientRequests?: string | null
     durationPlannedDays?: number | null
+    durationActualDays?: number | null
     startDatePlanned?: string | null
     startDateActual?: string | null
     endDatePlanned?: string | null
@@ -69,6 +74,9 @@ export function FicheProjetSection({ projectId, canEdit, initial }: Props) {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const [amenagementType, setAmenagementType] = useState<AmenagementType | ''>(
+    initial.amenagementType ?? ''
+  )
   const [docs, setDocs] = useState<DocumentReceived[]>(
     initial.documentsReceived?.length ? initial.documentsReceived : DEFAULT_DOCS
   )
@@ -92,6 +100,7 @@ export function FicheProjetSection({ projectId, canEdit, initial }: Props) {
     const fd = new FormData(e.currentTarget)
 
     const result = await upsertProjectStudyAction(projectId, {
+      updatedDate: fd.get('updatedDate') as string || undefined,
       projectTitle: fd.get('projectTitle') as string || undefined,
       location: fd.get('location') as string || undefined,
       clientName: fd.get('clientName') as string || undefined,
@@ -100,6 +109,7 @@ export function FicheProjetSection({ projectId, canEdit, initial }: Props) {
       deadlineProposed: fd.get('deadlineProposed') as string || undefined,
       clientRequests: fd.get('clientRequests') as string || undefined,
       durationPlannedDays: fd.get('durationPlannedDays') ? parseInt(fd.get('durationPlannedDays') as string) : undefined,
+      durationActualDays: fd.get('durationActualDays') ? parseInt(fd.get('durationActualDays') as string) : undefined,
       startDatePlanned: fd.get('startDatePlanned') as string || undefined,
       startDateActual: fd.get('startDateActual') as string || undefined,
       endDatePlanned: fd.get('endDatePlanned') as string || undefined,
@@ -131,6 +141,14 @@ export function FicheProjetSection({ projectId, canEdit, initial }: Props) {
       </div>
 
       <form onSubmit={handleSubmit} className="p-5 space-y-5">
+        {/* Date de MAJ */}
+        <div className="flex justify-end">
+          <div className="w-48">
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Date de mise à jour</label>
+            <input name="updatedDate" type="date" defaultValue={initial.updatedDate ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
+          </div>
+        </div>
+
         {/* Header info */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -158,8 +176,34 @@ export function FicheProjetSection({ projectId, canEdit, initial }: Props) {
             <input name="responsableEtude" type="text" defaultValue={initial.responsableEtude ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
           </div>
         </div>
+
+        {/* Type d'aménagement */}
         <div>
-          <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Détails du projet / Type d'aménagement</label>
+          <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Type d'aménagement</label>
+          <div className="flex gap-4 mt-1">
+            {([
+              { value: 'amenagement',   label: 'Aménagement' },
+              { value: 'reamenagement', label: 'Réaménagement' },
+              { value: 'autre',         label: 'Autre(s)' },
+            ] as { value: AmenagementType; label: string }[]).map((opt) => (
+              <label key={opt.value} className="flex items-center gap-1.5 text-[12px] cursor-pointer" style={{ color: 'var(--admin-text)' }}>
+                <input
+                  type="radio"
+                  name="amenagementType"
+                  value={opt.value}
+                  checked={amenagementType === opt.value}
+                  onChange={() => canEdit && setAmenagementType(opt.value)}
+                  disabled={!canEdit}
+                  style={{ accentColor: 'var(--green)' }}
+                />
+                {opt.label}
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Détails du projet / Observations</label>
           <textarea name="projectDetails" rows={2} defaultValue={initial.projectDetails ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
         </div>
 
@@ -217,11 +261,19 @@ export function FicheProjetSection({ projectId, canEdit, initial }: Props) {
         {/* Plan d'action / Timeline */}
         <div>
           <h3 className="text-[12px] font-semibold mb-3" style={{ color: 'var(--admin-text-muted)' }}>Plan d'action</h3>
-          <div className="grid grid-cols-4 gap-3 mb-4">
+          {/* Duration row */}
+          <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
-              <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Durée prévue (j)</label>
-              <input name="durationPlannedDays" type="number" defaultValue={initial.durationPlannedDays ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
+              <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Durée prévue (jours)</label>
+              <input name="durationPlannedDays" type="number" min="0" defaultValue={initial.durationPlannedDays ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
             </div>
+            <div>
+              <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Durée réalisée (jours)</label>
+              <input name="durationActualDays" type="number" min="0" defaultValue={initial.durationActualDays ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
+            </div>
+          </div>
+          {/* Dates grid */}
+          <div className="grid grid-cols-4 gap-3 mb-4">
             <div>
               <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Début prévu</label>
               <input name="startDatePlanned" type="date" defaultValue={initial.startDatePlanned ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
@@ -233,6 +285,10 @@ export function FicheProjetSection({ projectId, canEdit, initial }: Props) {
             <div>
               <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Fin prévue</label>
               <input name="endDatePlanned" type="date" defaultValue={initial.endDatePlanned ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
+            </div>
+            <div>
+              <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Fin réalisée</label>
+              <input name="endDateActual" type="date" defaultValue={initial.endDateActual ?? ''} className={inputClass} style={inputStyle} disabled={!canEdit} />
             </div>
           </div>
 

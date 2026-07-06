@@ -55,15 +55,18 @@ export default async function EtudesPage({ params }: { params: Promise<{ id: str
         projectId={id}
         canEdit={canEdit}
         initial={{
+          updatedDate: studyRecord?.updatedDate,
           projectTitle: studyRecord?.projectTitle,
           location: studyRecord?.location,
           clientName: studyRecord?.clientName,
           reference: studyRecord?.reference,
           projectDetails: studyRecord?.projectDetails,
+          amenagementType: (studyRecord as any)?.amenagementType ?? null,
           deadlineProposed: studyRecord?.deadlineProposed,
           documentsReceived: (studyRecord?.documentsReceived as any) ?? [],
           clientRequests: studyRecord?.clientRequests,
           durationPlannedDays: studyRecord?.durationPlannedDays,
+          durationActualDays: studyRecord?.durationActualDays,
           startDatePlanned: studyRecord?.startDatePlanned,
           startDateActual: studyRecord?.startDateActual,
           endDatePlanned: studyRecord?.endDatePlanned,

@@ -2461,6 +2461,12 @@ export const projectStudyPhaseEnum = pgEnum('project_study_phase', [
   'avant_projet_detaille',    // APD
 ])
 
+export const amenagementTypeEnum = pgEnum('amenagement_type', [
+  'amenagement',
+  'reamenagement',
+  'autre',
+])
+
 export const projectStudyRecords = pgTable('project_study_records', {
   id: uuid('id').primaryKey().defaultRandom(),
   projectId: uuid('project_id').notNull().unique(),
@@ -2470,7 +2476,8 @@ export const projectStudyRecords = pgTable('project_study_records', {
   location: varchar('location', { length: 255 }),
   clientName: varchar('client_name', { length: 255 }),
   reference: varchar('reference', { length: 100 }),
-  projectDetails: text('project_details'),                         // Détails: aménagement type
+  amenagementType: amenagementTypeEnum('amenagement_type'),        // Aménagement / Réaménagement / Autre
+  projectDetails: text('project_details'),                         // Observations / notes complémentaires
   deadlineProposed: date('deadline_proposed'),
   // Documents received from client (jsonb array: {name, receivedDate, required, observation})
   documentsReceived: jsonb('documents_received').default([]),

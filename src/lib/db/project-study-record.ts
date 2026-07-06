@@ -25,6 +25,7 @@ export type ProjectStudyInput = {
   location?: string
   clientName?: string
   reference?: string
+  amenagementType?: 'amenagement' | 'reamenagement' | 'autre'
   projectDetails?: string
   deadlineProposed?: string
   documentsReceived?: DocumentReceived[]
