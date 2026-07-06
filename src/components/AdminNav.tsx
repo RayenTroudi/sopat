@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react'
 import type { UserRole } from '@/lib/auth-utils'
 import {
   LayoutDashboard, FolderOpen, Building2, AlertTriangle, ClipboardCheck,
-  FileText, Leaf, Palette, Layout, Handshake, Sparkles, BarChart2,
+  FileText, Leaf, Handshake, Sparkles, BarChart2,
   Trophy, BookOpen, Coins, CalendarDays, BarChart3, Users, Settings,
   ChevronLeft, ShieldCheck, Scale, UserCheck, Trash2, HardHat, CalendarRange, Globe2,
   FlaskConical, Layers, Briefcase, GraduationCap, Calendar, Star, UserPlus,
@@ -69,14 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/etude/plant-species',           label: 'Palette végétale',         icon: Leaf,         roles: ['admin','direction','etudes_chef','etudes_team'] },
       { href: '/admin/etude/decorative-materials',    label: 'Matières décoratives',     icon: Layers,       roles: ['admin','direction','etudes_chef','etudes_team'] },
       { href: '/admin/etude/phytosanitary',           label: 'Produits phytosanitaires', icon: FlaskConical, roles: ['admin','direction','etudes_chef','etudes_team'] },
-    ],
-  },
-  {
-    label: 'Études & terrain',
-    items: [
-      { href: '/admin/suppliers',                     label: 'Fournisseurs',             icon: Leaf,         roles: ['admin','direction','etudes_chef','realisation_chef'] },
-      { href: '/admin/design/concepts',               label: 'Bibliothèque de concepts', icon: Palette,      roles: ['admin','direction','etudes_chef','etudes_team'] },
-      { href: '/admin/design/templates',              label: 'Modèles de concepts',      icon: Layout,       roles: ['admin','direction','etudes_chef'] },
+      { href: '/admin/suppliers',                     label: 'Fournisseurs',             icon: Briefcase,    roles: ['admin','direction','etudes_chef','realisation_chef'] },
     ],
   },
   {
