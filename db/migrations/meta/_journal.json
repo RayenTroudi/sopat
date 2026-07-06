@@ -120,6 +120,13 @@
       "when": 1783344632114,
       "tag": "0016_blue_kylun",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1783346325606,
+      "tag": "0017_mighty_terror",
+      "breakpoints": true
     }
   ]
 }

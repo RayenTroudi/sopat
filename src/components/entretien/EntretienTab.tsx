@@ -6,6 +6,8 @@ import { VisitReportForm } from './VisitReportForm'
 import { PlantHealthTracker } from './PlantHealthTracker'
 import { ContractSection } from './ContractSection'
 import { SatisfactionForm } from './SatisfactionForm'
+import { MonthlyPlanSection } from './MonthlyPlanSection'
+import { AnnualPlanSection } from './AnnualPlanSection'
 import type {
   ScheduledVisitRow,
   PlantHealthSummary,
@@ -32,6 +34,7 @@ type Props = {
   plantZones:   string[]   // from études plant categories (e.g. ['Arbres', 'Arbustes', 'Couvre-sols'])
   users:        User[]
   currentUserId: string
+  userRole:     string
 }
 
 const VISIT_TYPE_OPTIONS = [
@@ -57,7 +60,8 @@ function Section({ title, action, children }: { title: string; action?: React.Re
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function EntretienTab({ projectId, phaseStatus, plantZones, users, currentUserId }: Props) {
+export function EntretienTab({ projectId, phaseStatus, plantZones, users, currentUserId, userRole }: Props) {
+  const canEdit = ['admin', 'direction', 'entretien_chef', 'entretien_team', 'realisation_chef'].includes(userRole)
   const [visits,          setVisits]          = useState<ScheduledVisitRow[]>([])
   const [healthSummary,   setHealthSummary]   = useState<PlantHealthSummary[]>([])
   const [contract,        setContract]        = useState<ContractRow | null>(null)
@@ -208,6 +212,12 @@ export function EntretienTab({ projectId, phaseStatus, plantZones, users, curren
           onUpdated={(c) => setContract(c)}
         />
       </Section>
+
+      {/* ── PLA-RE-04: Plan mensuel d'entretien ── */}
+      <MonthlyPlanSection projectId={projectId} canEdit={canEdit} />
+
+      {/* ── PLA-RE-01: Planning annuel d'entretien ── */}
+      <AnnualPlanSection projectId={projectId} canEdit={canEdit} />
 
       {/* ── 6. Satisfaction client ── */}
       <Section title="Satisfaction client (ISO 9001:2015 · clause 9.1.2)">

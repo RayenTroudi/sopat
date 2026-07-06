@@ -183,6 +183,7 @@ export function ProjectTabs({
               plantZones={plantZones}
               users={users}
               currentUserId={currentUserId}
+              userRole={userRole}
             />
           </div>
         )

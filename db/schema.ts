@@ -3039,6 +3039,167 @@ export const realisationActionPlanItems = pgTable('realisation_action_plan_items
   foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
 ])
 
+// ─── FOR-RE-05: PV de réception provisoire ────────────────────────────────────
+// Provisional acceptance checklist — signed by client and project manager
+
+export const pvReceptionProvisoire = pgTable('pv_reception_provisoire', {
+  id:                uuid('id').primaryKey().defaultRandom(),
+  projectId:         uuid('project_id').notNull().unique(),
+  date:              date('date'),
+  maitreOuvrage:     varchar('maitre_ouvrage', { length: 255 }),
+  startDate:         date('start_date'),
+  endDate:           date('end_date'),
+  // Checklist items: [{designation, observation, decision, action, responsable, delai, reserve}]
+  checklistItems:    jsonb('checklist_items').default([]),
+  // Signatories: [{name, role, organisation, signed, signedDate}]
+  signatories:       jsonb('signatories').default([]),
+  reserves:          text('reserves'),                    // Free-text reserve description
+  hasReserves:       boolean('has_reserves').default(false),
+  isFinalized:       boolean('is_finalized').default(false),
+  ...timestamps,
+  createdBy:         uuid('created_by').notNull(),
+}, (t) => [
+  index('pv_reception_provisoire_project_id_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// ─── FOR-RE-14: PV de réception définitive ────────────────────────────────────
+// Final acceptance — supersedes the provisional PV
+
+export const pvReceptionDefinitive = pgTable('pv_reception_definitive', {
+  id:                       uuid('id').primaryKey().defaultRandom(),
+  projectId:                uuid('project_id').notNull().unique(),
+  date:                     date('date'),
+  titulaireDuMarche:        varchar('titulaire_du_marche', { length: 255 }),
+  dateApprobationMarche:    date('date_approbation_marche'),
+  delaiExecution:           varchar('delai_execution', { length: 100 }),
+  dateDebutTravaux:         date('date_debut_travaux'),
+  dateFinTravaux:           date('date_fin_travaux'),
+  // Signatories array: [{name, organisation, signed, signedDate}]
+  signatories:              jsonb('signatories').default([]),
+  attestationText:          text('attestation_text'),     // Custom inspection notes
+  isFinalized:              boolean('is_finalized').default(false),
+  ...timestamps,
+  createdBy:                uuid('created_by').notNull(),
+}, (t) => [
+  index('pv_reception_definitive_project_id_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// ─── FOR-RE-13: Attachement + FOR-RE-15: Décompte ─────────────────────────────
+// Shared line-item structure used by both forms.
+// Attachement = work certificate (qty/unit/norm, no price)
+// Décompte    = payment statement (qty/unit/norm + unit price + total + TVA)
+
+export const realisationLineItems = pgTable('realisation_line_items', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  projectId:       uuid('project_id').notNull(),
+  documentType:    varchar('document_type', { length: 20 }).notNull(), // 'attachement' | 'decompte'
+  phaseCode:       varchar('phase_code', { length: 50 }).notNull(),    // 'I', 'I.1', 'II', etc.
+  phaseLabel:      varchar('phase_label', { length: 500 }).notNull(),
+  designation:     varchar('designation', { length: 500 }),
+  quantity:        decimal('quantity', { precision: 10, scale: 3 }),
+  unit:            varchar('unit', { length: 50 }),
+  norme:           varchar('norme', { length: 255 }),
+  // Décompte-only pricing fields
+  unitPriceHtva:   decimal('unit_price_htva', { precision: 12, scale: 3 }),
+  totalHtva:       decimal('total_htva', { precision: 12, scale: 3 }),
+  observation:     text('observation'),
+  sortOrder:       integer('sort_order').notNull().default(0),
+  isPhaseHeader:   boolean('is_phase_header').notNull().default(false),
+  ...timestamps,
+  createdBy:       uuid('created_by').notNull(),
+}, (t) => [
+  index('realisation_line_items_project_id_idx').on(t.projectId),
+  index('realisation_line_items_doc_type_idx').on(t.documentType),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// ─── PLA-RE-04: Plan d'action mensuel d'entretien ─────────────────────────────
+// Monthly maintenance action plan — per-task checklist with frequency/tools
+
+export const maintenanceMonthlyPlans = pgTable('maintenance_monthly_plans', {
+  id:                  uuid('id').primaryKey().defaultRandom(),
+  projectId:           uuid('project_id').notNull(),
+  scheduleId:          uuid('schedule_id'),
+  moisAnnee:           varchar('mois_annee', { length: 20 }).notNull(), // 'YYYY-MM'
+  nombreInterventions: integer('nombre_interventions'),
+  // Tasks array: [{taskLabel, frequency, prevu, realise, outil, observation}]
+  tasks:               jsonb('tasks').default([]),
+  // Fournitures/équipements
+  fournitures:         text('fournitures'),
+  // Client feedback section
+  clientIntervenants:  text('client_intervenants'),
+  clientObservations:  text('client_observations'),
+  clientBesoins:       text('client_besoins'),
+  // Signatures
+  pmSignedDate:        date('pm_signed_date'),
+  clientSignedDate:    date('client_signed_date'),
+  isFinalized:         boolean('is_finalized').default(false),
+  ...timestamps,
+  createdBy:           uuid('created_by').notNull(),
+}, (t) => [
+  index('maintenance_monthly_plans_project_id_idx').on(t.projectId),
+  index('maintenance_monthly_plans_mois_idx').on(t.moisAnnee),
+  foreignKey({ columns: [t.projectId],   foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.scheduleId],  foreignColumns: [maintenanceSchedules.id] }),
+  foreignKey({ columns: [t.createdBy],   foreignColumns: [users.id] }),
+])
+
+// ─── PLA-RE-01: Planning annuel d'entretien ───────────────────────────────────
+// Annual maintenance planning — one row per contract with monthly schedule
+
+export const maintenanceAnnualPlans = pgTable('maintenance_annual_plans', {
+  id:                  uuid('id').primaryKey().defaultRandom(),
+  projectId:           uuid('project_id').notNull(),
+  scheduleId:          uuid('schedule_id'),
+  annee:               integer('annee').notNull(),
+  updatedDate:         date('updated_date'),
+  taciteReconduction:  boolean('tacite_reconduction').default(false),
+  majorationTaux:      decimal('majoration_taux', { precision: 5, scale: 2 }),
+  // Monthly data: [{month: 1..12, frequence, jours, nbrePrevu, nbreRealise}]
+  monthlyData:         jsonb('monthly_data').default([]),
+  // Totals (computed client-side but stored for reporting)
+  totalInterventionsContractuelles: integer('total_interventions_contractuelles'),
+  totalInterventionsPrevues:        integer('total_interventions_prevues'),
+  totalInterventionsRealisees:      integer('total_interventions_realisees'),
+  montantContrat:      decimal('montant_contrat', { precision: 12, scale: 3 }),
+  montantPrevu:        decimal('montant_prevu', { precision: 12, scale: 3 }),
+  montantFacture:      decimal('montant_facture', { precision: 12, scale: 3 }),
+  ...timestamps,
+  createdBy:           uuid('created_by').notNull(),
+}, (t) => [
+  index('maintenance_annual_plans_project_id_idx').on(t.projectId),
+  index('maintenance_annual_plans_annee_idx').on(t.annee),
+  foreignKey({ columns: [t.projectId],   foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.scheduleId],  foreignColumns: [maintenanceSchedules.id] }),
+  foreignKey({ columns: [t.createdBy],   foreignColumns: [users.id] }),
+])
+
+// ─── PLA-RE-02: Planning hebdomadaire de projets ──────────────────────────────
+// Weekly schedule — team assignments per project per day
+
+export const weeklyProjectPlans = pgTable('weekly_project_plans', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  region:          varchar('region', { length: 100 }),
+  chefEquipe:      varchar('chef_equipe', { length: 255 }),
+  weekStartDate:   date('week_start_date').notNull(),
+  weekEndDate:     date('week_end_date').notNull(),
+  // Rows: [{equipe, lundi, mardi, mercredi, jeudi, vendredi, samedi, realise, causeNon, suivi}]
+  // Each day field holds projectId or project name
+  rows:            jsonb('rows').default([]),
+  nombreActionsPrevues:  integer('nombre_actions_prevues'),
+  pourcentageRealisation: decimal('pourcentage_realisation', { precision: 5, scale: 2 }),
+  ...timestamps,
+  createdBy:       uuid('created_by').notNull(),
+}, (t) => [
+  index('weekly_project_plans_week_idx').on(t.weekStartDate),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
 // ─── RH: Substitutes (LIS-RH-01) ─────────────────────────────────────────────
 
 export const substitutes = pgTable('substitutes', {

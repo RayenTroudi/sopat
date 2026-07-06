@@ -10,6 +10,9 @@ import { RealisationSignoffPanel } from './RealisationSignoffPanel'
 import { FicheEquipeSection } from './FicheEquipeSection'
 import { JournalChantierSection } from './JournalChantierSection'
 import { PlanActionSection } from './PlanActionSection'
+import { AttachementSection } from './AttachementSection'
+import { DecompteSection } from './DecompteSection'
+import { PvProvisioreSection, PvDefinitiveSection } from './PvReceptionSection'
 import { CloudinaryUploader, type UploadedAsset } from '@/components/upload/CloudinaryUploader'
 import type { TeamMemberRow } from '@/lib/db/realisation'
 
@@ -383,8 +386,20 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
         />
       </Section>
 
+      {/* ── FOR-RE-13: Attachement des travaux ── */}
+      <AttachementSection projectId={projectId} canEdit={canEdit} />
+
+      {/* ── FOR-RE-15: Décompte définitif ── */}
+      <DecompteSection projectId={projectId} canEdit={canEdit} />
+
+      {/* ── FOR-RE-05: PV Réception Provisoire ── */}
+      <PvProvisioreSection projectId={projectId} canEdit={canEdit} />
+
+      {/* ── FOR-RE-14: PV Réception Définitive ── */}
+      <PvDefinitiveSection projectId={projectId} canEdit={canEdit} />
+
       {/* ── 6. Reception document upload ── */}
-      <Section title="Document de Réception Client">
+      <Section title="Document de Réception Client (PDF)">
         <p className="text-xs mb-3" style={{ color: 'var(--admin-text-muted)' }}>
           Téléchargez le procès-verbal de réception signé par le client.
         </p>
