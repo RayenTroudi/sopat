@@ -261,6 +261,49 @@ export async function createPerformanceEvaluationAction(data: Record<string, unk
   }
 }
 
+// ─── Exit Authorization Approval ──────────────────────────────────────────────
+
+const EXIT_APPROVAL_FIELDS = ['supervisorApproval', 'rhApproval'] as const
+type ExitApprovalField = typeof EXIT_APPROVAL_FIELDS[number]
+
+const EXIT_APPROVAL_FIELD_ROLES: Record<ExitApprovalField, string[]> = {
+  supervisorApproval: ['admin', 'direction', 'rh_manager', 'etudes_chef', 'realisation_chef', 'entretien_chef'],
+  rhApproval: ['admin', 'direction', 'rh_manager', 'rh_agent'],
+}
+
+export async function approveExitAuthorizationAction(id: string, field: string, status: string) {
+  const session = await auth()
+  const { id: userId, role } = getSessionUser(session)
+  try {
+    if (!(EXIT_APPROVAL_FIELDS as readonly string[]).includes(field))
+      throw new Error('Champ invalide')
+    if (!['approuve', 'refuse'].includes(status))
+      throw new Error('Statut invalide')
+
+    const approvalField = field as ExitApprovalField
+    requireRole(role, EXIT_APPROVAL_FIELD_ROLES[approvalField])
+
+    const { db } = await import('@/db')
+    const { exitAuthorizations } = await import('@/db/schema')
+    const { eq } = await import('drizzle-orm')
+
+    // Block self-approval
+    const [req] = await db.select({ userId: exitAuthorizations.userId }).from(exitAuthorizations).where(eq(exitAuthorizations.id, id))
+    if (!req) throw new Error('Demande introuvable')
+    if (approvalField === 'supervisorApproval' && req.userId === userId)
+      throw new Error('Impossible d\'approuver sa propre demande')
+
+    const approvedByField = approvalField === 'supervisorApproval' ? 'supervisorApprovedBy' : 'rhApprovedBy'
+    await db.update(exitAuthorizations)
+      .set({ [approvalField]: status, [approvedByField]: userId } as never)
+      .where(eq(exitAuthorizations.id, id))
+
+    return { success: true }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+}
+
 // ─── Mission Orders ───────────────────────────────────────────────────────────
 
 const MISSION_ORDER_ALLOWED_FIELDS = [
