@@ -110,15 +110,6 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: 'Réalisation',
-    roles: ['admin','direction','realisation_chef','realisation_team'],
-    items: [
-      { href: '/admin/projects',               label: 'Projets en cours',       icon: FolderOpen,    roles: ['admin','direction','realisation_chef','realisation_team'] },
-      { href: '/admin/suppliers',              label: 'Fournisseurs',            icon: Briefcase,     roles: ['admin','direction','realisation_chef'] },
-      { href: '/admin/nc',                     label: 'Non-conformités',         icon: AlertTriangle, roles: ['admin','direction','realisation_chef'] },
-    ],
-  },
-  {
     label: 'Entretien',
     items: [
       { href: '/admin/calendrier-entretien', label: 'Calendrier visites', icon: CalendarDays, roles: ['admin','direction','entretien_chef','entretien_team'] },
