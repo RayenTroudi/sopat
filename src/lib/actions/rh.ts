@@ -219,11 +219,11 @@ export async function approveLeaveRequestAction(id: string, field: string, statu
     const approvalField = field as ApprovalField
     requireRole(role, APPROVAL_FIELD_ALLOWED_ROLES[approvalField])
 
-    // Block self-approval for supervisor role
+    // Block self-approval on all channels
     const { getLeaveRequestById } = await import('../db/rh')
     const req = await getLeaveRequestById(id)
     if (!req) throw new Error('Demande introuvable')
-    if (approvalField === 'supervisorApproval' && req.userId === userId)
+    if (req.userId === userId)
       throw new Error('Impossible d\'approuver sa propre demande')
 
     await updateLeaveRequestStatus(id, approvalField, status, userId)
@@ -287,10 +287,10 @@ export async function approveExitAuthorizationAction(id: string, field: string, 
     const { exitAuthorizations } = await import('@/db/schema')
     const { eq } = await import('drizzle-orm')
 
-    // Block self-approval
+    // Block self-approval on all channels
     const [req] = await db.select({ userId: exitAuthorizations.userId }).from(exitAuthorizations).where(eq(exitAuthorizations.id, id))
     if (!req) throw new Error('Demande introuvable')
-    if (approvalField === 'supervisorApproval' && req.userId === userId)
+    if (req.userId === userId)
       throw new Error('Impossible d\'approuver sa propre demande')
 
     const approvedByField = approvalField === 'supervisorApproval' ? 'supervisorApprovedBy' : 'rhApprovedBy'

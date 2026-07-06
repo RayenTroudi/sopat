@@ -37,7 +37,7 @@ export default async function ExitAuthDetailPage({ params }: { params: Promise<{
 
   const isSelf = req.userId === currentUserId
   const canApproveSupervisor = ['admin', 'direction', 'rh_manager', 'etudes_chef', 'realisation_chef', 'entretien_chef'].includes(currentRole) && !isSelf
-  const canApproveRh         = ['admin', 'direction', 'rh_manager', 'rh_agent'].includes(currentRole)
+  const canApproveRh         = ['admin', 'direction', 'rh_manager', 'rh_agent'].includes(currentRole) && !isSelf
 
   const fmt = (d: Date | string | null) =>
     d ? new Date(d).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'

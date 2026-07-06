@@ -49,10 +49,10 @@ export default async function LeaveDetailPage({ params }: { params: Promise<{ id
 
   if (!leave) redirect('/admin/rh/leaves')
 
-  const canApproveSupervisor = ['admin', 'direction', 'rh_manager', 'etudes_chef', 'realisation_chef', 'entretien_chef'].includes(currentRole)
-  const canApproveRh         = ['admin', 'direction', 'rh_manager', 'rh_agent'].includes(currentRole)
-  const canApproveDirection  = ['admin', 'direction'].includes(currentRole)
   const isSelf = leave.userId === currentUserId
+  const canApproveSupervisor = ['admin', 'direction', 'rh_manager', 'etudes_chef', 'realisation_chef', 'entretien_chef'].includes(currentRole) && !isSelf
+  const canApproveRh         = ['admin', 'direction', 'rh_manager', 'rh_agent'].includes(currentRole) && !isSelf
+  const canApproveDirection  = ['admin', 'direction'].includes(currentRole) && !isSelf
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
