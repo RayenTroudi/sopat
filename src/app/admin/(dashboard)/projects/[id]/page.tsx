@@ -5,6 +5,7 @@ import { getProjectById } from '@/lib/db/projects'
 import { getLatestBudgetValidation } from '@/lib/db/predictions'
 import { getPlantList, getActiveSuppliers } from '@/lib/db/etudes'
 import { getActiveUsers } from '@/lib/db/iso'
+import { getProjectTeamMembers } from '@/lib/db/realisation'
 import { PhaseBadge } from '@/components/projects/PhaseBadge'
 import { BudgetBadge } from '@/components/projects/BudgetBadge'
 import { ProjectTabs } from './ProjectTabs'
@@ -58,10 +59,11 @@ export default async function ProjectDetailPage({
 
   const { project, phases, activityLog, assets } = data
 
-  const [latestValidation, plantList, users] = await Promise.all([
+  const [latestValidation, plantList, users, teamMembers] = await Promise.all([
     getLatestBudgetValidation(id),
     getPlantList(id),
     getActiveUsers(),
+    getProjectTeamMembers(id),
   ])
 
   // Derive plant zones from plant categories in the études list
@@ -173,6 +175,7 @@ export default async function ProjectDetailPage({
         currentUserId={session?.user.userId ?? ''}
         country={project.country}
         currency={project.currency}
+        initialTeamMembers={teamMembers}
       />
     </div>
   )

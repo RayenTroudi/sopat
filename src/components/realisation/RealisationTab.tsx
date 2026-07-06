@@ -7,7 +7,11 @@ import { EquipmentDrawer } from './EquipmentDrawer'
 import { EquipmentTable, type EquipmentRentalRow } from './EquipmentTable'
 import { PhotoCheckpoints, type CheckpointState } from './PhotoCheckpoints'
 import { RealisationSignoffPanel } from './RealisationSignoffPanel'
+import { FicheEquipeSection } from './FicheEquipeSection'
+import { JournalChantierSection } from './JournalChantierSection'
+import { PlanActionSection } from './PlanActionSection'
 import { CloudinaryUploader, type UploadedAsset } from '@/components/upload/CloudinaryUploader'
+import type { TeamMemberRow } from '@/lib/db/realisation'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +60,7 @@ type Props = {
   approvedBudget: string | null
   initialAssets:  UploadedAsset[]
   userRole:       string
+  initialTeamMembers: TeamMemberRow[]
 }
 
 const FMT = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
@@ -67,7 +72,7 @@ function fmtDate(d: Date | string) { return new Date(d).toLocaleDateString('fr-F
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function RealisationTab({ projectId, phaseStatus, approvedBudget, initialAssets, userRole }: Props) {
+export function RealisationTab({ projectId, phaseStatus, approvedBudget, initialAssets, userRole, initialTeamMembers }: Props) {
   const [orders, setOrders] = useState<PurchaseRow[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -195,8 +200,23 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
 
   const canSignOff = userRole === 'admin' || userRole === 'direction' || userRole === 'realisation_chef'
 
+  const canEdit = userRole === 'admin' || userRole === 'direction' || userRole === 'realisation_chef' || userRole === 'realisation_team'
+
   return (
     <div className="space-y-6">
+      {/* ── FOR-RE-03: Équipe projet ── */}
+      <FicheEquipeSection
+        projectId={projectId}
+        initialMembers={initialTeamMembers}
+        canEdit={canEdit}
+      />
+
+      {/* ── PLA-RE-03: Plan d'action ── */}
+      <PlanActionSection projectId={projectId} canEdit={canEdit} />
+
+      {/* ── FOR-RE-04: Journal de chantier ── */}
+      <JournalChantierSection projectId={projectId} canEdit={canEdit} />
+
       {/* ── 1. Budget monitor ── */}
       <Section title="Suivi Budgétaire">
         <BudgetMonitorWidget projectId={projectId} approvedBudget={approvedBudget} />

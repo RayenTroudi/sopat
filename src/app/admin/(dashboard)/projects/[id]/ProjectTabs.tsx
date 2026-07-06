@@ -10,6 +10,7 @@ import { EntretienTab } from '@/components/entretien/EntretienTab'
 import { BudgetSummaryBanner } from '@/components/budget/OfficialBudgetCard'
 import type { UploadedAsset } from '@/components/upload/CloudinaryUploader'
 import { ZonesTab } from '@/components/projects/ZonesTab'
+import type { TeamMemberRow } from '@/lib/db/realisation'
 
 type Phase = {
   id: string
@@ -61,6 +62,7 @@ type Props = {
   currentUserId: string
   country?: string | null
   currency?: string | null
+  initialTeamMembers: TeamMemberRow[]
 }
 
 const BASE_TABS = [
@@ -122,6 +124,7 @@ export function ProjectTabs({
   plantZones,
   users,
   currentUserId,
+  initialTeamMembers,
 }: Props) {
   const pathname = usePathname()
 
@@ -163,6 +166,7 @@ export function ProjectTabs({
               approvedBudget={approvedBudget}
               initialAssets={assets}
               userRole={userRole}
+              initialTeamMembers={initialTeamMembers}
             />
           </div>
         )

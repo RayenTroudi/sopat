@@ -2953,6 +2953,92 @@ export const personnelFileChecklists = pgTable('personnel_file_checklists', {
   foreignKey({ columns: [t.createdBy],    foreignColumns: [users.id] }),
 ])
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// ─── Réalisation Forms ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// FOR-RE-03 Équipe projet — team members assigned to a project during réalisation
+export const projectTeamMembers = pgTable('project_team_members', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  projectId:        uuid('project_id').notNull(),
+  // Role/poste on the project (Project Manager, Site Manager, Gardener, etc.)
+  poste:            varchar('poste', { length: 255 }).notNull(),
+  titulaire:        varchar('titulaire', { length: 255 }),
+  suppleant:        varchar('suppleant', { length: 255 }),
+  isSubcontractor:  boolean('is_subcontractor').notNull().default(false),
+  subcontractorName: varchar('subcontractor_name', { length: 255 }),
+  // Linked internal user (optional)
+  userId:           uuid('user_id'),
+  // Phase assignment period
+  phaseStartDate:   date('phase_start_date'),
+  phaseEndDate:     date('phase_end_date'),
+  sortOrder:        integer('sort_order').notNull().default(0),
+  ...timestamps,
+  createdBy:        uuid('created_by').notNull(),
+}, (t) => [
+  index('project_team_members_project_id_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.userId],     foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// FOR-RE-04 Fiche de suivi journalier de chantier — daily site journal
+export const chantierDailyLogs = pgTable('chantier_daily_logs', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  projectId:        uuid('project_id').notNull(),
+  logDate:          date('log_date').notNull(),
+  dayNumber:        integer('day_number'),
+  totalProgress:    decimal('total_progress', { precision: 5, scale: 2 }), // 0–100 %
+  // Travaux du jour / retard
+  worksDoneToday:   text('works_done_today'),
+  // Approvisionnement
+  supplies:         text('supplies'),
+  // Anomalie / réclamation
+  anomalies:        text('anomalies'),
+  // Participants (jsonb: [{name, role}])
+  participants:     jsonb('participants').default([]),
+  // Autres intervenants
+  otherIntervenants: text('other_intervenants'),
+  // Remarks / RMQ
+  remarks:          text('remarks'),
+  // Ordre du jour / agenda for next day
+  nextDayAgenda:    text('next_day_agenda'),
+  chefProjet:       varchar('chef_projet', { length: 255 }),
+  ...timestamps,
+  createdBy:        uuid('created_by').notNull(),
+}, (t) => [
+  index('chantier_daily_logs_project_id_idx').on(t.projectId),
+  index('chantier_daily_logs_date_idx').on(t.logDate),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// PLA-RE-03 Plan d'action de projet de réalisation — structured work phase tracking
+export const realisationActionPlanItems = pgTable('realisation_action_plan_items', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  projectId:        uuid('project_id').notNull(),
+  // Hierarchical phase numbering (e.g. "I", "I.1", "II", "II.3.1")
+  phaseCode:        varchar('phase_code', { length: 50 }).notNull(),
+  phaseLabel:       varchar('phase_label', { length: 500 }).notNull(),
+  // Dates prévu / réalisé
+  plannedStartDate: date('planned_start_date'),
+  plannedEndDate:   date('planned_end_date'),
+  actualStartDate:  date('actual_start_date'),
+  actualEndDate:    date('actual_end_date'),
+  // Progression 0–100
+  progressPct:      integer('progress_pct').notNull().default(0),
+  // Notes / observations
+  observations:     text('observations'),
+  sortOrder:        integer('sort_order').notNull().default(0),
+  isPhaseHeader:    boolean('is_phase_header').notNull().default(false),
+  ...timestamps,
+  createdBy:        uuid('created_by').notNull(),
+}, (t) => [
+  index('realisation_action_plan_project_id_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
 // ─── RH: Substitutes (LIS-RH-01) ─────────────────────────────────────────────
 
 export const substitutes = pgTable('substitutes', {
