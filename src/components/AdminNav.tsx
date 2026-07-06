@@ -87,6 +87,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/rh/integration',        label: "Plans d'intégration",  icon: ClipboardList,  roles: ['admin','direction','rh_manager','rh_agent'] },
       { href: '/admin/rh/performance',        label: 'Évaluations',          icon: Star,           roles: ['admin','direction','rh_manager'] },
       { href: '/admin/rh/regulations',        label: 'Règlement interne',    icon: ScrollText,     roles: ['admin','direction','rh_manager','rh_agent'] },
+      { href: '/admin/rh/policy',             label: 'Politique RH',         icon: ShieldCheck,    roles: ['admin','direction','rh_manager','rh_agent'] },
     ],
   },
   {

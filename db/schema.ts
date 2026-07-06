@@ -2857,7 +2857,7 @@ export const attendanceSheets = pgTable('attendance_sheets', {
   year:           integer('year').notNull(),
   entries:        jsonb('entries').default([]).notNull(),
   daysWorked:     integer('days_worked'),
-  salaryAdvance:  numeric('salary_advance', { precision: 10, scale: 3 }),
+  salaryAdvance:  decimal('salary_advance', { precision: 10, scale: 3 }),
   supervisorId:   uuid('supervisor_id'),
   notes:          text('notes'),
   ...timestamps,
