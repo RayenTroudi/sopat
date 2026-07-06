@@ -261,6 +261,120 @@ export async function createPerformanceEvaluationAction(data: Record<string, unk
   }
 }
 
+// ─── Mission Orders ───────────────────────────────────────────────────────────
+
+const MISSION_ORDER_ALLOWED_FIELDS = [
+  'cinNumber', 'cinIssuedAt', 'destination', 'missionPurpose', 'startDate', 'endDate',
+]
+
+export async function createMissionOrderAction(data: Record<string, unknown>) {
+  const session = await auth()
+  const { id: userId, role } = getSessionUser(session)
+  try {
+    requireRole(role, RH_WRITE_ROLES)
+    const safe: Record<string, unknown> = { userId }
+    for (const key of MISSION_ORDER_ALLOWED_FIELDS) {
+      if (key in data) safe[key] = data[key]
+    }
+    const { db } = await import('@/db')
+    const { missionOrders } = await import('@/db/schema')
+    const [row] = await db.insert(missionOrders).values(safe as never).returning({ id: missionOrders.id })
+    return { success: true, id: row.id }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+}
+
+// ─── Equipment Receipts ───────────────────────────────────────────────────────
+
+const EQUIPMENT_RECEIPT_ALLOWED_FIELDS = ['issuedDate', 'items', 'returnedDate', 'returnedNotes']
+
+export async function createEquipmentReceiptAction(data: Record<string, unknown>) {
+  const session = await auth()
+  const { id: userId, role } = getSessionUser(session)
+  try {
+    requireRole(role, RH_WRITE_ROLES)
+    const safe: Record<string, unknown> = { userId, deliveredBy: userId }
+    for (const key of EQUIPMENT_RECEIPT_ALLOWED_FIELDS) {
+      if (key in data) safe[key] = data[key]
+    }
+    const { db } = await import('@/db')
+    const { equipmentReceipts } = await import('@/db/schema')
+    const [row] = await db.insert(equipmentReceipts).values(safe as never).returning({ id: equipmentReceipts.id })
+    return { success: true, id: row.id }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+}
+
+// ─── Exit Authorizations ──────────────────────────────────────────────────────
+
+const EXIT_AUTH_ALLOWED_FIELDS = ['startTime', 'endTime', 'durationHours', 'reason', 'notes']
+
+export async function createExitAuthorizationAction(data: Record<string, unknown>) {
+  const session = await auth()
+  const { id: userId, role } = getSessionUser(session)
+  try {
+    requireRole(role, RH_WRITE_ROLES)
+    const safe: Record<string, unknown> = { userId }
+    for (const key of EXIT_AUTH_ALLOWED_FIELDS) {
+      if (key in data) safe[key] = data[key]
+    }
+    const { db } = await import('@/db')
+    const { exitAuthorizations } = await import('@/db/schema')
+    const [row] = await db.insert(exitAuthorizations).values(safe as never).returning({ id: exitAuthorizations.id })
+    return { success: true, id: row.id }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+}
+
+// ─── Substitutes ──────────────────────────────────────────────────────────────
+
+const SUBSTITUTE_ALLOWED_FIELDS = ['positionLabel', 'holderUserId', 'substituteUserId', 'updatedDate']
+
+export async function createSubstituteAction(data: Record<string, unknown>) {
+  const session = await auth()
+  const { id: userId, role } = getSessionUser(session)
+  try {
+    requireRole(role, RH_MANAGER_ROLES)
+    const safe: Record<string, unknown> = {}
+    for (const key of SUBSTITUTE_ALLOWED_FIELDS) {
+      if (key in data) safe[key] = data[key]
+    }
+    if (!safe.positionLabel) throw new Error('L\'intitulé du poste est requis')
+    const { db } = await import('@/db')
+    const { substitutes } = await import('@/db/schema')
+    const [row] = await db.insert(substitutes).values({ ...safe, createdBy: userId } as never).returning({ id: substitutes.id })
+    return { success: true, id: row.id }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+}
+
+// ─── Integration Plan (create from list) ─────────────────────────────────────
+
+const INTEGRATION_CREATE_ALLOWED_FIELDS = ['userId', 'plannedStartDate', 'plannedEndDate', 'items', 'notes']
+
+export async function createIntegrationPlanAction(data: Record<string, unknown>) {
+  const session = await auth()
+  const { id: userId, role } = getSessionUser(session)
+  try {
+    requireRole(role, RH_WRITE_ROLES)
+    const safe: Record<string, unknown> = { createdBy: userId }
+    for (const key of INTEGRATION_CREATE_ALLOWED_FIELDS) {
+      if (key in data) safe[key] = data[key]
+    }
+    if (!safe.userId) safe.userId = userId
+    const { db } = await import('@/db')
+    const { integrationPlans } = await import('@/db/schema')
+    const [row] = await db.insert(integrationPlans).values(safe as never).returning({ id: integrationPlans.id })
+    return { success: true, id: row.id }
+  } catch (e) {
+    return { success: false, error: String(e) }
+  }
+}
+
 // ─── Integration Plan ─────────────────────────────────────────────────────────
 
 const INTEGRATION_ALLOWED_FIELDS = [
