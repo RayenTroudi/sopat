@@ -61,6 +61,7 @@ const publicHeaders = [
 ]
 
 const nextConfig: NextConfig = {
+
   async headers() {
     return [
       {
