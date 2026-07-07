@@ -11,7 +11,7 @@ import {
   Trophy, BookOpen, Coins, CalendarDays, BarChart3, Users, Settings,
   ChevronLeft, ShieldCheck, Scale, UserCheck, Trash2, HardHat, CalendarRange, Globe2,
   FlaskConical, Layers, Briefcase, GraduationCap, Calendar, Star, UserPlus,
-  Clock, MapPin, Package, RefreshCw, LogOut, ScrollText, ClipboardList,
+  Clock, MapPin, Package, RefreshCw, LogOut, ScrollText, ClipboardList, CalendarClock,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -70,6 +70,14 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/etude/decorative-materials',    label: 'Matières décoratives',     icon: Layers,       roles: ['admin','direction','etudes_chef','etudes_team'] },
       { href: '/admin/etude/phytosanitary',           label: 'Produits phytosanitaires', icon: FlaskConical, roles: ['admin','direction','etudes_chef','etudes_team'] },
       { href: '/admin/suppliers',                     label: 'Fournisseurs',             icon: Briefcase,    roles: ['admin','direction','etudes_chef','realisation_chef'] },
+    ],
+  },
+  {
+    label: 'Réalisation',
+    roles: ['admin', 'direction', 'realisation_chef', 'realisation_team'],
+    items: [
+      { href: '/admin/realisation',                  label: 'Registre chantiers',     icon: HardHat,       roles: ['admin', 'direction', 'realisation_chef', 'realisation_team'] },
+      { href: '/admin/realisation/weekly-schedule',  label: 'Planning hebdomadaire',  icon: CalendarClock, roles: ['admin', 'direction', 'realisation_chef', 'realisation_team'] },
     ],
   },
   {
