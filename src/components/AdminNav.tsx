@@ -112,10 +112,9 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Direction',
     roles: ['admin','direction'],
     items: [
-      { href: '/admin/direction/achievements', label: 'Réalisations',     icon: Trophy,    roles: ['admin','direction'] },
-      { href: '/admin/direction/portfolio',    label: 'Portfolio Export', icon: BookOpen,  roles: ['admin','direction'] },
-      { href: '/admin/rse/impact',             label: 'Rapport RSE',      icon: BarChart2, roles: ['admin','direction'], exact: true },
-      { href: '/admin/settings/currencies',    label: 'Métriques devise', icon: Coins,     roles: ['admin','direction'] },
+      { href: '/admin/direction/achievements', label: 'Réalisations',     icon: Trophy,   roles: ['admin','direction'] },
+      { href: '/admin/direction/portfolio',    label: 'Portfolio Export', icon: BookOpen, roles: ['admin','direction'] },
+      { href: '/admin/settings/currencies',    label: 'Métriques devise', icon: Coins,    roles: ['admin','direction'] },
     ],
   },
   {
