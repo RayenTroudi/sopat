@@ -2,16 +2,11 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell,
-} from 'recharts'
+import { BarChart, BarList, LineChart } from '@tremor/react'
 import type { BudgetVarianceRow, NcMonthlyRow, TimelineProject, MlAccuracySummary } from '@/lib/db/reports'
 import type { InternationalReportRow } from '@/lib/db/international'
 import type { EquipmentReportData } from '@/lib/db/equipment'
 import { REGION_LABELS, REGION_COLORS } from '@/lib/db/international'
-import {
-  LineChart, Line,
-} from 'recharts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -283,44 +278,17 @@ function NcAnalysisChart({ data }: { data: NcMonthlyRow[] }) {
       {data.length === 0 ? (
         <p className="text-sm text-center py-6" style={{ color: 'var(--admin-text-muted)' }}>Aucune non-conformité enregistrée.</p>
       ) : (
-        <div>
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-              <XAxis
-                dataKey="month"
-                tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }}
-                axisLine={false}
-                tickLine={false}
-                width={24}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: 'var(--admin-surface)',
-                  border: '1px solid var(--admin-border)',
-                  borderRadius: 8,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: 'var(--admin-text)', fontWeight: 600, marginBottom: 4 }}
-                itemStyle={{ color: 'var(--admin-text)' }}
-              />
-              <Legend
-                iconType="square"
-                iconSize={10}
-                formatter={(value) => NC_LEGEND.find((l) => l.key === value)?.label ?? value}
-                wrapperStyle={{ fontSize: 11, color: 'var(--admin-text-muted)' }}
-              />
-              {NC_LEGEND.map((l) => (
-                <Bar key={l.key} dataKey={l.key} stackId="a" fill={l.color} radius={l.key === 'verifiee' ? [3, 3, 0, 0] : [0, 0, 0, 0]} maxBarSize={40} />
-              ))}
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        <BarChart
+          data={chartData}
+          index="month"
+          categories={['open', 'en_cours', 'cloturee', 'verifiee']}
+          colors={['rose', 'amber', 'emerald', 'teal']}
+          valueFormatter={(v: number) =>String(v)}
+          stack={true}
+          showLegend={true}
+          showGridLines={false}
+          className="h-72"
+        />
       )}
     </Section>
   )
@@ -598,32 +566,23 @@ function MlAccuracyReport({ data }: { data: MlAccuracySummary }) {
             </div>
           </div>
 
-          {/* Scatter-style chart: predicted vs actual */}
+          {/* Grouped bar: predicted vs actual */}
           <div>
             <p className="text-xs font-medium mb-3" style={{ color: 'var(--admin-text-muted)' }}>Prédiction ML vs dépenses réelles (par projet)</p>
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart
-                data={data.rows.map((r) => ({
-                  name:      r.reference,
-                  prédit:    Math.round(r.predictedTotal),
-                  réel:      Math.round(r.actualSpend),
-                }))}
-                margin={{ top: 4, right: 16, left: 0, bottom: 0 }}
-              >
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} width={60}
-                  tickFormatter={(v: number) => `${(v / 1000).toFixed(0)}k`}
-                />
-                <Tooltip
-                  contentStyle={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: 8, fontSize: 12 }}
-                  formatter={(value) => [typeof value === 'number' ? fmtTnd(value) : String(value ?? '')]}
-
-                />
-                <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 11, color: 'var(--admin-text-muted)' }} />
-                <Bar dataKey="prédit"  fill="var(--chart-1)" opacity={0.75} maxBarSize={24} radius={[2, 2, 0, 0]} />
-                <Bar dataKey="réel"    fill="var(--chart-2)" opacity={0.95} maxBarSize={24} radius={[2, 2, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <BarChart
+              data={data.rows.map((r) => ({
+                name:   r.reference,
+                Prédit: Math.round(r.predictedTotal),
+                Réel:   Math.round(r.actualSpend),
+              }))}
+              index="name"
+              categories={['Prédit', 'Réel']}
+              colors={['blue', 'emerald']}
+              valueFormatter={(v: number) =>fmtTnd(v)}
+              showLegend={true}
+              showGridLines={false}
+              className="h-56"
+            />
           </div>
 
           {/* Mobile card list */}
@@ -733,21 +692,16 @@ function InternationalReport({ rows }: { rows: InternationalReportRow[] }) {
       ) : (
         <div className="space-y-6">
           {/* Bar chart */}
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-              <XAxis dataKey="name" tick={{ fontSize: 12, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} />
-              <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} width={24} />
-              <Tooltip
-                contentStyle={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: 8, fontSize: 12 }}
-                formatter={(value, name) => name === 'projets' ? [`${value} projet${Number(value) !== 1 ? 's' : ''}`, 'Projets'] : [`${FMT_NUM.format(Number(value))} DT`, 'Budget']}
-              />
-              <Bar dataKey="projets" maxBarSize={48} radius={[4, 4, 0, 0]}>
-                {chartData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <BarChart
+            data={chartData}
+            index="name"
+            categories={['projets']}
+            colors={['emerald']}
+            valueFormatter={(v: number) =>`${v} projet${Number(v) !== 1 ? 's' : ''}`}
+            showLegend={false}
+            showGridLines={false}
+            className="h-60"
+          />
 
           {/* Region legend */}
           <div className="flex flex-wrap gap-4">
@@ -885,32 +839,30 @@ function EquipmentReport({ data }: { data: EquipmentReportData }) {
         {data.byType.filter((r) => r.totalCost > 0).length === 0 ? (
           <p className="text-sm text-center py-4" style={{ color: 'var(--admin-text-muted)' }}>Aucune donnée.</p>
         ) : (
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={data.byType.filter((r) => r.totalCost > 0)} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-              <XAxis dataKey="displayName" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip formatter={(value) => [typeof value === 'number' ? fmtTnd(value) : String(value ?? '')]} />
-              <Bar dataKey="totalCost" name="Coût total" radius={[4, 4, 0, 0]}>
-                {data.byType.filter((r) => r.totalCost > 0).map((_, i) => (
-                  <Cell key={i} fill={`var(--chart-${(i % 8) + 1})`} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <BarList
+            data={data.byType.filter((r) => r.totalCost > 0).map((r) => ({
+              name:  r.displayName,
+              value: r.totalCost,
+            }))}
+            valueFormatter={(v: number) =>fmtTnd(v)}
+            color="amber"
+          />
         )}
       </Section>
 
       {/* Line chart: monthly trend */}
       {data.monthly.length > 1 && (
         <Section title="Tendance mensuelle des dépenses engins" subtitle="Évolution du coût de location mois par mois">
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={data.monthly} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip formatter={(value) => [typeof value === 'number' ? fmtTnd(value) : String(value ?? '')]} />
-              <Line type="monotone" dataKey="totalCost" name="Dépenses engins" stroke="var(--chart-2)" strokeWidth={2} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
+          <LineChart
+            data={data.monthly.map((m) => ({ Mois: m.month, 'Dépenses engins': m.totalCost }))}
+            index="Mois"
+            categories={['Dépenses engins']}
+            colors={['amber']}
+            valueFormatter={(v: number) =>fmtTnd(v)}
+            showLegend={false}
+            showGridLines={false}
+            className="h-48"
+          />
         </Section>
       )}
 

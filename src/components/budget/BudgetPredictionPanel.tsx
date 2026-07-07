@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { BarList } from '@tremor/react'
 import { cn } from '@/lib/utils'
 import {
   formatPredictionResult,
@@ -76,42 +76,15 @@ function BreakdownChart({ breakdown }: { breakdown: PredictionResult['breakdown'
   const data = Object.entries(breakdown).map(([key, value]) => ({
     name:  BREAKDOWN_LABELS[key] ?? key,
     value: Math.round(value),
-    key,
   }))
 
-  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { payload: typeof data[0] }[] }) => {
-    if (!active || !payload?.[0]) return null
-    return (
-      <div
-        className="rounded-lg border px-3 py-2 text-xs shadow-sm"
-        style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
-      >
-        <p className="font-medium">{payload[0].payload.name}</p>
-        <p style={{ color: 'var(--admin-text-muted)' }}>{tnd(payload[0].payload.value)}</p>
-      </div>
-    )
-  }
-
   return (
-    <div style={{ height: 160 }}>
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 4, right: 4, bottom: 4, left: 4 }} barSize={28}>
-          <XAxis
-            dataKey="name"
-            tick={{ fontSize: 10, fill: 'var(--admin-text-muted)' }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis hide />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'var(--admin-bg)' }} />
-          <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-            {data.map((entry, i) => (
-              <Cell key={entry.key} fill={BREAKDOWN_COLORS[i % BREAKDOWN_COLORS.length]} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
+    <BarList
+      data={data}
+      valueFormatter={(v: number) =>tnd(v)}
+      color="emerald"
+      className="mt-1"
+    />
   )
 }
 

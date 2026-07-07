@@ -1,10 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-  AreaChart, Area, PieChart, Pie, Cell,
-} from 'recharts'
+import { BarChart, AreaChart, DonutChart, BarList } from '@tremor/react'
 import { useToast } from '@/components/ui/Toast'
 import { PROJECT_TYPE_LABEL_FR, PROJECT_TYPE_VALUES } from '@/lib/design-vocab'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -53,7 +50,7 @@ function fmtPct(n: number | null) { return n === null ? '—' : NF_DEC.format(n)
 
 // ── Country meta ──
 const COUNTRY_FR: Record<string, string> = {
-  TN: 'Tunisie', LY: 'Libye', SN: 'Sénégal', CI: 'Côte d’Ivoire', MA: 'Maroc', DZ: 'Algérie', EG: 'Égypte',
+  TN: 'Tunisie', LY: 'Libye', SN: 'Sénégal', CI: "Côte d'Ivoire", MA: 'Maroc', DZ: 'Algérie', EG: 'Égypte',
   FR: 'France',  IT: 'Italie', ES: 'Espagne', DE: 'Allemagne', BE: 'Belgique', CH: 'Suisse',
   QA: 'Qatar', AE: 'Émirats arabes unis', SA: 'Arabie saoudite', OM: 'Oman', KW: 'Koweït', BH: 'Bahreïn',
 }
@@ -235,7 +232,7 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
           <MetricCard value={current.villasPrivees}          label="Villas privées"           trend={current.villasPrivees - previousYear.villasPrivees} />
           <MetricCard value={current.siegesSociaux}          label="Sièges sociaux"           trend={current.siegesSociaux - previousYear.siegesSociaux} />
           <MetricCard value={current.projetsInternationaux}  label="Projets internationaux"   trend={current.projetsInternationaux - previousYear.projetsInternationaux} />
-          <MetricCard value={current.anneesExperience}       label="Années d’expérience" />
+          <MetricCard value={current.anneesExperience}       label="Années d'expérience" />
         </div>
 
         <div className="grid gap-3 mb-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
@@ -261,28 +258,34 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
 
         <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard title="Projets démarrés par type">
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={evolutionChart} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                <XAxis dataKey="year" stroke="var(--admin-text-muted)" fontSize={11} />
-                <YAxis stroke="var(--admin-text-muted)" fontSize={11} allowDecimals={false} />
-                <Tooltip formatter={(v) => fmt(Number(v))} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-                {PROJECT_TYPE_VALUES.map((t, i) => (
-                  <Bar key={t} dataKey={t} stackId="types" fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} name={PROJECT_TYPE_LABEL_FR[t] ?? t} />
-                ))}
-              </BarChart>
-            </ResponsiveContainer>
+            <BarChart
+              data={evolutionChart.map((y) => {
+                const row: Record<string, string | number> = { annee: String(y.year) }
+                PROJECT_TYPE_VALUES.forEach((t) => { row[PROJECT_TYPE_LABEL_FR[t] ?? t] = (y as Record<string, number>)[t] ?? 0 })
+                return row
+              })}
+              index="annee"
+              categories={PROJECT_TYPE_VALUES.map((t) => PROJECT_TYPE_LABEL_FR[t] ?? t)}
+              colors={['emerald', 'teal', 'blue', 'amber', 'rose', 'slate', 'violet', 'cyan']}
+              valueFormatter={(v) => fmt(v)}
+              stack={true}
+              showLegend={true}
+              showGridLines={false}
+              className="h-72"
+            />
           </ChartCard>
 
-          <ChartCard title="Chiffre d’affaires (équivalent TND)">
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={evolutionChart} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
-                <XAxis dataKey="year" stroke="var(--admin-text-muted)" fontSize={11} />
-                <YAxis stroke="var(--admin-text-muted)" fontSize={11} tickFormatter={(v) => NF.format(Math.round(Number(v)))} />
-                <Tooltip formatter={(v) => fmtTND(Number(v))} />
-                <Area type="monotone" dataKey="revenueTND" stroke={SOPAT_GREEN} fill={SOPAT_GREEN_LIGHT} name="CA TND" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <ChartCard title="Chiffre d'affaires (equivalent TND)">
+            <AreaChart
+              data={evolutionChart.map((y) => ({ annee: String(y.year), CA: y.revenueTND }))}
+              index="annee"
+              categories={['CA']}
+              colors={['emerald']}
+              valueFormatter={(v) => fmtTND(v)}
+              showLegend={false}
+              showGridLines={false}
+              className="h-72"
+            />
           </ChartCard>
         </div>
       </section>
@@ -338,17 +341,25 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
             {data.sectors.length === 0 ? (
               <EmptyChart />
             ) : (
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie data={data.sectors} dataKey="count" nameKey="sector" outerRadius={90} label>
-                    {data.sectors.map((_, i) => (
-                      <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v) => fmt(Number(v))} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="flex flex-col items-center gap-4">
+                <DonutChart
+                  data={data.sectors.map((s) => ({ name: s.sector, value: s.count }))}
+                  category="value"
+                  index="name"
+                  colors={['emerald', 'teal', 'blue', 'amber', 'rose', 'slate', 'violet', 'cyan']}
+                  valueFormatter={(v) => `${fmt(v)} proj.`}
+                  showLabel={false}
+                  className="h-48 w-48"
+                />
+                <ul className="w-full space-y-1">
+                  {data.sectors.map((s) => (
+                    <li key={s.sector} className="flex items-center justify-between text-xs">
+                      <span className="truncate" style={{ color: 'var(--admin-text-muted)' }}>{s.sector}</span>
+                      <span className="tabular-nums font-medium ml-2" style={{ color: 'var(--admin-text)' }}>{fmt(s.count)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </ChartCard>
 
@@ -356,14 +367,11 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
             {data.topClients.length === 0 ? (
               <EmptyChart />
             ) : (
-              <ResponsiveContainer width="100%" height={Math.max(260, data.topClients.length * 28)}>
-                <BarChart layout="vertical" data={data.topClients} margin={{ left: 10, right: 30 }}>
-                  <XAxis type="number" stroke="var(--admin-text-muted)" fontSize={11} tickFormatter={(v) => NF.format(Math.round(Number(v)))} />
-                  <YAxis type="category" dataKey="clientName" stroke="var(--admin-text-muted)" fontSize={11} width={140} />
-                  <Tooltip formatter={(v) => fmtTND(Number(v))} />
-                  <Bar dataKey="totalValueTND" fill={SOPAT_GREEN} name="Valeur TND" />
-                </BarChart>
-              </ResponsiveContainer>
+              <BarList
+                data={data.topClients.map((c) => ({ name: c.clientName, value: c.totalValueTND }))}
+                valueFormatter={(v: number) => fmtTND(v)}
+                color="emerald"
+              />
             )}
           </ChartCard>
         </div>

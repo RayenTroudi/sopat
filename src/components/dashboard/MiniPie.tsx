@@ -1,6 +1,6 @@
 'use client'
 
-import { PieChart, Pie, Cell, Tooltip } from 'recharts'
+import { DonutChart } from '@tremor/react'
 
 type Slice = { name: string; value: number; color: string }
 
@@ -10,34 +10,15 @@ export function MiniPie({ data, size = 64 }: Props) {
   if (data.every((d) => d.value === 0)) return null
 
   return (
-    <PieChart width={size} height={size}>
-      <Pie
+    <div style={{ width: size, height: size }}>
+      <DonutChart
         data={data}
-        cx="50%"
-        cy="50%"
-        innerRadius={size * 0.28}
-        outerRadius={size * 0.48}
-        dataKey="value"
-        strokeWidth={0}
-      >
-        {data.map((entry, i) => (
-          <Cell key={i} fill={entry.color} />
-        ))}
-      </Pie>
-      <Tooltip
-        content={({ active, payload }) => {
-          if (!active || !payload?.length) return null
-          const d = payload[0]?.payload as Slice
-          return (
-            <div
-              className="text-xs px-2 py-1 rounded shadow"
-              style={{ background: 'var(--admin-surface)', border: '1px solid var(--admin-border)', color: 'var(--admin-text)' }}
-            >
-              {d.name} : {d.value}
-            </div>
-          )
-        }}
+        category="value"
+        index="name"
+        colors={['emerald', 'blue', 'amber']}
+        showLabel={false}
+        className="h-full w-full"
       />
-    </PieChart>
+    </div>
   )
 }

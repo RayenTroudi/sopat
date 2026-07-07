@@ -434,8 +434,8 @@ function BookmarksSection({
         <DropLine visible={!collapsed && dropAt === 0} />
 
         {entries.map((entry, idx) => {
-          const Icon   = ICON_MAP[entry.href] ?? LayoutDashboard
-          const active = pathname === entry.href || (!entry.href.endsWith('/admin') && pathname.startsWith(entry.href))
+          const Icon      = ICON_MAP[entry.href] ?? LayoutDashboard
+          const isCurrent = pathname === entry.href || (!entry.href.endsWith('/admin') && pathname.startsWith(entry.href))
           const isDragging = dragging === idx
 
           return (
@@ -464,62 +464,53 @@ function BookmarksSection({
                     justifyContent: 'center',
                     width:          '14px',
                     flexShrink:     0,
-                    color:          S.textDim,
-                    opacity:        0.5,
+                    color:          isCurrent ? S.accent : S.textDim,
+                    opacity:        isCurrent ? 0.7 : 0.5,
                   }}>
                     <GripVertical style={{ width: '11px', height: '11px' }} />
                   </div>
                 )}
 
-                {/* Nav link */}
-                {active ? (
-                  <div style={{ flex: 1, position: 'relative' }}>
-                    <ActiveNavItem
-                      item={{ href: entry.href, label: entry.label, icon: Icon }}
-                      collapsed={collapsed}
-                      onNavigate={onNavigate}
-                    />
-                  </div>
-                ) : (
-                  <Link
-                    href={entry.href}
-                    onClick={onNavigate}
-                    title={collapsed ? entry.label : undefined}
-                    style={{
-                      flex:           1,
-                      display:        'flex',
-                      alignItems:     'center',
-                      height:         '36px',
-                      paddingLeft:    collapsed ? '0' : '8px',
-                      paddingRight:   collapsed ? '0' : '4px',
-                      justifyContent: collapsed ? 'center' : 'flex-start',
-                      gap:            '8px',
-                      color:          S.textMuted,
-                      borderRadius:   '8px',
-                      fontSize:       '13px',
-                      fontWeight:     500,
-                      textDecoration: 'none',
-                      transition:     'background 150ms ease, color 150ms ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = S.hoverBg
-                      e.currentTarget.style.color = S.text
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'transparent'
-                      e.currentTarget.style.color = S.textMuted
-                    }}
-                  >
-                    <Icon style={{ width: '14px', height: '14px', flexShrink: 0 }} />
-                    {!collapsed && (
-                      <span style={{
-                        minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>
-                        {entry.label}
-                      </span>
-                    )}
-                  </Link>
-                )}
+                {/* Nav link — subtle tint when it's the current page */}
+                <Link
+                  href={entry.href}
+                  onClick={onNavigate}
+                  title={collapsed ? entry.label : undefined}
+                  style={{
+                    flex:           1,
+                    display:        'flex',
+                    alignItems:     'center',
+                    height:         '36px',
+                    paddingLeft:    collapsed ? '0' : '8px',
+                    paddingRight:   collapsed ? '0' : '4px',
+                    justifyContent: collapsed ? 'center' : 'flex-start',
+                    gap:            '8px',
+                    color:          isCurrent ? S.accent : S.textMuted,
+                    background:     isCurrent ? 'rgba(47,111,79,0.08)' : 'transparent',
+                    borderRadius:   '8px',
+                    fontSize:       '13px',
+                    fontWeight:     isCurrent ? 600 : 500,
+                    textDecoration: 'none',
+                    transition:     'background 150ms ease, color 150ms ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = isCurrent ? 'rgba(47,111,79,0.14)' : S.hoverBg
+                    e.currentTarget.style.color = isCurrent ? S.accent : S.text
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = isCurrent ? 'rgba(47,111,79,0.08)' : 'transparent'
+                    e.currentTarget.style.color = isCurrent ? S.accent : S.textMuted
+                  }}
+                >
+                  <Icon style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                  {!collapsed && (
+                    <span style={{
+                      minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
+                      {entry.label}
+                    </span>
+                  )}
+                </Link>
 
                 {/* Remove button — always visible, amber star/bookmark */}
                 {!collapsed && (

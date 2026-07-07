@@ -1,8 +1,6 @@
 'use client'
 
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
-} from 'recharts'
+import { BarChart } from '@tremor/react'
 import type { CountryProjectSummary } from '@/lib/db/international'
 import { REGION_LABELS, REGION_COLORS } from '@/lib/db/international'
 
@@ -13,9 +11,7 @@ function fmtTnd(n: number | null) {
   return `${FMT.format(n)} DT`
 }
 
-type Props = {
-  data: CountryProjectSummary[]
-}
+type Props = { data: CountryProjectSummary[] }
 
 const REGIONS = ['africa', 'europe', 'middle_east'] as const
 
@@ -29,14 +25,12 @@ export function InternationalDashboard({ data }: Props) {
     .sort((a, b) => b.projectCount - a.projectCount)
     .map((c) => ({
       name:    `${c.flag} ${c.countryName}`,
-      projets: c.projectCount,
-      budget:  c.budgetTND ?? 0,
-      color:   REGION_COLORS[c.region],
+      Projets: c.projectCount,
     }))
 
   return (
     <div className="space-y-6">
-      {/* Bar chart — projects by country */}
+      {/* Bar chart */}
       <div
         className="rounded-xl border overflow-hidden"
         style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
@@ -51,44 +45,18 @@ export function InternationalDashboard({ data }: Props) {
           {chartData.length === 0 ? (
             <p className="text-sm text-center py-6" style={{ color: 'var(--admin-text-muted)' }}>Aucune donnée.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
-                <XAxis
-                  dataKey="name"
-                  tick={{ fontSize: 12, fill: 'var(--admin-text-muted)' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }}
-                  axisLine={false}
-                  tickLine={false}
-                  width={24}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: 'var(--admin-surface)',
-                    border: '1px solid var(--admin-border)',
-                    borderRadius: 8,
-                    fontSize: 12,
-                  }}
-                  labelStyle={{ color: 'var(--admin-text)', fontWeight: 600, marginBottom: 4 }}
-                  formatter={(value, name) => {
-                    if (name === 'projets') return [`${value} projet${Number(value) !== 1 ? 's' : ''}`, 'Projets']
-                    return [fmtTnd(Number(value)), 'Budget (DT)']
-                  }}
-                />
-                <Bar dataKey="projets" maxBarSize={48} radius={[4, 4, 0, 0]}>
-                  {chartData.map((entry, i) => (
-                    <Cell key={i} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <BarChart
+              data={chartData}
+              index="name"
+              categories={['Projets']}
+              colors={['emerald']}
+              valueFormatter={(v) => `${v} projet${v !== 1 ? 's' : ''}`}
+              showLegend={false}
+              showGridLines={false}
+              className="h-64"
+            />
           )}
 
-          {/* Region legend */}
           <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t" style={{ borderColor: 'var(--admin-border)' }}>
             {REGIONS.map((r) => (
               <div key={r} className="flex items-center gap-1.5">
@@ -114,10 +82,7 @@ export function InternationalDashboard({ data }: Props) {
             if (countries.length === 0) return null
             return (
               <div key={region}>
-                <div
-                  className="flex items-center gap-2 mb-3 pb-2 border-b"
-                  style={{ borderColor: 'var(--admin-border)' }}
-                >
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b" style={{ borderColor: 'var(--admin-border)' }}>
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: REGION_COLORS[region] }} />
                   <h3 className="text-xs font-semibold uppercase tracking-wide" style={{ color: REGION_COLORS[region] }}>
                     {REGION_LABELS[region]}
@@ -133,35 +98,22 @@ export function InternationalDashboard({ data }: Props) {
                   </thead>
                   <tbody>
                     {countries.map((c) => (
-                      <tr
-                        key={c.country}
-                        className="hover:bg-[var(--admin-bg)] transition-colors"
-                        style={{ borderBottom: '1px solid var(--admin-border)' }}
-                      >
+                      <tr key={c.country} className="hover:bg-[var(--admin-bg)] transition-colors" style={{ borderBottom: '1px solid var(--admin-border)' }}>
                         <td className="px-3 py-3">
                           <span className="text-base mr-2">{c.flag}</span>
                           <span className="font-medium" style={{ color: 'var(--admin-text)' }}>{c.countryName}</span>
                         </td>
-                        <td className="px-3 py-3 tabular-nums text-center" style={{ color: 'var(--admin-text)' }}>
-                          {c.projectCount}
-                        </td>
+                        <td className="px-3 py-3 tabular-nums text-center" style={{ color: 'var(--admin-text)' }}>{c.projectCount}</td>
                         <td className="px-3 py-3 tabular-nums text-center">
-                          <span
-                            className="text-xs px-2 py-0.5 rounded font-medium"
-                            style={{
-                              background: c.activeCount > 0 ? 'var(--admin-emerald-dim)' : 'var(--admin-bg)',
-                              color:      c.activeCount > 0 ? 'var(--admin-emerald)'     : 'var(--admin-text-muted)',
-                            }}
-                          >
+                          <span className="text-xs px-2 py-0.5 rounded font-medium" style={{
+                            background: c.activeCount > 0 ? 'var(--admin-emerald-dim)' : 'var(--admin-bg)',
+                            color:      c.activeCount > 0 ? 'var(--admin-emerald)'     : 'var(--admin-text-muted)',
+                          }}>
                             {c.activeCount}
                           </span>
                         </td>
-                        <td className="px-3 py-3 tabular-nums text-right text-xs font-medium" style={{ color: 'var(--admin-text)' }}>
-                          {fmtTnd(c.budgetTND)}
-                        </td>
-                        <td className="px-3 py-3 tabular-nums text-right text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                          {fmtTnd(c.actualSpendTND)}
-                        </td>
+                        <td className="px-3 py-3 tabular-nums text-right text-xs font-medium" style={{ color: 'var(--admin-text)' }}>{fmtTnd(c.budgetTND)}</td>
+                        <td className="px-3 py-3 tabular-nums text-right text-xs" style={{ color: 'var(--admin-text-muted)' }}>{fmtTnd(c.actualSpendTND)}</td>
                       </tr>
                     ))}
                   </tbody>
