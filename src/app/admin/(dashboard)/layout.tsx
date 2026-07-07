@@ -14,9 +14,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <ToastProvider>
       <div className="min-h-screen flex admin-bg-override" style={{ background: '#D4E4DA', fontFamily: 'var(--font-sans)' }}>
-        <AdminNav role={session.role} />
+        <AdminNav role={session.role} userId={session.userId} />
         <div className="flex-1 flex flex-col min-w-0">
-          <AdminHeader name={session.name} role={session.role} />
+          <AdminHeader name={session.name} role={session.role} userId={session.userId} />
           <main className="flex-1 admin-fade-in" style={{ background: '#D4E4DA', padding: '8px 8px 8px 8px' }}>
             <div style={{
               background:   '#F4F8F5',

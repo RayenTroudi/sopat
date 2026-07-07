@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { UserRole } from '@/lib/auth-utils'
 import {
   LayoutDashboard, FolderOpen, Building2, AlertTriangle, ClipboardCheck,
@@ -12,6 +12,7 @@ import {
   ChevronLeft, ShieldCheck, Scale, UserCheck, Trash2, HardHat, CalendarRange, Globe2,
   FlaskConical, Layers, Briefcase, GraduationCap, Calendar, Star, UserPlus,
   Clock, MapPin, Package, RefreshCw, LogOut, ScrollText, ClipboardList, CalendarClock,
+  ChevronDown, Bookmark, BookmarkCheck, GripVertical,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -139,7 +140,6 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ]
 
-
 /* ── Design tokens ───────────────────────────────────────────── */
 const S = {
   border:    'var(--admin-border)',
@@ -151,14 +151,25 @@ const S = {
   hoverBg:   '#E2ECE6',
 } as const
 
-const EXPANDED_WIDTH = 228
+const EXPANDED_WIDTH  = 228
 const COLLAPSED_WIDTH = 60
 
-/*
- * ActivePillBg — SVG pill with organic right-side bulge.
- * Stretches to parent width via preserveAspectRatio="none".
- * drop-shadow filter follows the actual shape contour.
- */
+/* ── localStorage helpers (keyed by userId) ─────────────────── */
+function lsKey(userId: string, suffix: string) {
+  return `sopat-nav-${userId}-${suffix}`
+}
+function lsGet<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw === null) return fallback
+    return JSON.parse(raw) as T
+  } catch { return fallback }
+}
+function lsSet(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* noop */ }
+}
+
+/* ── Active pill background ──────────────────────────────────── */
 function ActivePillBg({ collapsed }: { collapsed: boolean }) {
   const r   = collapsed ? 16 : 20
   const W   = 186
@@ -167,30 +178,16 @@ function ActivePillBg({ collapsed }: { collapsed: boolean }) {
   const mid = H / 2
 
   const d = collapsed
-    ? // Collapsed: full pill (both sides rounded), no bulge
-      [
-        `M ${r} 0`,
-        `L ${W - r} 0`,
-        `Q ${W} 0 ${W} ${r}`,
-        `L ${W} ${H - r}`,
-        `Q ${W} ${H} ${W - r} ${H}`,
-        `L ${r} ${H}`,
-        `Q 0 ${H} 0 ${H - r}`,
-        `L 0 ${r}`,
-        `Q 0 0 ${r} 0`,
-        'Z',
+    ? [
+        `M ${r} 0`, `L ${W - r} 0`, `Q ${W} 0 ${W} ${r}`,
+        `L ${W} ${H - r}`, `Q ${W} ${H} ${W - r} ${H}`,
+        `L ${r} ${H}`, `Q 0 ${H} 0 ${H - r}`, `L 0 ${r}`, `Q 0 0 ${r} 0`, 'Z',
       ].join(' ')
-    : // Expanded: pill with right-side bulge
-      [
-        `M ${r} 0`,
-        `L ${W} 0`,
+    : [
+        `M ${r} 0`, `L ${W} 0`,
         `C ${W + 10} 0, ${bx} ${mid * 0.3}, ${W} ${mid}`,
         `C ${bx} ${mid * 1.7}, ${W + 10} ${H}, ${W} ${H}`,
-        `L ${r} ${H}`,
-        `Q 0 ${H} 0 ${H - r}`,
-        `L 0 ${r}`,
-        `Q 0 0 ${r} 0`,
-        'Z',
+        `L ${r} ${H}`, `Q 0 ${H} 0 ${H - r}`, `L 0 ${r}`, `Q 0 0 ${r} 0`, 'Z',
       ].join(' ')
 
   return (
@@ -200,12 +197,9 @@ function ActivePillBg({ collapsed }: { collapsed: boolean }) {
       viewBox="0 0 200 38"
       preserveAspectRatio="none"
       style={{
-        position:  'absolute',
-        inset:     0,
-        width:     '100%',
-        height:    '100%',
-        overflow:  'visible',
-        filter:    'drop-shadow(0 4px 10px rgba(15,36,25,0.28)) drop-shadow(0 1px 3px rgba(15,36,25,0.18))',
+        position: 'absolute', inset: 0, width: '100%', height: '100%',
+        overflow: 'visible',
+        filter: 'drop-shadow(0 4px 10px rgba(15,36,25,0.28)) drop-shadow(0 1px 3px rgba(15,36,25,0.18))',
         transition: 'filter 200ms ease',
       }}
     >
@@ -215,21 +209,16 @@ function ActivePillBg({ collapsed }: { collapsed: boolean }) {
 }
 
 function ActiveNavItem({
-  item,
-  collapsed,
-  onNavigate,
+  item, collapsed, onNavigate,
 }: {
-  item: NavItem
-  collapsed: boolean
-  onNavigate?: () => void
+  item: NavItem; collapsed: boolean; onNavigate?: () => void
 }) {
   const Icon = item.icon
   return (
     <div
       title={collapsed ? item.label : undefined}
       style={{
-        position:       'relative',
-        height:         '38px',
+        position: 'relative', height: '38px',
         borderRadius:   collapsed ? '10px' : undefined,
         background:     collapsed ? S.accent : undefined,
         boxShadow:      collapsed ? '0 4px 10px rgba(15,36,25,0.28), 0 1px 3px rgba(15,36,25,0.18)' : undefined,
@@ -243,35 +232,22 @@ function ActiveNavItem({
         href={item.href}
         onClick={onNavigate}
         style={{
-          position:        'relative',
-          zIndex:          1,
-          display:         'flex',
-          alignItems:      'center',
-          justifyContent:  collapsed ? 'center' : 'flex-start',
-          width:           collapsed ? '100%' : undefined,
-          gap:             '10px',
-          height:          '38px',
-          paddingLeft:     collapsed ? '0' : '18px',
-          paddingRight:    collapsed ? '0' : '24px',
-          color:           '#fff',
-          fontWeight:      600,
-          fontSize:        '13px',
-          textDecoration:  'none',
-          letterSpacing:   '-0.01em',
+          position: 'relative', zIndex: 1,
+          display: 'flex', alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'flex-start',
+          width: collapsed ? '100%' : undefined,
+          gap: '10px', height: '38px',
+          paddingLeft: collapsed ? '0' : '18px',
+          paddingRight: collapsed ? '0' : '24px',
+          color: '#fff', fontWeight: 600, fontSize: '13px',
+          textDecoration: 'none', letterSpacing: '-0.01em',
         }}
       >
         <Icon style={{ width: '15px', height: '15px', color: 'rgba(255,255,255,0.9)', flexShrink: 0 }} />
-        <span
-          style={{
-            minWidth:      0,
-            overflow:      'hidden',
-            textOverflow:  'ellipsis',
-            whiteSpace:    'nowrap',
-            lineHeight:    1,
-            display:       collapsed ? 'none' : undefined,
-            transition:    'opacity 150ms ease',
-          }}
-        >
+        <span style={{
+          minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          lineHeight: 1, display: collapsed ? 'none' : undefined, transition: 'opacity 150ms ease',
+        }}>
           {item.label}
         </span>
       </Link>
@@ -279,17 +255,348 @@ function ActiveNavItem({
   )
 }
 
+/* ── Bookmark button ─────────────────────────────────────────── */
+function BookmarkBtn({
+  bookmarked, onToggle, show,
+}: {
+  bookmarked: boolean; onToggle: (e: React.MouseEvent) => void; show: boolean
+}) {
+  return (
+    <button
+      onClick={onToggle}
+      title={bookmarked ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+      style={{
+        display:         'flex',
+        alignItems:      'center',
+        justifyContent:  'center',
+        width:           '20px',
+        height:          '20px',
+        flexShrink:       0,
+        background:      'none',
+        border:          'none',
+        cursor:          'pointer',
+        borderRadius:    '4px',
+        opacity:         show ? 1 : 0,
+        pointerEvents:   show ? 'auto' : 'none',
+        transition:      'opacity 120ms ease',
+        color:           bookmarked ? '#F59E0B' : S.textDim,
+        padding:         0,
+      }}
+    >
+      {bookmarked
+        ? <BookmarkCheck style={{ width: '12px', height: '12px' }} />
+        : <Bookmark      style={{ width: '12px', height: '12px' }} />}
+    </button>
+  )
+}
+
+/* ── Drag-and-drop bookmarks list ────────────────────────────── */
+type BookmarkEntry = { href: string; label: string; iconName: string }
+
+// Map icon component → name string for serialization
+const ICON_MAP: Record<string, LucideIcon> = (() => {
+  const map: Record<string, LucideIcon> = {}
+  for (const g of NAV_GROUPS) {
+    for (const item of g.items) {
+      map[item.href] = item.icon
+    }
+  }
+  return map
+})()
+
+function BookmarksSection({
+  entries,
+  collapsed,
+  onNavigate,
+  onRemove,
+  onReorder,
+  pathname,
+}: {
+  entries:    BookmarkEntry[]
+  collapsed:  boolean
+  onNavigate?: () => void
+  onRemove:   (href: string) => void
+  onReorder:  (newOrder: BookmarkEntry[]) => void
+  pathname:   string
+}) {
+  const dragIdx  = useRef<number | null>(null)
+  const overIdx  = useRef<number | null>(null)
+  const [dragging, setDragging] = useState<number | null>(null)
+
+  if (entries.length === 0) return null
+
+  function handleDragStart(idx: number) {
+    dragIdx.current = idx
+    setDragging(idx)
+  }
+  function handleDragEnter(idx: number) {
+    overIdx.current = idx
+  }
+  function handleDragEnd() {
+    if (dragIdx.current !== null && overIdx.current !== null && dragIdx.current !== overIdx.current) {
+      const next = [...entries]
+      const [moved] = next.splice(dragIdx.current, 1)
+      next.splice(overIdx.current, 0, moved)
+      onReorder(next)
+    }
+    dragIdx.current  = null
+    overIdx.current  = null
+    setDragging(null)
+  }
+
+  return (
+    <div style={{ marginBottom: '4px' }}>
+      {!collapsed && (
+        <p style={{
+          paddingLeft:   '16px',
+          fontSize:      '10px',
+          fontWeight:    600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color:         S.textDim,
+          marginBottom:  '6px',
+          display:       'flex',
+          alignItems:    'center',
+          gap:           '5px',
+        }}>
+          <BookmarkCheck style={{ width: '10px', height: '10px', color: '#F59E0B' }} />
+          Favoris
+        </p>
+      )}
+      <div
+        style={{
+          padding:      collapsed ? '6px' : '0',
+          background:   collapsed ? 'rgba(196,214,204,0.45)' : 'transparent',
+          borderRadius: collapsed ? '14px' : '0',
+          margin:       collapsed ? '0 6px' : '0',
+        }}
+      >
+        {entries.map((entry, idx) => {
+          const Icon   = ICON_MAP[entry.href] ?? LayoutDashboard
+          const active = pathname === entry.href || pathname.startsWith(entry.href)
+          const isDrag = dragging === idx
+
+          return (
+            <div
+              key={entry.href}
+              draggable={!collapsed}
+              onDragStart={() => handleDragStart(idx)}
+              onDragEnter={() => handleDragEnter(idx)}
+              onDragEnd={handleDragEnd}
+              onDragOver={(e) => e.preventDefault()}
+              style={{
+                opacity:    isDrag ? 0.4 : 1,
+                transition: 'opacity 120ms ease',
+                position:   'relative',
+              }}
+            >
+              {active ? (
+                <div style={{ position: 'relative' }}>
+                  {!collapsed && (
+                    <>
+                      {!collapsed && (
+                        <span
+                          title="Glisser pour réorganiser"
+                          style={{
+                            position:    'absolute',
+                            left:        '3px',
+                            top:         '50%',
+                            transform:   'translateY(-50%)',
+                            zIndex:      2,
+                            cursor:      'grab',
+                            color:       'rgba(255,255,255,0.5)',
+                            display:     'flex',
+                            alignItems:  'center',
+                          }}
+                        >
+                          <GripVertical style={{ width: '10px', height: '10px' }} />
+                        </span>
+                      )}
+                    </>
+                  )}
+                  <ActiveNavItem item={{ href: entry.href, label: entry.label, icon: Icon }} collapsed={collapsed} onNavigate={onNavigate} />
+                  {!collapsed && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); onRemove(entry.href) }}
+                      title="Retirer des favoris"
+                      style={{
+                        position:       'absolute',
+                        right:          '6px',
+                        top:            '50%',
+                        transform:      'translateY(-50%)',
+                        zIndex:         2,
+                        background:     'none',
+                        border:         'none',
+                        cursor:         'pointer',
+                        color:          'rgba(255,255,255,0.7)',
+                        padding:        0,
+                        display:        'flex',
+                        alignItems:     'center',
+                      }}
+                    >
+                      <BookmarkCheck style={{ width: '11px', height: '11px' }} />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div
+                  className="group"
+                  style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                >
+                  {!collapsed && (
+                    <span
+                      title="Glisser pour réorganiser"
+                      style={{
+                        position:    'absolute',
+                        left:        '3px',
+                        top:         '50%',
+                        transform:   'translateY(-50%)',
+                        zIndex:      2,
+                        cursor:      'grab',
+                        color:       S.textDim,
+                        display:     'flex',
+                        alignItems:  'center',
+                        opacity:     0,
+                      }}
+                      className="group-hover:opacity-100"
+                    >
+                      <GripVertical style={{ width: '10px', height: '10px' }} />
+                    </span>
+                  )}
+                  <Link
+                    href={entry.href}
+                    onClick={onNavigate}
+                    title={collapsed ? entry.label : undefined}
+                    className="relative flex items-center text-[13px] font-medium transition-colors duration-200"
+                    style={{
+                      flex:          1,
+                      height:        '40px',
+                      paddingLeft:   collapsed ? '0' : '20px',
+                      paddingRight:  collapsed ? '0' : '32px',
+                      justifyContent: collapsed ? 'center' : 'flex-start',
+                      gap:            collapsed ? '0' : '10px',
+                      color:          S.textMuted,
+                      borderRadius:   '10px',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = S.hoverBg
+                      e.currentTarget.style.color = S.text
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = S.textMuted
+                    }}
+                  >
+                    <Icon className="shrink-0" style={{ width: '15px', height: '15px', color: S.textMuted }} />
+                    <span style={{
+                      minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      lineHeight: 1, opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto',
+                      transition: 'opacity 150ms ease, width 150ms ease',
+                      pointerEvents: collapsed ? 'none' : 'auto',
+                    }}>
+                      {entry.label}
+                    </span>
+                  </Link>
+                  {!collapsed && (
+                    <button
+                      onClick={(e) => { e.preventDefault(); onRemove(entry.href) }}
+                      title="Retirer des favoris"
+                      className="group-hover:opacity-100"
+                      style={{
+                        position:      'absolute',
+                        right:         '6px',
+                        top:           '50%',
+                        transform:     'translateY(-50%)',
+                        background:    'none',
+                        border:        'none',
+                        cursor:        'pointer',
+                        color:         '#F59E0B',
+                        padding:       0,
+                        display:       'flex',
+                        alignItems:    'center',
+                        opacity:       0,
+                        transition:    'opacity 120ms ease',
+                      }}
+                    >
+                      <BookmarkCheck style={{ width: '11px', height: '11px' }} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/* ── Main content component ──────────────────────────────────── */
 export function AdminNavContent({
   role,
+  userId,
   collapsed,
   onNavigate,
 }: {
   role?:       UserRole
+  userId?:     string
   collapsed?:  boolean
   onNavigate?: () => void
 }) {
   const isCollapsed = collapsed ?? false
   const pathname = usePathname()
+
+  // Per-user section collapsed state: Record<groupLabel, boolean>
+  const [sectionCollapsed, setSectionCollapsed] = useState<Record<string, boolean>>({})
+  // Per-user bookmarks
+  const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([])
+  // Hover tracking for bookmark buttons
+  const [hoveredHref, setHoveredHref] = useState<string | null>(null)
+
+  const uid = userId ?? 'anonymous'
+
+  useEffect(() => {
+    setSectionCollapsed(lsGet<Record<string, boolean>>(lsKey(uid, 'sections'), {}))
+    setBookmarks(lsGet<BookmarkEntry[]>(lsKey(uid, 'bookmarks'), []))
+  }, [uid])
+
+  function toggleSection(label: string) {
+    setSectionCollapsed((prev) => {
+      const next = { ...prev, [label]: !prev[label] }
+      lsSet(lsKey(uid, 'sections'), next)
+      return next
+    })
+  }
+
+  const isBookmarked = useCallback((href: string) => bookmarks.some((b) => b.href === href), [bookmarks])
+
+  function toggleBookmark(item: NavItem, e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    setBookmarks((prev) => {
+      let next: BookmarkEntry[]
+      if (prev.some((b) => b.href === item.href)) {
+        next = prev.filter((b) => b.href !== item.href)
+      } else {
+        next = [...prev, { href: item.href, label: item.label, iconName: item.href }]
+      }
+      lsSet(lsKey(uid, 'bookmarks'), next)
+      return next
+    })
+  }
+
+  function removeBookmark(href: string) {
+    setBookmarks((prev) => {
+      const next = prev.filter((b) => b.href !== href)
+      lsSet(lsKey(uid, 'bookmarks'), next)
+      return next
+    })
+  }
+
+  function reorderBookmarks(next: BookmarkEntry[]) {
+    setBookmarks(next)
+    lsSet(lsKey(uid, 'bookmarks'), next)
+  }
 
   function isActive(item: NavItem) {
     if (item.exact) return pathname === item.href
@@ -316,48 +623,28 @@ export function AdminNavContent({
       <div
         className="flex items-center shrink-0"
         style={{
-          height:         '88px',
-          paddingLeft:    isCollapsed ? '0' : '16px',
-          paddingRight:   isCollapsed ? '0' : '12px',
-          paddingTop:     isCollapsed ? '10px' : '20px',
-          justifyContent: isCollapsed ? 'center' : 'flex-start',
-          transition:     'padding 200ms ease',
+          height:              '88px',
+          paddingLeft:         isCollapsed ? '0' : '16px',
+          paddingRight:        isCollapsed ? '0' : '12px',
+          paddingTop:          isCollapsed ? '10px' : '20px',
+          justifyContent:      isCollapsed ? 'center' : 'flex-start',
+          transition:          'padding 200ms ease',
           background:          'var(--admin-surface)',
           position:            'sticky',
-          top:                 0,
-          zIndex:              10,
-          borderTopLeftRadius: '20px',
+          top:                  0,
+          zIndex:               10,
+          borderTopLeftRadius:  '20px',
           borderTopRightRadius: '20px',
         }}
       >
-        {/* Collapsed: leaf icon from favicon */}
         {isCollapsed && (
-          <Image
-            src="/icon.svg"
-            alt="SOPAT"
-            width={40}
-            height={40}
-            priority
-            unoptimized
-            style={{
-              filter: 'brightness(0) saturate(100%) invert(18%) sepia(40%) saturate(700%) hue-rotate(105deg) brightness(80%)',
-            }}
+          <Image src="/icon.svg" alt="SOPAT" width={40} height={40} priority unoptimized
+            style={{ filter: 'brightness(0) saturate(100%) invert(18%) sepia(40%) saturate(700%) hue-rotate(105deg) brightness(80%)' }}
           />
         )}
-
-        {/* Expanded: full SVG logo tinted dark green */}
         {!isCollapsed && (
-          <Image
-            src="/logo-768x519.svg"
-            alt="SOPAT"
-            width={110}
-            height={74}
-            priority
-            unoptimized
-            style={{
-              filter: 'brightness(0) saturate(100%) invert(18%) sepia(40%) saturate(700%) hue-rotate(105deg) brightness(80%)',
-              objectFit: 'contain',
-            }}
+          <Image src="/logo-768x519.svg" alt="SOPAT" width={110} height={74} priority unoptimized
+            style={{ filter: 'brightness(0) saturate(100%) invert(18%) sepia(40%) saturate(700%) hue-rotate(105deg) brightness(80%)', objectFit: 'contain' }}
           />
         )}
       </div>
@@ -365,106 +652,171 @@ export function AdminNavContent({
       {/* ── Navigation ─────────────────────────────────────── */}
       <nav
         className="admin-sidebar-nav flex-1 overflow-y-auto overflow-x-hidden"
-        style={{ padding: '20px 0 12px', position: 'relative', zIndex: 1 }}
+        style={{ padding: '12px 0 12px', position: 'relative', zIndex: 1 }}
       >
+        {/* Bookmarks group */}
+        {!isCollapsed && (
+          <BookmarksSection
+            entries={bookmarks}
+            collapsed={isCollapsed}
+            onNavigate={onNavigate}
+            onRemove={removeBookmark}
+            onReorder={reorderBookmarks}
+            pathname={pathname}
+          />
+        )}
+
         {visibleGroups.map((g, gi) => {
           const visibleItems = g.items.filter(itemVisible)
-          return (
-            <div key={(g.label ?? 'top') + '-' + gi} style={{ marginTop: gi === 0 ? 0 : isCollapsed ? '10px' : '20px' }}>
+          const label        = g.label ?? ''
+          const isClosed     = !!label && !isCollapsed && !!sectionCollapsed[label]
 
-              {/* Section label — hidden when collapsed */}
+          return (
+            <div key={label + '-' + gi} style={{ marginTop: gi === 0 ? 0 : isCollapsed ? '10px' : '16px' }}>
+
+              {/* Section header — clickable when expanded */}
               {g.label && (
-                <p
-                  className="mb-1.5"
+                <div
                   style={{
+                    display:        'flex',
+                    alignItems:     'center',
+                    justifyContent: isCollapsed ? 'center' : 'space-between',
                     paddingLeft:    isCollapsed ? '0' : '16px',
-                    textAlign:      isCollapsed ? 'center' : 'left',
-                    fontSize:       '10px',
-                    fontWeight:     600,
-                    textTransform:  'uppercase',
-                    letterSpacing:  '0.08em',
-                    color:          S.textDim,
-                    opacity:        isCollapsed ? 0 : 1,
-                    height:         isCollapsed ? 0 : 'auto',
-                    marginBottom:   isCollapsed ? 0 : undefined,
-                    overflow:       'hidden',
-                    transition:     'opacity 150ms ease, height 150ms ease, margin 150ms ease',
-                    pointerEvents:  isCollapsed ? 'none' : 'auto',
-                    whiteSpace:     'nowrap',
+                    paddingRight:   isCollapsed ? '0' : '8px',
+                    marginBottom:   isClosed ? '2px' : '6px',
+                    cursor:         isCollapsed ? 'default' : 'pointer',
+                    userSelect:     'none',
                   }}
+                  onClick={() => !isCollapsed && toggleSection(g.label!)}
                 >
-                  {g.label}
-                </p>
+                  <p
+                    style={{
+                      fontSize:      '10px',
+                      fontWeight:    600,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      color:         S.textDim,
+                      opacity:       isCollapsed ? 0 : 1,
+                      height:        isCollapsed ? 0 : 'auto',
+                      overflow:      'hidden',
+                      transition:    'opacity 150ms ease, height 150ms ease',
+                      pointerEvents: isCollapsed ? 'none' : 'auto',
+                      margin:         0,
+                      whiteSpace:    'nowrap',
+                    }}
+                  >
+                    {g.label}
+                  </p>
+                  {!isCollapsed && (
+                    <ChevronDown
+                      style={{
+                        width:      '12px',
+                        height:     '12px',
+                        color:      S.textDim,
+                        flexShrink: 0,
+                        transform:  isClosed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                        transition: 'transform 200ms ease',
+                      }}
+                    />
+                  )}
+                </div>
               )}
 
-              {/* Items */}
+              {/* Items — collapsible */}
               <div
-                className="space-y-1"
                 style={{
-                  padding:      isCollapsed ? '6px' : '0',
-                  background:   isCollapsed ? 'rgba(196,214,204,0.45)' : 'transparent',
-                  borderRadius: isCollapsed ? '14px' : '0',
-                  margin:       isCollapsed ? '0 6px' : '0',
-                  transition:   'background 200ms ease, border-radius 200ms ease, padding 200ms ease',
+                  padding:        isCollapsed ? '6px' : '0',
+                  background:     isCollapsed ? 'rgba(196,214,204,0.45)' : 'transparent',
+                  borderRadius:   isCollapsed ? '14px' : '0',
+                  margin:         isCollapsed ? '0 6px' : '0',
+                  transition:     'background 200ms ease, border-radius 200ms ease, padding 200ms ease',
+                  overflow:       'hidden',
+                  maxHeight:      isClosed ? '0px' : '9999px',
+                  // smooth collapse
+                  transitionProperty: 'max-height, padding, background',
+                  transitionDuration: '220ms',
+                  transitionTimingFunction: 'ease',
                 }}
               >
                 {visibleItems.map((item) => {
-                  const active = isActive(item)
-                  const Icon   = item.icon
+                  const active     = isActive(item)
+                  const bookmarked = isBookmarked(item.href)
+                  const hovered    = hoveredHref === item.href
+                  const Icon       = item.icon
 
                   if (active) {
                     return (
-                      <ActiveNavItem
+                      <div
                         key={item.href + '-' + item.label}
-                        item={item}
-                        collapsed={isCollapsed}
-                        onNavigate={onNavigate}
-                      />
+                        style={{ position: 'relative' }}
+                        onMouseEnter={() => setHoveredHref(item.href)}
+                        onMouseLeave={() => setHoveredHref(null)}
+                      >
+                        <ActiveNavItem item={item} collapsed={isCollapsed} onNavigate={onNavigate} />
+                        {!isCollapsed && (
+                          <div style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}>
+                            <BookmarkBtn
+                              bookmarked={bookmarked}
+                              onToggle={(e) => toggleBookmark(item, e)}
+                              show={hovered || bookmarked}
+                            />
+                          </div>
+                        )}
+                      </div>
                     )
                   }
 
                   return (
-                    <Link
+                    <div
                       key={item.href + '-' + item.label}
-                      href={item.href}
-                      onClick={onNavigate}
-                      title={isCollapsed ? item.label : undefined}
-                      className="relative flex items-center text-[13px] font-medium transition-colors duration-200"
-                      style={{
-                        height:          '40px',
-                        paddingLeft:     isCollapsed ? '0' : '20px',
-                        paddingRight:    isCollapsed ? '0' : '16px',
-                        justifyContent:  isCollapsed ? 'center' : 'flex-start',
-                        gap:             isCollapsed ? '0' : '10px',
-                        color:           S.textMuted,
-                        borderRadius:    '10px',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = S.hoverBg
-                        e.currentTarget.style.color = S.text
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'transparent'
-                        e.currentTarget.style.color = S.textMuted
-                      }}
+                      style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
+                      onMouseEnter={() => setHoveredHref(item.href)}
+                      onMouseLeave={() => setHoveredHref(null)}
                     >
-                      <Icon className="shrink-0" style={{ width: '15px', height: '15px', color: S.textMuted }} />
-                      <span
+                      <Link
+                        href={item.href}
+                        onClick={onNavigate}
+                        title={isCollapsed ? item.label : undefined}
+                        className="relative flex items-center text-[13px] font-medium transition-colors duration-200"
                         style={{
-                          minWidth:      0,
-                          overflow:      'hidden',
-                          textOverflow:  'ellipsis',
-                          whiteSpace:    'nowrap',
-                          lineHeight:    1,
-                          opacity:       isCollapsed ? 0 : 1,
-                          width:         isCollapsed ? 0 : 'auto',
-                          transition:    'opacity 150ms ease, width 150ms ease',
-                          pointerEvents: isCollapsed ? 'none' : 'auto',
+                          flex:          1,
+                          height:        '40px',
+                          paddingLeft:   isCollapsed ? '0' : '20px',
+                          paddingRight:  isCollapsed ? '0' : bookmarked ? '32px' : '16px',
+                          justifyContent: isCollapsed ? 'center' : 'flex-start',
+                          gap:            isCollapsed ? '0' : '10px',
+                          color:          S.textMuted,
+                          borderRadius:   '10px',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = S.hoverBg
+                          e.currentTarget.style.color = S.text
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent'
+                          e.currentTarget.style.color = S.textMuted
                         }}
                       >
-                        {item.label}
-                      </span>
-                    </Link>
+                        <Icon className="shrink-0" style={{ width: '15px', height: '15px', color: S.textMuted }} />
+                        <span style={{
+                          minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          lineHeight: 1, opacity: isCollapsed ? 0 : 1, width: isCollapsed ? 0 : 'auto',
+                          transition: 'opacity 150ms ease, width 150ms ease',
+                          pointerEvents: isCollapsed ? 'none' : 'auto',
+                        }}>
+                          {item.label}
+                        </span>
+                      </Link>
+                      {!isCollapsed && (
+                        <div style={{ position: 'absolute', right: '6px', top: '50%', transform: 'translateY(-50%)', zIndex: 2 }}>
+                          <BookmarkBtn
+                            bookmarked={bookmarked}
+                            onToggle={(e) => toggleBookmark(item, e)}
+                            show={hovered || bookmarked}
+                          />
+                        </div>
+                      )}
+                    </div>
                   )
                 })}
               </div>
@@ -477,18 +829,25 @@ export function AdminNavContent({
   )
 }
 
-export function AdminNav({ role }: { role?: UserRole }) {
+/* ── Outer sidebar wrapper ───────────────────────────────────── */
+export function AdminNav({ role, userId }: { role?: UserRole; userId?: string }) {
   const [collapsed, setCollapsed] = useState(false)
 
+  const uid = userId ?? 'anonymous'
+
   useEffect(() => {
-    const stored = localStorage.getItem('admin-nav-collapsed')
-    if (stored === 'true') setCollapsed(true)
-  }, [])
+    const stored = localStorage.getItem(lsKey(uid, 'collapsed'))
+    // fall back to legacy key for existing users
+    const legacy = localStorage.getItem('admin-nav-collapsed')
+    if (stored === 'true' || (stored === null && legacy === 'true')) {
+      setCollapsed(true)
+    }
+  }, [uid])
 
   function toggle() {
     setCollapsed((prev) => {
       const next = !prev
-      localStorage.setItem('admin-nav-collapsed', String(next))
+      lsSet(lsKey(uid, 'collapsed'), next)
       return next
     })
   }
@@ -506,28 +865,28 @@ export function AdminNav({ role }: { role?: UserRole }) {
         height:       'calc(100vh - 16px)',
       }}
     >
-      <AdminNavContent role={role} collapsed={collapsed} />
+      <AdminNavContent role={role} userId={userId} collapsed={collapsed} />
 
       {/* ── Toggle button ──────────────────────────────────── */}
       <button
         onClick={toggle}
         aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         style={{
-          position:        'absolute',
-          bottom:          '72px',
-          right:           '-12px',
-          width:           '24px',
-          height:          '24px',
-          borderRadius:    '50%',
-          background:      'var(--admin-surface)',
-          border:          `1.5px solid var(--admin-border)`,
-          display:         'flex',
-          alignItems:      'center',
-          justifyContent:  'center',
-          cursor:          'pointer',
+          position:       'absolute',
+          bottom:         '72px',
+          right:          '-12px',
+          width:          '24px',
+          height:         '24px',
+          borderRadius:   '50%',
+          background:     'var(--admin-surface)',
+          border:         `1.5px solid var(--admin-border)`,
+          display:        'flex',
+          alignItems:     'center',
+          justifyContent: 'center',
+          cursor:         'pointer',
           zIndex:          50,
-          boxShadow:       '0 1px 4px rgba(15,36,25,0.12)',
-          transition:      'background 150ms ease, box-shadow 150ms ease',
+          boxShadow:      '0 1px 4px rgba(15,36,25,0.12)',
+          transition:     'background 150ms ease, box-shadow 150ms ease',
           color:           S.textDim,
         }}
         onMouseEnter={(e) => {

@@ -23,9 +23,9 @@ function initials(name: string) {
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
 }
 
-type Props = { name: string; role: UserRole }
+type Props = { name: string; role: UserRole; userId?: string }
 
-export function AdminHeader({ name, role }: Props) {
+export function AdminHeader({ name, role, userId }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
@@ -128,7 +128,7 @@ export function AdminHeader({ name, role }: Props) {
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
         <SheetContent side="left" className="w-[200px] p-0 flex flex-col" style={{ background: 'var(--admin-surface)', borderRight: '1px solid var(--admin-border)' }}>
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <AdminNavContent role={role} onNavigate={() => setSidebarOpen(false)} />
+          <AdminNavContent role={role} userId={userId} onNavigate={() => setSidebarOpen(false)} />
         </SheetContent>
       </Sheet>
     </header>
