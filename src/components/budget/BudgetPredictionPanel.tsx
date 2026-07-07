@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { BarList } from '@tremor/react'
 import { cn } from '@/lib/utils'
 import {
   formatPredictionResult,
@@ -73,18 +72,31 @@ function ConfidenceBadge({ score }: { score: number }) {
 // ─── Breakdown bar chart ──────────────────────────────────────────────────────
 
 function BreakdownChart({ breakdown }: { breakdown: PredictionResult['breakdown'] }) {
-  const data = Object.entries(breakdown).map(([key, value]) => ({
+  const total = Object.values(breakdown).reduce((s, v) => s + v, 0)
+  const data = Object.entries(breakdown).map(([key, value], i) => ({
     name:  BREAKDOWN_LABELS[key] ?? key,
     value: Math.round(value),
+    pct:   total > 0 ? (value / total) * 100 : 0,
+    color: BREAKDOWN_COLORS[i % BREAKDOWN_COLORS.length],
   }))
 
   return (
-    <BarList
-      data={data}
-      valueFormatter={(v: number) =>tnd(v)}
-      color="emerald"
-      className="mt-1"
-    />
+    <div className="space-y-2 mt-1">
+      {data.map((d) => (
+        <div key={d.name} className="space-y-0.5">
+          <div className="flex items-center justify-between text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: d.color }} />
+              <span style={{ color: 'var(--admin-text-muted)' }}>{d.name}</span>
+            </div>
+            <span className="tabular-nums font-medium" style={{ color: 'var(--admin-text)' }}>{tnd(d.value)}</span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--admin-bg)' }}>
+            <div className="h-full rounded-full transition-all" style={{ width: `${d.pct}%`, background: d.color }} />
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 

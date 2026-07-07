@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart } from '@tremor/react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import type { CountryProjectSummary } from '@/lib/db/international'
 import { REGION_LABELS, REGION_COLORS } from '@/lib/db/international'
 
@@ -45,16 +45,23 @@ export function InternationalDashboard({ data }: Props) {
           {chartData.length === 0 ? (
             <p className="text-sm text-center py-6" style={{ color: 'var(--admin-text-muted)' }}>Aucune donnée.</p>
           ) : (
-            <BarChart
-              data={chartData}
-              index="name"
-              categories={['Projets']}
-              colors={['emerald']}
-              valueFormatter={(v) => `${v} projet${v !== 1 ? 's' : ''}`}
-              showLegend={false}
-              showGridLines={false}
-              className="h-64"
-            />
+            <ResponsiveContainer width="100%" height={256}>
+              <BarChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }} barCategoryGap="35%">
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--admin-border)" vertical={false} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--admin-text)' }}
+                  formatter={(v: number) => [`${v} projet${v !== 1 ? 's' : ''}`, 'Projets']}
+                  cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                />
+                <Bar dataKey="Projets" radius={[4, 4, 0, 0]}>
+                  {chartData.map((_, i) => (
+                    <Cell key={i} fill="#1C7A48" />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           )}
 
           <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t" style={{ borderColor: 'var(--admin-border)' }}>

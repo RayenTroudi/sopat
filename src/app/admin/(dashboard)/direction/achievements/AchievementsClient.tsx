@@ -1,7 +1,10 @@
 ﻿'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BarChart, AreaChart, DonutChart, BarList } from '@tremor/react'
+import {
+  BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts'
 import { useToast } from '@/components/ui/Toast'
 import { PROJECT_TYPE_LABEL_FR, PROJECT_TYPE_VALUES } from '@/lib/design-vocab'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -258,34 +261,54 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
 
         <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard title="Projets démarrés par type">
-            <BarChart
-              data={evolutionChart.map((y) => {
-                const row: Record<string, string | number> = { annee: String(y.year) }
-                PROJECT_TYPE_VALUES.forEach((t) => { row[PROJECT_TYPE_LABEL_FR[t] ?? t] = (y as Record<string, number>)[t] ?? 0 })
-                return row
-              })}
-              index="annee"
-              categories={PROJECT_TYPE_VALUES.map((t) => PROJECT_TYPE_LABEL_FR[t] ?? t)}
-              colors={['emerald', 'teal', 'blue', 'amber', 'rose', 'slate', 'violet', 'cyan']}
-              valueFormatter={(v) => fmt(v)}
-              stack={true}
-              showLegend={true}
-              showGridLines={false}
-              className="h-72"
-            />
+            <ResponsiveContainer width="100%" height={288}>
+              <BarChart
+                data={evolutionChart.map((y) => {
+                  const row: Record<string, string | number> = { annee: String(y.year) }
+                  PROJECT_TYPE_VALUES.forEach((t) => { row[PROJECT_TYPE_LABEL_FR[t] ?? t] = (y as Record<string, number>)[t] ?? 0 })
+                  return row
+                })}
+                margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+                barCategoryGap="30%"
+              >
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--admin-border)" vertical={false} />
+                <XAxis dataKey="annee" tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--admin-text)' }}
+                  cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                />
+                <Legend wrapperStyle={{ fontSize: 11, color: 'var(--admin-text-muted)', paddingTop: 8 }} />
+                {PROJECT_TYPE_VALUES.map((t, i) => (
+                  <Bar key={t} dataKey={PROJECT_TYPE_LABEL_FR[t] ?? t} stackId="type" fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
           </ChartCard>
 
           <ChartCard title="Chiffre d'affaires (equivalent TND)">
-            <AreaChart
-              data={evolutionChart.map((y) => ({ annee: String(y.year), CA: y.revenueTND }))}
-              index="annee"
-              categories={['CA']}
-              colors={['emerald']}
-              valueFormatter={(v) => fmtTND(v)}
-              showLegend={false}
-              showGridLines={false}
-              className="h-72"
-            />
+            <ResponsiveContainer width="100%" height={288}>
+              <AreaChart
+                data={evolutionChart.map((y) => ({ annee: String(y.year), CA: y.revenueTND }))}
+                margin={{ top: 4, right: 4, left: 0, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="caGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor={SOPAT_GREEN} stopOpacity={0.25} />
+                    <stop offset="95%" stopColor={SOPAT_GREEN} stopOpacity={0.03} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--admin-border)" vertical={false} />
+                <XAxis dataKey="annee" tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} width={60} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--admin-text)' }}
+                  formatter={(v: number) => [fmtTND(v), 'CA']}
+                  cursor={{ stroke: 'var(--admin-border)' }}
+                />
+                <Area dataKey="CA" stroke={SOPAT_GREEN} strokeWidth={2} fill="url(#caGrad)" dot={{ r: 3, fill: SOPAT_GREEN }} activeDot={{ r: 5 }} />
+              </AreaChart>
+            </ResponsiveContainer>
           </ChartCard>
         </div>
       </section>
@@ -342,20 +365,34 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
               <EmptyChart />
             ) : (
               <div className="flex flex-col items-center gap-4">
-                <DonutChart
-                  data={data.sectors.map((s) => ({ name: s.sector, value: s.count }))}
-                  category="value"
-                  index="name"
-                  colors={['emerald', 'teal', 'blue', 'amber', 'rose', 'slate', 'violet', 'cyan']}
-                  valueFormatter={(v) => `${fmt(v)} proj.`}
-                  showLabel={false}
-                  className="h-48 w-48"
-                />
-                <ul className="w-full space-y-1">
-                  {data.sectors.map((s) => (
-                    <li key={s.sector} className="flex items-center justify-between text-xs">
-                      <span className="truncate" style={{ color: 'var(--admin-text-muted)' }}>{s.sector}</span>
-                      <span className="tabular-nums font-medium ml-2" style={{ color: 'var(--admin-text)' }}>{fmt(s.count)}</span>
+                <PieChart width={192} height={192}>
+                  <Pie
+                    data={data.sectors.map((s) => ({ name: s.sector, value: s.count }))}
+                    dataKey="value"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={88}
+                    innerRadius={46}
+                    paddingAngle={3}
+                    strokeWidth={0}
+                  >
+                    {data.sectors.map((_, i) => (
+                      <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--admin-text)' }}
+                    formatter={(v: number, name: string) => [`${fmt(v)} proj.`, name]}
+                  />
+                </PieChart>
+                <ul className="w-full space-y-1.5">
+                  {data.sectors.map((s, i) => (
+                    <li key={s.sector} className="flex items-center justify-between text-xs gap-2">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: SECTOR_COLORS[i % SECTOR_COLORS.length] }} />
+                        <span className="truncate" style={{ color: 'var(--admin-text-muted)' }}>{s.sector}</span>
+                      </div>
+                      <span className="tabular-nums font-semibold shrink-0" style={{ color: 'var(--admin-text)' }}>{fmt(s.count)}</span>
                     </li>
                   ))}
                 </ul>
@@ -367,11 +404,28 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
             {data.topClients.length === 0 ? (
               <EmptyChart />
             ) : (
-              <BarList
-                data={data.topClients.map((c) => ({ name: c.clientName, value: c.totalValueTND }))}
-                valueFormatter={(v: number) => fmtTND(v)}
-                color="emerald"
-              />
+              <ResponsiveContainer width="100%" height={Math.max(160, data.topClients.length * 36)}>
+                <BarChart
+                  data={data.topClients.map((c) => ({ name: c.clientName, value: c.totalValueTND }))}
+                  layout="vertical"
+                  margin={{ top: 0, right: 16, left: 0, bottom: 0 }}
+                  barCategoryGap="25%"
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--admin-border)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: 'var(--admin-text-muted)' }} axisLine={false} tickLine={false} width={120} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'var(--admin-surface)', border: '1px solid var(--admin-border)', borderRadius: '8px', fontSize: '12px', color: 'var(--admin-text)' }}
+                    formatter={(v: number) => [fmtTND(v), 'Valeur totale']}
+                    cursor={{ fill: 'rgba(0,0,0,0.04)' }}
+                  />
+                  <Bar dataKey="value" fill={SOPAT_GREEN} radius={[0, 4, 4, 0]}>
+                    {data.topClients.map((_, i) => (
+                      <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             )}
           </ChartCard>
         </div>
