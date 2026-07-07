@@ -257,31 +257,41 @@ function ActiveNavItem({
 
 /* ── Bookmark button ─────────────────────────────────────────── */
 function BookmarkBtn({
-  bookmarked, onToggle, show,
+  bookmarked, onToggle, show, onActive = false,
 }: {
-  bookmarked: boolean; onToggle: (e: React.MouseEvent) => void; show: boolean
+  bookmarked: boolean
+  onToggle:   (e: React.MouseEvent) => void
+  show:       boolean
+  onActive?:  boolean  // true = rendered on the green active pill
 }) {
+  // On the active pill: white colors. Otherwise: amber (bookmarked) or muted (not).
+  const color        = onActive ? 'rgba(255,255,255,0.75)' : bookmarked ? '#F59E0B' : S.textDim
+  const colorFilled  = onActive ? '#fff'                   : '#F59E0B'
+  const hoverBg      = onActive ? 'rgba(255,255,255,0.15)' : bookmarked ? 'rgba(245,158,11,0.12)' : S.hoverBg
+
   return (
     <button
       onClick={onToggle}
       title={bookmarked ? 'Retirer des favoris' : 'Ajouter aux favoris'}
       style={{
-        display:         'flex',
-        alignItems:      'center',
-        justifyContent:  'center',
-        width:           '20px',
-        height:          '20px',
-        flexShrink:       0,
-        background:      'none',
-        border:          'none',
-        cursor:          'pointer',
-        borderRadius:    '4px',
-        opacity:         show ? 1 : 0,
-        pointerEvents:   show ? 'auto' : 'none',
-        transition:      'opacity 120ms ease',
-        color:           bookmarked ? '#F59E0B' : S.textDim,
-        padding:         0,
+        display:        'flex',
+        alignItems:     'center',
+        justifyContent: 'center',
+        width:          '22px',
+        height:         '22px',
+        flexShrink:     0,
+        background:     'none',
+        border:         'none',
+        cursor:         'pointer',
+        borderRadius:   '5px',
+        opacity:        show ? 1 : 0,
+        pointerEvents:  show ? 'auto' : 'none',
+        transition:     'opacity 120ms ease, background 120ms ease, color 120ms ease',
+        color:          bookmarked ? colorFilled : color,
+        padding:        0,
       }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = hoverBg }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'none' }}
     >
       {bookmarked
         ? <BookmarkCheck style={{ width: '12px', height: '12px' }} />
@@ -793,6 +803,7 @@ export function AdminNavContent({
                               bookmarked={bookmarked}
                               onToggle={(e) => toggleBookmark(item, e)}
                               show={hovered || bookmarked}
+                              onActive={true}
                             />
                           </div>
                         )}
