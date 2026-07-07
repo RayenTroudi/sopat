@@ -293,7 +293,6 @@ function BookmarkBtn({
 /* ── Drag-and-drop bookmarks list ────────────────────────────── */
 type BookmarkEntry = { href: string; label: string; iconName: string }
 
-// Map icon component → name string for serialization
 const ICON_MAP: Record<string, LucideIcon> = (() => {
   const map: Record<string, LucideIcon> = {}
   for (const g of NAV_GROUPS) {
@@ -304,6 +303,19 @@ const ICON_MAP: Record<string, LucideIcon> = (() => {
   return map
 })()
 
+function DropLine({ visible }: { visible: boolean }) {
+  return (
+    <div style={{
+      height:     visible ? '2px' : '0px',
+      margin:     visible ? '2px 8px' : '0 8px',
+      background: S.accent,
+      borderRadius: '2px',
+      opacity:    visible ? 1 : 0,
+      transition: 'height 120ms ease, margin 120ms ease, opacity 120ms ease',
+    }} />
+  )
+}
+
 function BookmarksSection({
   entries,
   collapsed,
@@ -312,171 +324,172 @@ function BookmarksSection({
   onReorder,
   pathname,
 }: {
-  entries:    BookmarkEntry[]
-  collapsed:  boolean
+  entries:     BookmarkEntry[]
+  collapsed:   boolean
   onNavigate?: () => void
-  onRemove:   (href: string) => void
-  onReorder:  (newOrder: BookmarkEntry[]) => void
-  pathname:   string
+  onRemove:    (href: string) => void
+  onReorder:   (newOrder: BookmarkEntry[]) => void
+  pathname:    string
 }) {
-  const dragIdx  = useRef<number | null>(null)
-  const overIdx  = useRef<number | null>(null)
+  const dragIdx   = useRef<number | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
+  const [dropAt,   setDropAt]   = useState<number | null>(null) // insertion index (0..entries.length)
 
   if (entries.length === 0) return null
 
-  function handleDragStart(idx: number) {
+  function handleDragStart(idx: number, e: React.DragEvent) {
     dragIdx.current = idx
     setDragging(idx)
+    e.dataTransfer.effectAllowed = 'move'
+    // ghost image: a tiny transparent pixel so default ghost doesn't show
+    const ghost = document.createElement('div')
+    ghost.style.cssText = 'position:fixed;top:-100px;left:-100px;width:1px;height:1px;'
+    document.body.appendChild(ghost)
+    e.dataTransfer.setDragImage(ghost, 0, 0)
+    setTimeout(() => document.body.removeChild(ghost), 0)
   }
-  function handleDragEnter(idx: number) {
-    overIdx.current = idx
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    // Determine insertion point: top half → insert before idx, bottom half → insert after
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const mid  = rect.top + rect.height / 2
+    setDropAt(e.clientY < mid ? idx : idx + 1)
   }
+
   function handleDragEnd() {
-    if (dragIdx.current !== null && overIdx.current !== null && dragIdx.current !== overIdx.current) {
-      const next = [...entries]
-      const [moved] = next.splice(dragIdx.current, 1)
-      next.splice(overIdx.current, 0, moved)
-      onReorder(next)
+    if (dragIdx.current !== null && dropAt !== null) {
+      const from = dragIdx.current
+      // Adjust insertion index for removed element
+      const adjustedTo = dropAt > from ? dropAt - 1 : dropAt
+      if (adjustedTo !== from) {
+        const next = [...entries]
+        const [moved] = next.splice(from, 1)
+        next.splice(adjustedTo, 0, moved)
+        onReorder(next)
+      }
     }
-    dragIdx.current  = null
-    overIdx.current  = null
+    dragIdx.current = null
     setDragging(null)
+    setDropAt(null)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    // Only clear if leaving the whole list area
+    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+      setDropAt(null)
+    }
   }
 
   return (
-    <div style={{ marginBottom: '4px' }}>
-      {!collapsed && (
-        <p style={{
-          paddingLeft:   '16px',
-          fontSize:      '10px',
-          fontWeight:    600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.08em',
-          color:         S.textDim,
-          marginBottom:  '6px',
-          display:       'flex',
-          alignItems:    'center',
-          gap:           '5px',
-        }}>
-          <BookmarkCheck style={{ width: '10px', height: '10px', color: '#F59E0B' }} />
-          Favoris
-        </p>
-      )}
+    <div style={{ marginBottom: '8px' }}>
+      {/* Header */}
+      <div style={{
+        display:       'flex',
+        alignItems:    'center',
+        paddingLeft:   collapsed ? '0' : '16px',
+        paddingRight:  collapsed ? '0' : '8px',
+        marginBottom:  '4px',
+        justifyContent: collapsed ? 'center' : 'space-between',
+      }}>
+        {!collapsed ? (
+          <span style={{
+            display:       'flex',
+            alignItems:    'center',
+            gap:           '5px',
+            fontSize:      '10px',
+            fontWeight:    600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color:         S.textDim,
+          }}>
+            <BookmarkCheck style={{ width: '10px', height: '10px', color: '#F59E0B' }} />
+            Favoris
+          </span>
+        ) : null}
+      </div>
+
+      {/* Items with drop-line indicators */}
       <div
         style={{
-          padding:      collapsed ? '6px' : '0',
+          padding:      collapsed ? '6px' : '0 0 2px',
           background:   collapsed ? 'rgba(196,214,204,0.45)' : 'transparent',
           borderRadius: collapsed ? '14px' : '0',
           margin:       collapsed ? '0 6px' : '0',
         }}
+        onDragLeave={handleDragLeave}
       >
+        {/* Drop line before first item */}
+        <DropLine visible={!collapsed && dropAt === 0} />
+
         {entries.map((entry, idx) => {
           const Icon   = ICON_MAP[entry.href] ?? LayoutDashboard
-          const active = pathname === entry.href || pathname.startsWith(entry.href)
-          const isDrag = dragging === idx
+          const active = pathname === entry.href || (!entry.href.endsWith('/admin') && pathname.startsWith(entry.href))
+          const isDragging = dragging === idx
 
           return (
-            <div
-              key={entry.href}
-              draggable={!collapsed}
-              onDragStart={() => handleDragStart(idx)}
-              onDragEnter={() => handleDragEnter(idx)}
-              onDragEnd={handleDragEnd}
-              onDragOver={(e) => e.preventDefault()}
-              style={{
-                opacity:    isDrag ? 0.4 : 1,
-                transition: 'opacity 120ms ease',
-                position:   'relative',
-              }}
-            >
-              {active ? (
-                <div style={{ position: 'relative' }}>
-                  {!collapsed && (
-                    <>
-                      {!collapsed && (
-                        <span
-                          title="Glisser pour réorganiser"
-                          style={{
-                            position:    'absolute',
-                            left:        '3px',
-                            top:         '50%',
-                            transform:   'translateY(-50%)',
-                            zIndex:      2,
-                            cursor:      'grab',
-                            color:       'rgba(255,255,255,0.5)',
-                            display:     'flex',
-                            alignItems:  'center',
-                          }}
-                        >
-                          <GripVertical style={{ width: '10px', height: '10px' }} />
-                        </span>
-                      )}
-                    </>
-                  )}
-                  <ActiveNavItem item={{ href: entry.href, label: entry.label, icon: Icon }} collapsed={collapsed} onNavigate={onNavigate} />
-                  {!collapsed && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); onRemove(entry.href) }}
-                      title="Retirer des favoris"
-                      style={{
-                        position:       'absolute',
-                        right:          '6px',
-                        top:            '50%',
-                        transform:      'translateY(-50%)',
-                        zIndex:         2,
-                        background:     'none',
-                        border:         'none',
-                        cursor:         'pointer',
-                        color:          'rgba(255,255,255,0.7)',
-                        padding:        0,
-                        display:        'flex',
-                        alignItems:     'center',
-                      }}
-                    >
-                      <BookmarkCheck style={{ width: '11px', height: '11px' }} />
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div
-                  className="group"
-                  style={{ position: 'relative', display: 'flex', alignItems: 'center' }}
-                >
-                  {!collapsed && (
-                    <span
-                      title="Glisser pour réorganiser"
-                      style={{
-                        position:    'absolute',
-                        left:        '3px',
-                        top:         '50%',
-                        transform:   'translateY(-50%)',
-                        zIndex:      2,
-                        cursor:      'grab',
-                        color:       S.textDim,
-                        display:     'flex',
-                        alignItems:  'center',
-                        opacity:     0,
-                      }}
-                      className="group-hover:opacity-100"
-                    >
-                      <GripVertical style={{ width: '10px', height: '10px' }} />
-                    </span>
-                  )}
+            <div key={entry.href}>
+              <div
+                draggable={!collapsed}
+                onDragStart={(e) => handleDragStart(idx, e)}
+                onDragOver={(e) => handleDragOver(e, idx)}
+                onDragEnd={handleDragEnd}
+                style={{
+                  display:    'flex',
+                  alignItems: 'center',
+                  gap:        collapsed ? '0' : '2px',
+                  opacity:    isDragging ? 0.3 : 1,
+                  transform:  isDragging ? 'scale(0.97)' : 'scale(1)',
+                  transition: 'opacity 150ms ease, transform 150ms ease',
+                  cursor:     collapsed ? 'default' : 'grab',
+                  paddingLeft: collapsed ? '0' : '4px',
+                }}
+              >
+                {/* Grip handle */}
+                {!collapsed && (
+                  <div style={{
+                    display:        'flex',
+                    alignItems:     'center',
+                    justifyContent: 'center',
+                    width:          '14px',
+                    flexShrink:     0,
+                    color:          S.textDim,
+                    opacity:        0.5,
+                  }}>
+                    <GripVertical style={{ width: '11px', height: '11px' }} />
+                  </div>
+                )}
+
+                {/* Nav link */}
+                {active ? (
+                  <div style={{ flex: 1, position: 'relative' }}>
+                    <ActiveNavItem
+                      item={{ href: entry.href, label: entry.label, icon: Icon }}
+                      collapsed={collapsed}
+                      onNavigate={onNavigate}
+                    />
+                  </div>
+                ) : (
                   <Link
                     href={entry.href}
                     onClick={onNavigate}
                     title={collapsed ? entry.label : undefined}
-                    className="relative flex items-center text-[13px] font-medium transition-colors duration-200"
                     style={{
-                      flex:          1,
-                      height:        '40px',
-                      paddingLeft:   collapsed ? '0' : '20px',
-                      paddingRight:  collapsed ? '0' : '32px',
+                      flex:           1,
+                      display:        'flex',
+                      alignItems:     'center',
+                      height:         '36px',
+                      paddingLeft:    collapsed ? '0' : '8px',
+                      paddingRight:   collapsed ? '0' : '4px',
                       justifyContent: collapsed ? 'center' : 'flex-start',
-                      gap:            collapsed ? '0' : '10px',
+                      gap:            '8px',
                       color:          S.textMuted,
-                      borderRadius:   '10px',
+                      borderRadius:   '8px',
+                      fontSize:       '13px',
+                      fontWeight:     500,
+                      textDecoration: 'none',
+                      transition:     'background 150ms ease, color 150ms ease',
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = S.hoverBg
@@ -487,46 +500,67 @@ function BookmarksSection({
                       e.currentTarget.style.color = S.textMuted
                     }}
                   >
-                    <Icon className="shrink-0" style={{ width: '15px', height: '15px', color: S.textMuted }} />
-                    <span style={{
-                      minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      lineHeight: 1, opacity: collapsed ? 0 : 1, width: collapsed ? 0 : 'auto',
-                      transition: 'opacity 150ms ease, width 150ms ease',
-                      pointerEvents: collapsed ? 'none' : 'auto',
-                    }}>
-                      {entry.label}
-                    </span>
+                    <Icon style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+                    {!collapsed && (
+                      <span style={{
+                        minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {entry.label}
+                      </span>
+                    )}
                   </Link>
-                  {!collapsed && (
-                    <button
-                      onClick={(e) => { e.preventDefault(); onRemove(entry.href) }}
-                      title="Retirer des favoris"
-                      className="group-hover:opacity-100"
-                      style={{
-                        position:      'absolute',
-                        right:         '6px',
-                        top:           '50%',
-                        transform:     'translateY(-50%)',
-                        background:    'none',
-                        border:        'none',
-                        cursor:        'pointer',
-                        color:         '#F59E0B',
-                        padding:       0,
-                        display:       'flex',
-                        alignItems:    'center',
-                        opacity:       0,
-                        transition:    'opacity 120ms ease',
-                      }}
-                    >
-                      <BookmarkCheck style={{ width: '11px', height: '11px' }} />
-                    </button>
-                  )}
-                </div>
-              )}
+                )}
+
+                {/* Remove button — always visible, amber star/bookmark */}
+                {!collapsed && (
+                  <button
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRemove(entry.href) }}
+                    title="Retirer des favoris"
+                    style={{
+                      display:        'flex',
+                      alignItems:     'center',
+                      justifyContent: 'center',
+                      width:          '22px',
+                      height:         '22px',
+                      flexShrink:     0,
+                      background:     'none',
+                      border:         'none',
+                      cursor:         'pointer',
+                      borderRadius:   '5px',
+                      color:          '#F59E0B',
+                      padding:        0,
+                      transition:     'background 120ms ease, color 120ms ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(245,158,11,0.12)'
+                      e.currentTarget.style.color = '#D97706'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'none'
+                      e.currentTarget.style.color = '#F59E0B'
+                    }}
+                  >
+                    <BookmarkCheck style={{ width: '12px', height: '12px' }} />
+                  </button>
+                )}
+              </div>
+
+              {/* Drop line after this item */}
+              <DropLine visible={!collapsed && dropAt === idx + 1} />
             </div>
           )
         })}
       </div>
+
+      {/* Separator */}
+      {!collapsed && (
+        <div style={{
+          height:     '1px',
+          background: 'var(--admin-border)',
+          margin:     '8px 12px 0',
+          opacity:    0.6,
+        }} />
+      )}
     </div>
   )
 }
