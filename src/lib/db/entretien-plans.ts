@@ -7,27 +7,27 @@ import {
 } from '../../../db/schema'
 import { eq, and, asc, desc } from 'drizzle-orm'
 
-// ─── Standard maintenance tasks from PLA-RE-04 ────────────────────────────────
+// ─── Standard maintenance tasks from PLA-RE-04 (exact order and tools from file) ──
 
-export const STANDARD_MAINTENANCE_TASKS = [
-  { taskLabel: 'Ramassage & dégagement des déchets', outil: 'Manuel / Sacs poubelles' },
-  { taskLabel: 'Tonte du gazon', outil: 'Tondeuse' },
-  { taskLabel: 'Taille des bordures du gazon', outil: 'Sécateur' },
-  { taskLabel: 'Sablage du gazon', outil: 'Pelle' },
-  { taskLabel: 'Aération & compactage du gazon', outil: '' },
-  { taskLabel: 'Ratissage dans les zones nécessaires', outil: 'Râteau / Balai à gazon' },
-  { taskLabel: 'Désherbage', outil: 'Manuel' },
-  { taskLabel: 'Traitement phytosanitaire', outil: 'Delfos / Decis / Pompe' },
-  { taskLabel: 'Fertilisation minérale (NPK)', outil: '' },
-  { taskLabel: 'Fertilisation organique (Compost)', outil: '' },
-  { taskLabel: 'Taille des arbustes — Taille de formation', outil: 'Sécateur / Scie' },
-  { taskLabel: 'Taille des arbustes — Taille de rajeunissement', outil: 'Sécateur / Scie' },
-  { taskLabel: 'Taille des arbres', outil: 'Sécateur / Scie' },
-  { taskLabel: "Vérification du système d'arrosage automatique", outil: 'Arrosage automatique / Tuyau' },
-  { taskLabel: 'Arrosage en cas de nécessité', outil: '' },
-  { taskLabel: 'Vérification du circuit phytosanitaire automatique', outil: '' },
-  { taskLabel: 'Nettoyage de la matière décorative', outil: '' },
-  { taskLabel: 'Plantation / Remplacement de plantes', outil: '' },
+export const STANDARD_MAINTENANCE_TASKS: { taskLabel: string; outil: string; nonApplicable?: boolean }[] = [
+  { taskLabel: 'Taille des arbres',                              outil: 'Sécateur/Scie' },
+  { taskLabel: 'Taille des arbustes : Taille de formation',      outil: 'Sécateur' },
+  { taskLabel: 'Taille des arbustes : Taille de rajeunissement', outil: 'Sécateur' },
+  { taskLabel: 'Plantation / Remplacement de plantes',           outil: 'Manuel' },
+  { taskLabel: 'Nettoyage de la matière décorative',             outil: 'Manuel',                        nonApplicable: true },
+  { taskLabel: 'Désherbage',                                     outil: 'Manuel' },
+  { taskLabel: 'Ramassage & dégagement des déchets',             outil: 'Manuel/Sacs poubelles' },
+  { taskLabel: 'Tonte du gazon',                                 outil: 'Tondeuse',                      nonApplicable: true },
+  { taskLabel: 'Taille des bordures du gazon',                   outil: 'Sécateur',                      nonApplicable: true },
+  { taskLabel: 'Sablage du gazon',                               outil: 'Pelle',                         nonApplicable: true },
+  { taskLabel: 'Aération & compactage du gazon',                 outil: '',                              nonApplicable: true },
+  { taskLabel: 'Ratissage dans les zones nécessaires',           outil: 'Râteau/Balai à gazon' },
+  { taskLabel: 'Arrosage en cas de nécessité',                   outil: 'Arrosage automatique/Tuyau' },
+  { taskLabel: 'Traitement phytosanitaire',                      outil: 'Delfos / Decis / Pompe' },
+  { taskLabel: 'Fertilisation minérale',                         outil: 'NPK' },
+  { taskLabel: 'Fertilisation organique',                        outil: 'Composte' },
+  { taskLabel: "Vérification du système d'arrosage automatique", outil: 'Visuellement' },
+  { taskLabel: 'Vérification du circuit phytosanitaire automatique', outil: 'Visuellement' },
 ]
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -39,6 +39,7 @@ export type MonthlyTask = {
   prevu: boolean
   realise: boolean
   observation: string
+  nonApplicable?: boolean
 }
 
 export type MonthlyPlanRow = {
@@ -49,9 +50,13 @@ export type MonthlyPlanRow = {
   nombreInterventions: number | null
   tasks: MonthlyTask[]
   fournitures: string | null
+  intervenants: string | null
   clientIntervenants: string | null
   clientObservations: string | null
   clientBesoins: string | null
+  clientName: string | null
+  pmObservations: string | null
+  pmName: string | null
   pmSignedDate: string | null
   clientSignedDate: string | null
   isFinalized: boolean
@@ -110,9 +115,13 @@ export async function upsertMonthlyPlan(projectId: string, moisAnnee: string, da
   nombreInterventions?: number
   tasks?: MonthlyTask[]
   fournitures?: string
+  intervenants?: string
   clientIntervenants?: string
   clientObservations?: string
   clientBesoins?: string
+  clientName?: string
+  pmObservations?: string
+  pmName?: string
   pmSignedDate?: string
   clientSignedDate?: string
   isFinalized?: boolean
@@ -132,9 +141,13 @@ export async function upsertMonthlyPlan(projectId: string, moisAnnee: string, da
     nombreInterventions: data.nombreInterventions ?? null,
     tasks: (data.tasks ?? STANDARD_MAINTENANCE_TASKS.map((t) => ({ ...t, frequency: '', prevu: false, realise: false, observation: '' }))) as never,
     fournitures: data.fournitures ?? null,
+    intervenants: data.intervenants ?? null,
     clientIntervenants: data.clientIntervenants ?? null,
     clientObservations: data.clientObservations ?? null,
     clientBesoins: data.clientBesoins ?? null,
+    clientName: data.clientName ?? null,
+    pmObservations: data.pmObservations ?? null,
+    pmName: data.pmName ?? null,
     pmSignedDate: data.pmSignedDate ?? null,
     clientSignedDate: data.clientSignedDate ?? null,
     isFinalized: data.isFinalized ?? false,

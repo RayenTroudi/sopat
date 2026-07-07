@@ -3127,14 +3127,20 @@ export const maintenanceMonthlyPlans = pgTable('maintenance_monthly_plans', {
   scheduleId:          uuid('schedule_id'),
   moisAnnee:           varchar('mois_annee', { length: 20 }).notNull(), // 'YYYY-MM'
   nombreInterventions: integer('nombre_interventions'),
-  // Tasks array: [{taskLabel, frequency, prevu, realise, outil, observation}]
+  // Tasks array: [{taskLabel, outil, frequency, prevu, realise, observation, nonApplicable}]
   tasks:               jsonb('tasks').default([]),
-  // Fournitures/équipements
+  // Fournitures/équipements (Partie réservée à SOPAT)
   fournitures:         text('fournitures'),
-  // Client feedback section
+  // Intervenants/Intervenants externes (Row 26 in file)
+  intervenants:        text('intervenants'),
+  // Client section (Partie réservée au Client)
   clientIntervenants:  text('client_intervenants'),
-  clientObservations:  text('client_observations'),
+  clientObservations:  text('client_observations'),   // Feedbacks/réclamation
   clientBesoins:       text('client_besoins'),
+  clientName:          varchar('client_name', { length: 255 }),
+  // SOPAT section
+  pmObservations:      text('pm_observations'),       // Observations SOPAT
+  pmName:              varchar('pm_name', { length: 255 }),
   // Signatures
   pmSignedDate:        date('pm_signed_date'),
   clientSignedDate:    date('client_signed_date'),
