@@ -63,6 +63,7 @@ type Props = {
   country?: string | null
   currency?: string | null
   initialTeamMembers: TeamMemberRow[]
+  projectName?: string
 }
 
 const BASE_TABS = [
@@ -125,6 +126,7 @@ export function ProjectTabs({
   users,
   currentUserId,
   initialTeamMembers,
+  projectName = '',
 }: Props) {
   const pathname = usePathname()
 
@@ -167,6 +169,7 @@ export function ProjectTabs({
               initialAssets={assets}
               userRole={userRole}
               initialTeamMembers={initialTeamMembers}
+              projectName={projectName}
             />
           </div>
         )

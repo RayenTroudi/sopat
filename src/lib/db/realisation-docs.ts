@@ -4,6 +4,8 @@ import {
   pvReceptionDefinitive,
   realisationLineItems,
   weeklyProjectPlans,
+  realisationGantt,
+  realisationChecklists,
   users,
 } from '../../../db/schema'
 import { eq, and, asc, desc } from 'drizzle-orm'
@@ -297,4 +299,114 @@ export async function updateWeeklyPlan(planId: string, data: Partial<{
 
 export async function deleteWeeklyPlan(planId: string) {
   await db.delete(weeklyProjectPlans).where(eq(weeklyProjectPlans.id, planId))
+}
+
+// ─── Gantt (PLA-RE-05) ────────────────────────────────────────────────────────
+
+export type GanttRow = {
+  rowId: string
+  label: string
+  type: 'phase' | 'activity' | 'subactivity'
+  prWeeks: number[]
+  reWeeks: number[]
+}
+
+export type GanttRecord = {
+  id: string
+  projectId: string
+  localisation: string | null
+  projectManager: string | null
+  dateDemarragePrevu: string | null
+  dateDemarrageReel: string | null
+  dateFinPrevue: string | null
+  dateFinReelle: string | null
+  dateMaj: string | null
+  ganttRows: GanttRow[]
+  createdAt: Date
+}
+
+export async function getGantt(projectId: string): Promise<GanttRecord | null> {
+  const [row] = await db.select().from(realisationGantt).where(eq(realisationGantt.projectId, projectId)).limit(1)
+  if (!row) return null
+  return { ...row, ganttRows: (row.ganttRows ?? []) as GanttRow[] } as GanttRecord
+}
+
+export async function upsertGantt(projectId: string, data: {
+  localisation?: string
+  projectManager?: string
+  dateDemarragePrevu?: string
+  dateDemarrageReel?: string
+  dateFinPrevue?: string
+  dateFinReelle?: string
+  dateMaj?: string
+  ganttRows?: GanttRow[]
+}, userId: string) {
+  const existing = await getGantt(projectId)
+  if (existing) {
+    const [row] = await db.update(realisationGantt)
+      .set({ ...data, ganttRows: (data.ganttRows ?? existing.ganttRows) as never, updatedAt: new Date() })
+      .where(eq(realisationGantt.projectId, projectId))
+      .returning()
+    return row
+  }
+  const [row] = await db.insert(realisationGantt).values({
+    projectId,
+    ...data,
+    ganttRows: (data.ganttRows ?? []) as never,
+    createdBy: userId,
+  }).returning()
+  return row
+}
+
+// ─── Quality Checklists (FOR-RE-07 to -12) ────────────────────────────────────
+
+export type ChecklistItemQuality = {
+  itemId: string
+  label: string
+  phase?: string
+  checked: boolean
+  observation: string
+}
+
+export type ChecklistRecord = {
+  id: string
+  projectId: string
+  checklistType: string
+  items: ChecklistItemQuality[]
+  signedByName: string | null
+  signedDate: string | null
+  isFinalized: boolean
+  createdAt: Date
+}
+
+export async function getChecklist(projectId: string, checklistType: string): Promise<ChecklistRecord | null> {
+  const [row] = await db.select().from(realisationChecklists)
+    .where(and(eq(realisationChecklists.projectId, projectId), eq(realisationChecklists.checklistType, checklistType)))
+    .limit(1)
+  if (!row) return null
+  return { ...row, items: (row.items ?? []) as ChecklistItemQuality[] } as ChecklistRecord
+}
+
+export async function upsertChecklist(projectId: string, checklistType: string, data: {
+  items?: ChecklistItemQuality[]
+  signedByName?: string
+  signedDate?: string
+  isFinalized?: boolean
+}, userId: string) {
+  const existing = await getChecklist(projectId, checklistType)
+  if (existing) {
+    const [row] = await db.update(realisationChecklists)
+      .set({ ...data, items: (data.items ?? existing.items) as never, updatedAt: new Date() })
+      .where(and(eq(realisationChecklists.projectId, projectId), eq(realisationChecklists.checklistType, checklistType)))
+      .returning()
+    return row
+  }
+  const [row] = await db.insert(realisationChecklists).values({
+    projectId,
+    checklistType,
+    ...data,
+    items: (data.items ?? []) as never,
+    createdBy: userId,
+  }).returning()
+  return row
 }

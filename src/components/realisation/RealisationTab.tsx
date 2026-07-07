@@ -13,6 +13,8 @@ import { PlanActionSection } from './PlanActionSection'
 import { AttachementSection } from './AttachementSection'
 import { DecompteSection } from './DecompteSection'
 import { PvProvisioreSection, PvDefinitiveSection } from './PvReceptionSection'
+import { GanttSection } from './GanttSection'
+import { QualityChecklistSection } from './QualityChecklistSection'
 import { CloudinaryUploader, type UploadedAsset } from '@/components/upload/CloudinaryUploader'
 import type { TeamMemberRow } from '@/lib/db/realisation'
 
@@ -64,6 +66,7 @@ type Props = {
   initialAssets:  UploadedAsset[]
   userRole:       string
   initialTeamMembers: TeamMemberRow[]
+  projectName?:   string
 }
 
 const FMT = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 3, maximumFractionDigits: 3 })
@@ -75,7 +78,7 @@ function fmtDate(d: Date | string) { return new Date(d).toLocaleDateString('fr-F
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function RealisationTab({ projectId, phaseStatus, approvedBudget, initialAssets, userRole, initialTeamMembers }: Props) {
+export function RealisationTab({ projectId, phaseStatus, approvedBudget, initialAssets, userRole, initialTeamMembers, projectName = '' }: Props) {
   const [orders, setOrders] = useState<PurchaseRow[]>([])
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -397,6 +400,12 @@ export function RealisationTab({ projectId, phaseStatus, approvedBudget, initial
 
       {/* ── FOR-RE-14: PV Réception Définitive ── */}
       <PvDefinitiveSection projectId={projectId} canEdit={canEdit} />
+
+      {/* ── PLA-RE-05: Planning Gantt ── */}
+      <GanttSection projectId={projectId} projectName={projectName} canEdit={canEdit} />
+
+      {/* ── INS-RE-01 + FOR-RE-07 à -12: Instructions & Check-lists qualité ── */}
+      <QualityChecklistSection projectId={projectId} canEdit={canEdit} />
 
       {/* ── 6. Reception document upload ── */}
       <Section title="Document de Réception Client (PDF)">

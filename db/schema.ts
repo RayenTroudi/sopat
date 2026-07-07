@@ -3200,6 +3200,53 @@ export const weeklyProjectPlans = pgTable('weekly_project_plans', {
   foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
 ])
 
+// ─── PLA-RE-05: Planning Gantt de réalisation ────────────────────────────────
+// Per-project Gantt chart with 12 phases × PR/RE weekly bars
+
+export const realisationGantt = pgTable('realisation_gantt', {
+  id:                     uuid('id').primaryKey().defaultRandom(),
+  projectId:              uuid('project_id').notNull().unique(),
+  // Header metadata
+  localisation:           varchar('localisation', { length: 255 }),
+  projectManager:         varchar('project_manager', { length: 255 }),
+  dateDemarragePrevu:     date('date_demarrage_prevu'),
+  dateDemarrageReel:      date('date_demarrage_reel'),
+  dateFinPrevue:          date('date_fin_prevue'),
+  dateFinReelle:          date('date_fin_reelle'),
+  dateMaj:                date('date_maj'),
+  // Gantt rows JSONB: [{rowId, label, type: 'phase'|'activity'|'subactivity', phaseNum, activityNum, prWeeks: number[], reWeeks: number[]}]
+  // prWeeks / reWeeks: array of 48 week indices (0-47) that are marked
+  ganttRows:              jsonb('gantt_rows').default([]),
+  ...timestamps,
+  createdBy:              uuid('created_by').notNull(),
+}, (t) => [
+  index('realisation_gantt_project_id_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// ─── FOR-RE-07 to -12: Check-lists qualité réalisation ────────────────────────
+// Per-project quality checklists — one row per checklist type
+
+export const realisationChecklists = pgTable('realisation_checklists', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  projectId:    uuid('project_id').notNull(),
+  // 'travaux_preliminaires' | 'reseaux_maconnerie' | 'plantations' | 'engazonnement' | 'matiere_decorative' | 'fourniture_plantes'
+  checklistType: varchar('checklist_type', { length: 50 }).notNull(),
+  // Items: [{itemId, label, checked: boolean, observation: string, phase?: string}]
+  items:         jsonb('items').default([]),
+  signedByName:  varchar('signed_by_name', { length: 255 }),
+  signedDate:    date('signed_date'),
+  isFinalized:   boolean('is_finalized').default(false),
+  ...timestamps,
+  createdBy:     uuid('created_by').notNull(),
+}, (t) => [
+  index('realisation_checklists_project_id_idx').on(t.projectId),
+  index('realisation_checklists_type_idx').on(t.checklistType),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
 // ─── RH: Substitutes (LIS-RH-01) ─────────────────────────────────────────────
 
 export const substitutes = pgTable('substitutes', {

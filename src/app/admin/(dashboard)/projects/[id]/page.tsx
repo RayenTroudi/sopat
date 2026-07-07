@@ -176,6 +176,7 @@ export default async function ProjectDetailPage({
         country={project.country}
         currency={project.currency}
         initialTeamMembers={teamMembers}
+        projectName={project.name}
       />
     </div>
   )
