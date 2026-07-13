@@ -37,6 +37,7 @@ export type EmailTemplate =
   | 'rse-expiry-warning'
   | 'rse-commitment-overdue'
   | 'rse-communication-submitted'
+  | 'smq-alerts-digest'
 
 export type SendEmailOptions = {
   to:                  string | string[]
@@ -138,6 +139,10 @@ async function renderTemplate(
     case 'reminder-48h': {
       const { Reminder48hEmail } = await import('../../emails/reminder-48h')
       return render(Reminder48hEmail(props as Parameters<typeof Reminder48hEmail>[0]))
+    }
+    case 'smq-alerts-digest': {
+      const { SmqAlertsDigestEmail } = await import('../../emails/smq-alerts-digest')
+      return render(SmqAlertsDigestEmail(props as Parameters<typeof SmqAlertsDigestEmail>[0]))
     }
     case 'rse-expiry-warning':
     case 'rse-commitment-overdue':

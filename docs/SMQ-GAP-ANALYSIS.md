@@ -113,5 +113,7 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 5. ~~Connaissances organisationnelles (ORG MI 09)~~ ✅
 6. ~~Page « Contexte & politiques »~~ ✅ `/admin/context` (publication ORG MI 01–08 depuis le DMS)
 7. ~~Export Excel professionnel~~ ✅ infrastructure `exceljs` + boutons sur **14 registres** (9 nouveaux + NC, audits, R&O, PI, fournisseurs)
-8. Exports PDF/PPTX de rapports de direction
-9. ⚠ Notifications : **panneau « Alertes & échéances » sur le tableau de bord** ✅ (NC/CAPA en retard, actions de revue, offres expirantes, documents à revoir) — rappels e-mail automatiques restent à brancher sur `email_queue`
+8. ~~Exports PDF/PPTX de rapports de direction~~ ✅ `/api/reports/direction?format=pdf|pptx` (KPI + performance SMQ FOR-MI-10 + alertes), boutons sur `/admin/reports` et `/admin/management-reviews`
+9. ~~Notifications~~ ✅ panneau « Alertes & échéances » + **digest e-mail quotidien** aux comptes admin/direction (`smq-alerts-digest`, rate-limité 24 h via `system_settings`, envoyé seulement s'il existe des retards)
+
+**→ Les 9 points du backlog initial sont clos.**

@@ -11,6 +11,7 @@ import type { InternationalReportRow } from '@/lib/db/international'
 import type { EquipmentReportData } from '@/lib/db/equipment'
 import { REGION_LABELS, REGION_COLORS } from '@/lib/db/international'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import DirectionReportButtons from '@/components/DirectionReportButtons'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1026,6 +1027,7 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <DirectionReportButtons />
           {countries.length > 1 && activeTab !== 'international' && activeTab !== 'equipment' && (
             <Select
               value={countryFilter === '' ? ALL_COUNTRIES : countryFilter}

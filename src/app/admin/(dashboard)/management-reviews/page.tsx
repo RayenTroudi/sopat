@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { getManagementReviews } from '@/lib/db/management-reviews'
 import Link from 'next/link'
 import ExportExcelButton from '@/components/ExportExcelButton'
+import DirectionReportButtons from '@/components/DirectionReportButtons'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Revues de direction | SOPAT Admin' }
@@ -45,6 +46,7 @@ export default async function ManagementReviewsPage({ searchParams }: { searchPa
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <DirectionReportButtons />
           <ExportExcelButton register="management-reviews" />
           <Link
             href="/admin/management-reviews/new"
