@@ -3,13 +3,13 @@ import { useEffect, useState, useCallback } from 'react'
 import Image from 'next/image'
 
 const slides = [
-  { src: '/BTE-.jpg.jpeg', label: 'Projet BTE' },
-  { src: '/81-M.jpg.jpeg', label: 'Aménagement paysager' },
-  { src: '/MVS_7371.jpg.jpeg', label: 'Jardin résidentiel' },
-  { src: '/villa-marsa.jpg.jpeg', label: 'Villa Marsa' },
-  { src: '/MVS_4733.jpg.jpeg', label: 'Réalisation paysagère' },
-  { src: '/9-scaled.jpg.jpeg', label: 'Espace vert' },
-  { src: '/11-scaled.jpg.jpeg', label: 'Architecture paysagère' },
+  { src: '/projects/hotel-one-resort/1.jpg', label: 'Hôtel One Resort — Monastir' },
+  { src: '/projects/villa-lac-2/1.jpg', label: 'Villa Lac 2 — Tunis' },
+  { src: '/projects/piscine-belvedere/1.jpg', label: 'Piscine Belvédère — Tunis' },
+  { src: '/projects/villa-sidi-abdelaziz/1.jpg', label: 'Villa Sidi Abdelaziz — La Marsa' },
+  { src: '/projects/hotel-radisson/1.jpg', label: 'Hôtel Radisson' },
+  { src: '/projects/residence-diar-yasmine/1.jpg', label: 'Diar Yasmine Plage — Tazarka' },
+  { src: '/projects/banque-bte-2024/1.jpg', label: 'Banque BTE — Tunis' },
 ]
 
 const stats = [
