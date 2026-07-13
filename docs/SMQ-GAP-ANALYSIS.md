@@ -111,7 +111,7 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 3. ~~Formulaires Achat + suivi appro chantier (FOR AC 10)~~ ✅
 4. ~~Revue documentaire périodique (FOR MI 01)~~ ✅
 5. ~~Connaissances organisationnelles (ORG MI 09)~~ ✅
-6. Page « Contexte & politiques » (publication des ORG MI 01–08 depuis le DMS)
-7. ~~Export Excel professionnel~~ ✅ **infrastructure `exceljs` en place** (`src/lib/export/excel.ts`, `/api/export?register=…`) : logo SOPAT, en-têtes stylés, filtres respectés, boutons sur les 9 nouveaux registres — à étendre aux dashboards historiques (SMQ, NC, RH, RSE…)
+6. ~~Page « Contexte & politiques »~~ ✅ `/admin/context` (publication ORG MI 01–08 depuis le DMS)
+7. ~~Export Excel professionnel~~ ✅ infrastructure `exceljs` + boutons sur **14 registres** (9 nouveaux + NC, audits, R&O, PI, fournisseurs)
 8. Exports PDF/PPTX de rapports de direction
-9. Notifications/escalades automatiques (échéances CAPA, audits, revues)
+9. ⚠ Notifications : **panneau « Alertes & échéances » sur le tableau de bord** ✅ (NC/CAPA en retard, actions de revue, offres expirantes, documents à revoir) — rappels e-mail automatiques restent à brancher sur `email_queue`

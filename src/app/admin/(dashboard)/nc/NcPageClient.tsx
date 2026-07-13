@@ -6,6 +6,7 @@ import { Search, AlertTriangle, ArrowRight, AlertCircle, Loader2, TrendingUp, Tr
 import { cn } from '@/lib/utils'
 import type { NcListItem } from '@/lib/db/iso'
 import { Button } from '@/components/ui/button'
+import ExportExcelButton from '@/components/ExportExcelButton'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
@@ -225,13 +226,16 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
             FOR-MI-05 · ISO 9001:2015 clause 10.2 · {total} enregistrée{total !== 1 ? 's' : ''}
           </p>
         </div>
-        <Button
-          onClick={() => setShowForm(true)}
-          style={{ background: 'var(--admin-red)' }}
-          className="text-white hover:opacity-90 w-full sm:w-auto"
-        >
-          + Nouvelle NC / PNC / Réclamation
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ExportExcelButton register="nc" />
+          <Button
+            onClick={() => setShowForm(true)}
+            style={{ background: 'var(--admin-red)' }}
+            className="text-white hover:opacity-90 w-full sm:w-auto"
+          >
+            + Nouvelle NC / PNC / Réclamation
+          </Button>
+        </div>
       </div>
 
       {/* Summary stats */}

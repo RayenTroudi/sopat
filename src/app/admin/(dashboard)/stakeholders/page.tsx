@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getStakeholders, getStaffSuggestions } from '@/lib/db/stakeholders'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Parties Intéressées | SOPAT Admin' }
@@ -39,13 +40,16 @@ export default async function StakeholdersPage() {
             FOR-MI-08/09 — Écoute des parties intéressées
           </p>
         </div>
-        <Link
-          href="/admin/stakeholders/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouvelle PI
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="stakeholders" />
+          <Link
+            href="/admin/stakeholders/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouvelle PI
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

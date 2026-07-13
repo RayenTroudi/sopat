@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { AuditRow } from '@/lib/db/iso'
 import { Button } from '@/components/ui/button'
+import ExportExcelButton from '@/components/ExportExcelButton'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -127,11 +128,14 @@ export function AuditsClient({ initialRows, total, users, isAdmin, currentUserId
             ISO 9001:2015 · clause 9.2 · {total} audit{total !== 1 ? 's' : ''}
           </p>
         </div>
-        {isAdmin && (
-          <Button onClick={() => setShowForm(true)} className="text-white hover:opacity-90" style={{ background: 'var(--admin-emerald)' }}>
-            + Planifier un audit
-          </Button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <ExportExcelButton register="audits" />
+          {isAdmin && (
+            <Button onClick={() => setShowForm(true)} className="text-white hover:opacity-90" style={{ background: 'var(--admin-emerald)' }}>
+              + Planifier un audit
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* ── Filter bar ──────────────────────────────────────────────────────── */}
