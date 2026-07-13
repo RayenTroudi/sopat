@@ -57,7 +57,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
 export const ROLE_ALLOWED_PREFIXES: Record<UserRole, string[]> = {
   admin: ['/admin'],
   direction: ['/admin'],
-  etudes_chef: ['/admin/projects', '/admin/documents', '/admin/nc', '/admin/suppliers'],
+  etudes_chef: ['/admin/projects', '/admin/documents', '/admin/nc', '/admin/suppliers', '/admin/commercial'],
   etudes_team: ['/admin/projects'],
   realisation_chef: ['/admin/projects', '/admin/nc', '/admin/suppliers', '/admin/reports'],
   realisation_team: ['/admin/projects'],
