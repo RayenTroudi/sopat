@@ -45,19 +45,40 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/audit-programs', label: 'Programmes d\'audit', icon: ClipboardCheck, roles: ['admin','direction'] },
       { href: '/admin/audits',         label: 'Audits',              icon: ClipboardCheck, roles: ['admin','direction'] },
       { href: '/admin/documents',      label: 'Inf. Documentées',    icon: FileText,       roles: ['admin','direction','etudes_chef'] },
+      { href: '/admin/document-reviews', label: 'Revues documentaires', icon: BookOpen,    roles: ['admin','direction'] },
     ],
   },
   {
     label: 'SMQ / Système',
     roles: ['admin','direction'],
     items: [
+      { href: '/admin/management-reviews',  label: 'Revues de direction',    icon: ClipboardCheck, roles: ['admin','direction'] },
+      { href: '/admin/meetings',            label: 'PV de réunion',          icon: ScrollText,     roles: ['admin','direction'] },
       { href: '/admin/risks-opportunities', label: 'Risques & Opportunités', icon: ShieldCheck,   roles: ['admin','direction'] },
       { href: '/admin/stakeholders',        label: 'Parties Intéressées',    icon: Users,          roles: ['admin','direction'] },
       { href: '/admin/regulatory-watch',    label: 'Veille Réglementaire',   icon: Scale,          roles: ['admin','direction'] },
       { href: '/admin/auditors',            label: 'Auditeurs Internes',     icon: UserCheck,      roles: ['admin','direction'] },
       { href: '/admin/management-plan',     label: 'Plan de Management',     icon: CalendarRange,  roles: ['admin','direction'] },
+      { href: '/admin/knowledge',           label: 'Connaissances org.',     icon: GraduationCap,  roles: ['admin','direction'] },
+      { href: '/admin/environment/aspects', label: 'Aspects environnementaux', icon: Leaf,         roles: ['admin','direction'] },
       { href: '/admin/environment/waste',   label: 'Déchets',                icon: Trash2,         roles: ['admin','direction'] },
       { href: '/admin/environment/hse-checklist', label: 'Checklist HSE',   icon: HardHat,        roles: ['admin','direction'] },
+    ],
+  },
+  {
+    label: 'Commercial',
+    roles: ['admin','direction','etudes_chef'],
+    items: [
+      { href: '/admin/commercial/offers',          label: 'Suivi des offres',      icon: Briefcase, roles: ['admin','direction','etudes_chef'] },
+      { href: '/admin/commercial/client-balances', label: 'État de solde client',  icon: Coins,     roles: ['admin','direction','etudes_chef'] },
+    ],
+  },
+  {
+    label: 'Achat',
+    roles: ['admin','direction','realisation_chef','etudes_chef'],
+    items: [
+      { href: '/admin/achat/delivery-notes', label: 'Bons livraison / retour', icon: Package,      roles: ['admin','direction','realisation_chef','etudes_chef'] },
+      { href: '/admin/achat/extra-expenses', label: 'Extra dépenses',          icon: ClipboardList, roles: ['admin','direction','realisation_chef','etudes_chef'] },
     ],
   },
   {

@@ -3253,6 +3253,335 @@ export const realisationChecklists = pgTable('realisation_checklists', {
   foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
 ])
 
+// ─── Revue de direction (FOR-MQ-15 / PRC-MI-10 — ISO 9001:2015 §9.3) ─────────
+
+export const managementReviewStatusEnum = pgEnum('management_review_status', [
+  'planned',
+  'held',
+  'closed',
+])
+
+export const managementReviews = pgTable('management_reviews', {
+  id:                       uuid('id').primaryKey().defaultRandom(),
+  reference:                varchar('reference', { length: 30 }).notNull().unique(),
+  reviewDate:               date('review_date').notNull(),
+  status:                   managementReviewStatusEnum('status').notNull().default('planned'),
+  participants:             text('participants'),
+  agenda:                   text('agenda'),
+  // Éléments d'entrée — ISO 9.3.2
+  previousActionsStatus:    text('previous_actions_status'),
+  contextChanges:           text('context_changes'),
+  customerSatisfaction:     text('customer_satisfaction'),
+  qualityObjectivesReview:  text('quality_objectives_review'),
+  processPerformance:       text('process_performance'),
+  ncCapaStatus:             text('nc_capa_status'),
+  auditResults:             text('audit_results'),
+  supplierPerformance:      text('supplier_performance'),
+  resourceAdequacy:         text('resource_adequacy'),
+  risksOpportunitiesReview: text('risks_opportunities_review'),
+  improvementOpportunities: text('improvement_opportunities'),
+  // Éléments de sortie — ISO 9.3.3
+  conclusions:              text('conclusions'),
+  deletedAt:                timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:                uuid('created_by').notNull(),
+}, (t) => [
+  index('mgmt_reviews_status_idx').on(t.status),
+  index('mgmt_reviews_date_idx').on(t.reviewDate),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const managementReviewActionTypeEnum = pgEnum('management_review_action_type', [
+  'amelioration',
+  'ressources',
+  'changement_smq',
+  'autre',
+])
+
+export const managementReviewActions = pgTable('management_review_actions', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  reviewId:    uuid('review_id').notNull(),
+  type:        managementReviewActionTypeEnum('type').notNull().default('amelioration'),
+  description: text('description').notNull(),
+  responsible: text('responsible'),
+  targetDate:  date('target_date'),
+  completedAt: timestamp('completed_at'),
+  result:      text('result'),
+  ...timestamps,
+  createdBy:   uuid('created_by').notNull(),
+}, (t) => [
+  index('mgmt_review_actions_review_idx').on(t.reviewId),
+  foreignKey({ columns: [t.reviewId],  foreignColumns: [managementReviews.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── PV de réunion (FOR-MI-04) ────────────────────────────────────────────────
+
+export const meetingMinutes = pgTable('meeting_minutes', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  reference:       varchar('reference', { length: 30 }).notNull().unique(),
+  meetingDate:     date('meeting_date').notNull(),
+  meetingType:     varchar('meeting_type', { length: 100 }),
+  location:        varchar('location', { length: 255 }),
+  participants:    text('participants'),
+  absentees:       text('absentees'),
+  agenda:          text('agenda'),
+  discussions:     text('discussions'),
+  decisions:       text('decisions'),
+  nextMeetingDate: date('next_meeting_date'),
+  deletedAt:       timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:       uuid('created_by').notNull(),
+}, (t) => [
+  index('meeting_minutes_date_idx').on(t.meetingDate),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const meetingActionItems = pgTable('meeting_action_items', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  meetingId:   uuid('meeting_id').notNull(),
+  description: text('description').notNull(),
+  responsible: text('responsible'),
+  targetDate:  date('target_date'),
+  completedAt: timestamp('completed_at'),
+  ...timestamps,
+  createdBy:   uuid('created_by').notNull(),
+}, (t) => [
+  index('meeting_action_items_meeting_idx').on(t.meetingId),
+  foreignKey({ columns: [t.meetingId], foreignColumns: [meetingMinutes.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Commercial : Tableau de suivi des offres (FOR-CO-01) ────────────────────
+
+export const offerStatusEnum = pgEnum('offer_status', [
+  'en_preparation',
+  'envoyee',
+  'en_negociation',
+  'gagnee',
+  'perdue',
+  'annulee',
+])
+
+export const commercialOffers = pgTable('commercial_offers', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  reference:    varchar('reference', { length: 30 }).notNull().unique(),
+  clientId:     uuid('client_id'),
+  clientName:   varchar('client_name', { length: 255 }),
+  projectTitle: varchar('project_title', { length: 255 }).notNull(),
+  projectType:  varchar('project_type', { length: 100 }),
+  description:  text('description'),
+  amount:       decimal('amount', { precision: 14, scale: 3 }),
+  currency:     varchar('currency', { length: 10 }).notNull().default('TND'),
+  sentDate:     date('sent_date'),
+  validityDate: date('validity_date'),
+  status:       offerStatusEnum('status').notNull().default('en_preparation'),
+  decisionDate: date('decision_date'),
+  lostReason:   text('lost_reason'),
+  projectId:    uuid('project_id'),
+  responsible:  text('responsible'),
+  notes:        text('notes'),
+  deletedAt:    timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:    uuid('created_by').notNull(),
+}, (t) => [
+  index('commercial_offers_status_idx').on(t.status),
+  index('commercial_offers_client_idx').on(t.clientId),
+  foreignKey({ columns: [t.clientId],  foreignColumns: [clients.id] }),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Commercial : État de solde client (FOR-CO-03) ───────────────────────────
+
+export const clientEntryTypeEnum = pgEnum('client_entry_type', [
+  'facture',
+  'encaissement',
+  'avoir',
+])
+
+export const clientAccountEntries = pgTable('client_account_entries', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  clientId:  uuid('client_id').notNull(),
+  projectId: uuid('project_id'),
+  entryType: clientEntryTypeEnum('entry_type').notNull(),
+  amount:    decimal('amount', { precision: 14, scale: 3 }).notNull(),
+  currency:  varchar('currency', { length: 10 }).notNull().default('TND'),
+  entryDate: date('entry_date').notNull(),
+  reference: varchar('reference', { length: 100 }),
+  notes:     text('notes'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('client_account_entries_client_idx').on(t.clientId),
+  index('client_account_entries_type_idx').on(t.entryType),
+  foreignKey({ columns: [t.clientId],  foreignColumns: [clients.id] }),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Aspects environnementaux — AES (PLA-MI-04/05 / PRC-MI-11) ───────────────
+
+export const aesConditionEnum = pgEnum('aes_condition', [
+  'normale',
+  'anormale',
+  'urgence',
+])
+
+export const aesStatusEnum = pgEnum('aes_status', [
+  'identified',
+  'controlled',
+  'closed',
+])
+
+export const environmentalAspects = pgTable('environmental_aspects', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  reference:        varchar('reference', { length: 30 }).notNull().unique(),
+  activity:         text('activity').notNull(),
+  aspect:           text('aspect').notNull(),
+  impact:           text('impact'),
+  condition:        aesConditionEnum('condition').notNull().default('normale'),
+  frequency:        integer('frequency'),
+  gravity:          integer('gravity'),
+  significance:     integer('significance'),
+  isSignificant:    boolean('is_significant').notNull().default(false),
+  controlMeasures:  text('control_measures'),
+  legalRequirement: text('legal_requirement'),
+  status:           aesStatusEnum('status').notNull().default('identified'),
+  deletedAt:        timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:        uuid('created_by').notNull(),
+}, (t) => [
+  index('environmental_aspects_status_idx').on(t.status),
+  index('environmental_aspects_significant_idx').on(t.isSignificant),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Achat : Bons de livraison / retour (FOR-AC-06 / FOR-AC-05) ──────────────
+
+export const deliveryNoteTypeEnum = pgEnum('delivery_note_type', [
+  'livraison',
+  'retour',
+])
+
+export type DeliveryNoteItem = {
+  designation: string
+  unit: string
+  quantity: number
+  observation?: string
+}
+
+export const deliveryNotes = pgTable('delivery_notes', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  reference:    varchar('reference', { length: 30 }).notNull().unique(),
+  noteType:     deliveryNoteTypeEnum('note_type').notNull(),
+  noteDate:     date('note_date').notNull(),
+  projectId:    uuid('project_id'),
+  supplierId:   uuid('supplier_id'),
+  counterparty: varchar('counterparty', { length: 255 }),
+  items:        jsonb('items').$type<DeliveryNoteItem[]>().notNull().default([]),
+  driverName:   varchar('driver_name', { length: 255 }),
+  receiverName: varchar('receiver_name', { length: 255 }),
+  observations: text('observations'),
+  deletedAt:    timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:    uuid('created_by').notNull(),
+}, (t) => [
+  index('delivery_notes_type_idx').on(t.noteType),
+  index('delivery_notes_project_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.supplierId], foreignColumns: [suppliers.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// ─── Achat : Extra dépenses (FOR-AC-01) ──────────────────────────────────────
+
+export const extraExpenseStatusEnum = pgEnum('extra_expense_status', [
+  'pending',
+  'approved',
+  'rejected',
+])
+
+export const extraExpenses = pgTable('extra_expenses', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  reference:     varchar('reference', { length: 30 }).notNull().unique(),
+  projectId:     uuid('project_id'),
+  expenseDate:   date('expense_date').notNull(),
+  category:      varchar('category', { length: 100 }),
+  description:   text('description').notNull(),
+  amount:        decimal('amount', { precision: 12, scale: 3 }).notNull(),
+  currency:      varchar('currency', { length: 10 }).notNull().default('TND'),
+  justification: text('justification'),
+  status:        extraExpenseStatusEnum('status').notNull().default('pending'),
+  approvedBy:    uuid('approved_by'),
+  approvedAt:    timestamp('approved_at'),
+  rejectReason:  text('reject_reason'),
+  deletedAt:     timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:     uuid('created_by').notNull(),
+}, (t) => [
+  index('extra_expenses_status_idx').on(t.status),
+  index('extra_expenses_project_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.approvedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// ─── Revue documentaire périodique (FOR-MI-01 / PRC-MI-01) ───────────────────
+
+export const documentReviewStatusEnum = pgEnum('document_review_status', [
+  'planned',
+  'in_progress',
+  'completed',
+])
+
+export const documentReviews = pgTable('document_reviews', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  reference:        varchar('reference', { length: 30 }).notNull().unique(),
+  reviewDate:       date('review_date').notNull(),
+  scope:            text('scope'),
+  documentsCount:   integer('documents_count'),
+  findings:         text('findings'),
+  decisions:        text('decisions'),
+  status:           documentReviewStatusEnum('status').notNull().default('planned'),
+  nextReviewDate:   date('next_review_date'),
+  deletedAt:        timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:        uuid('created_by').notNull(),
+}, (t) => [
+  index('document_reviews_status_idx').on(t.status),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Connaissances organisationnelles (ORG-MI-09 — ISO 9001 §7.1.6) ──────────
+
+export const knowledgeStatusEnum = pgEnum('knowledge_status', [
+  'active',
+  'a_preserver',
+  'archived',
+])
+
+export const organizationalKnowledge = pgTable('organizational_knowledge', {
+  id:                 uuid('id').primaryKey().defaultRandom(),
+  reference:          varchar('reference', { length: 30 }).notNull().unique(),
+  domain:             varchar('domain', { length: 100 }),
+  title:              varchar('title', { length: 255 }).notNull(),
+  description:        text('description'),
+  holder:             varchar('holder', { length: 255 }),
+  criticality:        integer('criticality'),
+  preservationMethod: text('preservation_method'),
+  transferPlan:       text('transfer_plan'),
+  status:             knowledgeStatusEnum('status').notNull().default('active'),
+  deletedAt:          timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:          uuid('created_by').notNull(),
+}, (t) => [
+  index('org_knowledge_status_idx').on(t.status),
+  index('org_knowledge_domain_idx').on(t.domain),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
 // ─── RH: Substitutes (LIS-RH-01) ─────────────────────────────────────────────
 
 export const substitutes = pgTable('substitutes', {
