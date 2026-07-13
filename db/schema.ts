@@ -3528,6 +3528,60 @@ export const extraExpenses = pgTable('extra_expenses', {
   foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
 ])
 
+// ─── Revue documentaire périodique (FOR-MI-01 / PRC-MI-01) ───────────────────
+
+export const documentReviewStatusEnum = pgEnum('document_review_status', [
+  'planned',
+  'in_progress',
+  'completed',
+])
+
+export const documentReviews = pgTable('document_reviews', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  reference:        varchar('reference', { length: 30 }).notNull().unique(),
+  reviewDate:       date('review_date').notNull(),
+  scope:            text('scope'),
+  documentsCount:   integer('documents_count'),
+  findings:         text('findings'),
+  decisions:        text('decisions'),
+  status:           documentReviewStatusEnum('status').notNull().default('planned'),
+  nextReviewDate:   date('next_review_date'),
+  deletedAt:        timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:        uuid('created_by').notNull(),
+}, (t) => [
+  index('document_reviews_status_idx').on(t.status),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Connaissances organisationnelles (ORG-MI-09 — ISO 9001 §7.1.6) ──────────
+
+export const knowledgeStatusEnum = pgEnum('knowledge_status', [
+  'active',
+  'a_preserver',
+  'archived',
+])
+
+export const organizationalKnowledge = pgTable('organizational_knowledge', {
+  id:                 uuid('id').primaryKey().defaultRandom(),
+  reference:          varchar('reference', { length: 30 }).notNull().unique(),
+  domain:             varchar('domain', { length: 100 }),
+  title:              varchar('title', { length: 255 }).notNull(),
+  description:        text('description'),
+  holder:             varchar('holder', { length: 255 }),
+  criticality:        integer('criticality'),
+  preservationMethod: text('preservation_method'),
+  transferPlan:       text('transfer_plan'),
+  status:             knowledgeStatusEnum('status').notNull().default('active'),
+  deletedAt:          timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:          uuid('created_by').notNull(),
+}, (t) => [
+  index('org_knowledge_status_idx').on(t.status),
+  index('org_knowledge_domain_idx').on(t.domain),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
 // ─── RH: Substitutes (LIS-RH-01) ─────────────────────────────────────────────
 
 export const substitutes = pgTable('substitutes', {

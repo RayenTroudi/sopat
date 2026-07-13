@@ -22,7 +22,7 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 | Document | Statut | Module app |
 |---|---|---|
 | PRC MI 01 Maîtrise des informations documentées | ✅ | DMS (`dms_documents`, versions, workflow, signatures, codification) |
-| FOR MI 01 Rapport de revue documentaire | ❌ | Aucune campagne de revue documentaire périodique |
+| FOR MI 01 Rapport de revue documentaire | ❌→✅ | **Nouveau module `/admin/document-reviews`** |
 | PRC MI 05 / FOR MI 02 Veille normative & réglementaire | ✅ | `/admin/regulatory-watch` |
 | FOR MI 04 PV de réunion | ❌→✅ | **Nouveau module `/admin/meetings` (cette itération)** |
 | PRC MI 06 / FOR MI 05 NC, PNC & réclamations | ✅ | `/admin/nc` + CAPA (`non_conformances`, `corrective_actions`) |
@@ -38,7 +38,7 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 | PLA MI 02 Plan des initiatives solidaires | ✅ | RSE événements/partenariats |
 | PLA MI 03 Plan de communication | ✅ | `/admin/management-plan/communication` |
 | ORG MI 01–08 Politiques, chartes, contexte, cartographie | ⚠ | Stockés dans le DMS ; pas de page « Contexte de l'organisation » dédiée (ISO 4.1) |
-| ORG MI 09 Connaissances organisationnelles | ❌ | À créer (ISO 7.1.6) |
+| ORG MI 09 Connaissances organisationnelles | ❌→✅ | **Nouveau module `/admin/knowledge` (ISO 7.1.6)** |
 | LIS MI 01/02/03 Listes informations documentées | ✅ | DMS registre |
 | LIS MI 04 Liste des mots de passe | 🔄 | Ne PAS digitaliser tel quel (risque sécurité) ; remplacé par gestion des comptes |
 | INS MI 01–21 Fiches d'instruction (SST/environnement) | ⚠ | À publier comme documents contrôlés dans le DMS (contenu statique) |
@@ -109,8 +109,8 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 1. ~~État de solde client (FOR CO 03)~~ ✅ fait — bordereau des prix (FOR CO 02) lié aux offres reste à faire
 2. ~~Registre AES (PLA MI 04/05)~~ ✅ fait
 3. ~~Formulaires Achat : bons livraison/retour, extra dépenses~~ ✅ faits — vue « suivi appro chantier » (FOR AC 10) à créer
-4. **Revue documentaire périodique (FOR MI 01)** dans le DMS
-5. **Connaissances organisationnelles (ORG MI 09)**
+4. ~~Revue documentaire périodique (FOR MI 01)~~ ✅ fait
+5. ~~Connaissances organisationnelles (ORG MI 09)~~ ✅ fait
 6. Page « Contexte & politiques » (publication des ORG MI 01–08 depuis le DMS)
 7. **Export Excel professionnel** généralisé (bouton en haut à droite de chaque dashboard) — nécessite `exceljs` (le paquet `xlsx` actuel ne gère pas le style)
 8. Exports PDF/PPTX de rapports de direction
