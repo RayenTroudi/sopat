@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getRisksOpportunities } from '@/lib/db/risks-opportunities'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Risques & Opportunités | SOPAT Admin' }
@@ -43,13 +44,16 @@ export default async function RisksOpportunitiesPage({
             FOR-MI-07 — Registre des risques et opportunités
           </p>
         </div>
-        <Link
-          href="/admin/risks-opportunities/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouveau
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="risks-opportunities" />
+          <Link
+            href="/admin/risks-opportunities/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouveau
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">

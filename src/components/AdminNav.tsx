@@ -52,6 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'SMQ / Système',
     roles: ['admin','direction'],
     items: [
+      { href: '/admin/context',             label: 'Contexte & politiques',  icon: Globe2,         roles: ['admin','direction'] },
       { href: '/admin/management-reviews',  label: 'Revues de direction',    icon: ClipboardCheck, roles: ['admin','direction'] },
       { href: '/admin/meetings',            label: 'PV de réunion',          icon: ScrollText,     roles: ['admin','direction'] },
       { href: '/admin/risks-opportunities', label: 'Risques & Opportunités', icon: ShieldCheck,   roles: ['admin','direction'] },

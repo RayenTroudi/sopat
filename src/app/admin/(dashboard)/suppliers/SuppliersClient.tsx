@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import type { SupplierRow, SupplierEvaluationRow, SupplierCategory, SupplierStatus } from '@/lib/db/suppliers'
 import { Select as ShadSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DeleteModal } from '@/components/ui/DeleteModal'
+import ExportExcelButton from '@/components/ExportExcelButton'
 import { DeleteButton } from '@/components/ui/DeleteButton'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -759,11 +760,14 @@ export function SuppliersClient({ canEdit }: Props) {
             Registre des fournisseurs agréés · ISO 9001:2015 §7.4 · {allSuppliers.length} fournisseurs
           </p>
         </div>
-        {canEdit && (
-          <button onClick={openCreate} className="text-xs px-4 py-2 rounded-lg font-medium text-white w-full sm:w-auto" style={{ background: 'var(--admin-emerald)' }}>
-            + Nouveau fournisseur
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <ExportExcelButton register="suppliers" />
+          {canEdit && (
+            <button onClick={openCreate} className="text-xs px-4 py-2 rounded-lg font-medium text-white w-full sm:w-auto" style={{ background: 'var(--admin-emerald)' }}>
+              + Nouveau fournisseur
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Class summary */}

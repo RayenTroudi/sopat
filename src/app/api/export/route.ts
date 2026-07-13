@@ -9,6 +9,10 @@ import { getManagementReviews } from '@/lib/db/management-reviews'
 import { getMeetings } from '@/lib/db/meetings'
 import { getDocumentReviews, DOC_REVIEW_STATUS_LABELS } from '@/lib/db/document-reviews'
 import { getOrganizationalKnowledge, KNOWLEDGE_STATUS_LABELS } from '@/lib/db/organizational-knowledge'
+import { listNcs, listAudits, type NcStatus, type AuditStatus } from '@/lib/db/iso'
+import { getRisksOpportunities } from '@/lib/db/risks-opportunities'
+import { getStakeholders } from '@/lib/db/stakeholders'
+import { listSuppliers } from '@/lib/db/suppliers'
 
 export const dynamic = 'force-dynamic'
 
@@ -345,6 +349,201 @@ const REGISTERS: Record<string, RegisterDef> = {
         })),
       }]
     },
+  },
+}
+
+// ─── Registres historiques ────────────────────────────────────────────────────
+
+REGISTERS['nc'] = {
+  roles: ['admin', 'direction'],
+  title: 'Registre des NC, PNC et réclamations (FOR-MI-05)',
+  department: 'Management Qualité & Environnement',
+  filename: 'registre-nc',
+  async build(sp) {
+    const { rows } = await listNcs({
+      status: (sp.get('status') as NcStatus | null) ?? undefined,
+      page: 1,
+      pageSize: 10000,
+    })
+    return [{
+      name: 'NC',
+      columns: [
+        { header: 'Référence', key: 'reference' },
+        { header: 'Type', key: 'ncType' },
+        { header: 'Source', key: 'ncSource' },
+        { header: 'Département', key: 'dept' },
+        { header: 'Processus', key: 'processAffected' },
+        { header: 'Description', key: 'description', width: 50 },
+        { header: 'Détectée le', key: 'detectedAt', format: 'date' },
+        { header: 'Échéance', key: 'deadline', format: 'date' },
+        { header: 'Avancement (%)', key: 'correctionProgress', format: 'number' },
+        { header: 'Statut', key: 'status' },
+        { header: 'Projet', key: 'projectName' },
+        { header: 'Assignée à', key: 'assignedToName' },
+      ],
+      rows: rows.map((nc) => ({
+        reference: nc.reference,
+        ncType: nc.ncType,
+        ncSource: nc.ncSource,
+        dept: nc.dept,
+        processAffected: nc.processAffected,
+        description: nc.description,
+        detectedAt: nc.detectedAt,
+        deadline: nc.deadline,
+        correctionProgress: nc.correctionProgress,
+        status: nc.status,
+        projectName: nc.projectName,
+        assignedToName: nc.assignedToName,
+      })),
+      summary: [{ label: 'Total NC', value: rows.length }],
+    }]
+  },
+}
+
+REGISTERS['audits'] = {
+  roles: ['admin', 'direction'],
+  title: "Registre des audits internes (FOR-MI-13)",
+  department: 'Management Qualité & Environnement',
+  filename: 'audits-internes',
+  async build(sp) {
+    const { rows } = await listAudits({
+      status: (sp.get('status') as AuditStatus | null) ?? undefined,
+      page: 1,
+      pageSize: 10000,
+    })
+    return [{
+      name: 'Audits',
+      columns: [
+        { header: 'Référence', key: 'reference' },
+        { header: 'Date', key: 'auditDate', format: 'date' },
+        { header: 'Processus audité', key: 'processAudited' },
+        { header: 'Auditeur', key: 'auditorName' },
+        { header: 'Périmètre', key: 'scope', width: 40 },
+        { header: 'Constats', key: 'findings', width: 50 },
+        { header: 'Statut', key: 'status' },
+      ],
+      rows: rows.map((a) => ({
+        reference: a.reference,
+        auditDate: a.auditDate,
+        processAudited: a.processAudited,
+        auditorName: a.auditorName,
+        scope: a.scope,
+        findings: a.findings,
+        status: a.status,
+      })),
+    }]
+  },
+}
+
+REGISTERS['risks-opportunities'] = {
+  roles: ['admin', 'direction'],
+  title: 'Registre des risques et opportunités (FOR-MI-07)',
+  department: 'Management Qualité & Environnement',
+  filename: 'risques-opportunites',
+  async build(sp) {
+    const type = sp.get('type') as 'risk' | 'opportunity' | null
+    const rows = await getRisksOpportunities({ type: type ?? undefined, status: sp.get('status') ?? undefined })
+    return [{
+      name: 'R&O',
+      columns: [
+        { header: 'Référence', key: 'reference' },
+        { header: 'Type', key: 'type' },
+        { header: 'Catégorie', key: 'category' },
+        { header: 'Description', key: 'description', width: 50 },
+        { header: 'Gravité', key: 'gravity', format: 'number' },
+        { header: 'Probabilité', key: 'probability', format: 'number' },
+        { header: 'Criticité', key: 'criticality', format: 'number' },
+        { header: 'Score', key: 'score', format: 'number' },
+        { header: 'Statut', key: 'status' },
+        { header: 'Responsable', key: 'owner' },
+        { header: 'Échéance', key: 'targetDate', format: 'date' },
+      ],
+      rows: rows.map(({ ro }) => ({
+        reference: ro.reference,
+        type: ro.type === 'risk' ? 'Risque' : 'Opportunité',
+        category: ro.category.replace(/_/g, ' '),
+        description: ro.description,
+        gravity: ro.gravity,
+        probability: ro.probability,
+        criticality: ro.criticality,
+        score: ro.score,
+        status: ro.status,
+        owner: ro.owner,
+        targetDate: ro.targetDate,
+      })),
+    }]
+  },
+}
+
+REGISTERS['stakeholders'] = {
+  roles: ['admin', 'direction'],
+  title: 'Registre des parties intéressées (LIS-MI-07 / FOR-MI-08)',
+  department: 'Management Qualité & Environnement',
+  filename: 'parties-interessees',
+  async build() {
+    const rows = await getStakeholders()
+    return [{
+      name: 'PI',
+      columns: [
+        { header: 'Référence', key: 'reference' },
+        { header: 'Nom', key: 'name' },
+        { header: 'Type', key: 'type' },
+        { header: 'Besoins & attentes', key: 'needs', width: 50 },
+        { header: 'Influence', key: 'influence', format: 'number' },
+        { header: 'Interaction', key: 'interaction', format: 'number' },
+        { header: 'PIP', key: 'isPip' },
+        { header: 'Contact', key: 'contactName' },
+      ],
+      rows: rows.map(({ sh }) => ({
+        reference: sh.reference,
+        name: sh.name,
+        type: sh.type,
+        needs: sh.needs,
+        influence: sh.influence,
+        interaction: sh.interaction,
+        isPip: sh.isPip ? 'Oui' : 'Non',
+        contactName: sh.contactName,
+      })),
+    }]
+  },
+}
+
+REGISTERS['suppliers'] = {
+  roles: ['admin', 'direction', 'etudes_chef', 'realisation_chef'],
+  title: 'Liste des fournisseurs agréés (LIS-AC-01 / FOR-AC-11)',
+  department: 'Achat',
+  filename: 'fournisseurs',
+  async build(sp) {
+    const rows = await listSuppliers({
+      search: sp.get('search') ?? undefined,
+      category: sp.get('category') ?? undefined,
+      status: sp.get('status') ?? undefined,
+    })
+    return [{
+      name: 'Fournisseurs',
+      columns: [
+        { header: 'Code', key: 'supplierCode' },
+        { header: 'Nom', key: 'name' },
+        { header: 'Catégorie', key: 'category' },
+        { header: 'Ville', key: 'city' },
+        { header: 'Contact', key: 'contactName' },
+        { header: 'Téléphone', key: 'phone' },
+        { header: 'Statut ISO', key: 'isoStatus' },
+        { header: 'Score sélection', key: 'selectionScore', format: 'number' },
+        { header: 'Classe', key: 'selectionClass' },
+      ],
+      rows: rows.map((s) => ({
+        supplierCode: s.supplierCode,
+        name: s.name,
+        category: s.category,
+        city: s.city,
+        contactName: s.contactName,
+        phone: s.phone,
+        isoStatus: s.isoStatus,
+        selectionScore: s.selectionScore,
+        selectionClass: s.selectionClass,
+      })),
+    }]
   },
 }
 

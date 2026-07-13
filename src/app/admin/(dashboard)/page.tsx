@@ -21,6 +21,8 @@ import {
   type RhDashboardKpis,
 } from '@/lib/db/dashboard-dept'
 import { MetricCard } from '@/components/dashboard/MetricCard'
+import DeadlineAlertsPanel from '@/components/dashboard/DeadlineAlertsPanel'
+import { getDeadlineAlerts } from '@/lib/db/alerts'
 import { MiniPie } from '@/components/dashboard/MiniPie'
 import { ActivityFeed } from '@/components/dashboard/ActivityFeed'
 import { AtRiskTable } from '@/components/dashboard/AtRiskTable'
@@ -567,7 +569,7 @@ export default async function AdminDashboard() {
 
   // ── Admin / Direction — full dashboard ──────────────────────────────────────
   const currentYear = new Date().getFullYear()
-  const [kpis, activity, atRisk, upcomingVisits, rseData, intlData, smqKpis] = await Promise.all([
+  const [kpis, activity, atRisk, upcomingVisits, rseData, intlData, smqKpis, deadlineAlerts] = await Promise.all([
     getDashboardKpis(),
     getCachedRecentActivity(20),
     getCachedAtRiskProjects(),
@@ -575,6 +577,7 @@ export default async function AdminDashboard() {
     getRseDashboardData(),
     getInternationalDashboardData(),
     getSmqKpis(currentYear),
+    getDeadlineAlerts(),
   ])
 
   const { activeProjects, onTimeDeliveryRate, avgBudgetVariance, openNcs, ncSlaClosureRate, maintenanceThisMonth, satisfactionScore } = kpis
@@ -592,6 +595,7 @@ export default async function AdminDashboard() {
 
   const mainDashboard = (
     <div className="space-y-5">
+      <DeadlineAlertsPanel alerts={deadlineAlerts} />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           icon={FolderOpen}
