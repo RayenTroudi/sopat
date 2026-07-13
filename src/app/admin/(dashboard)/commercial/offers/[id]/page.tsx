@@ -1,8 +1,9 @@
 import { auth } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
-import { getOfferById, OFFER_STATUS_LABELS, type OfferStatus } from '@/lib/db/commercial'
+import { getOfferById, getOfferLineItems, OFFER_STATUS_LABELS, type OfferStatus } from '@/lib/db/commercial'
 import Link from 'next/link'
 import OfferStatusPanel from './OfferStatusPanel'
+import BordereauPanel from './BordereauPanel'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Offre commerciale | SOPAT Admin' }
@@ -19,6 +20,7 @@ export default async function OfferDetailPage({
   const row = await getOfferById(id)
   if (!row) notFound()
   const { offer, clientCompany } = row
+  const lineItems = await getOfferLineItems(id)
 
   const fields: { label: string; value: string | null }[] = [
     { label: 'Client', value: clientCompany ?? offer.clientName },
@@ -76,6 +78,19 @@ export default async function OfferDetailPage({
           )}
         </dl>
       </div>
+
+      <BordereauPanel
+        offerId={offer.id}
+        currency={offer.currency}
+        lines={lineItems.map((l) => ({
+          id: l.id,
+          designation: l.designation,
+          unit: l.unit,
+          quantity: l.quantity,
+          unitPrice: l.unitPrice,
+          total: l.total,
+        }))}
+      />
 
       <OfferStatusPanel offerId={offer.id} status={offer.status as OfferStatus} />
     </div>

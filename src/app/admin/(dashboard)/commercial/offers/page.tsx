@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getOffers, OFFER_STATUS_LABELS, type OfferStatus } from '@/lib/db/commercial'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Suivi des offres | SOPAT Admin' }
@@ -42,13 +43,16 @@ export default async function OffersPage({ searchParams }: { searchParams: Searc
             FOR-CO-01 — Tableau de suivi des offres commerciales
           </p>
         </div>
-        <Link
-          href="/admin/commercial/offers/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouvelle offre
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="offers" />
+          <Link
+            href="/admin/commercial/offers/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouvelle offre
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">

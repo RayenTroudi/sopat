@@ -79,6 +79,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/achat/delivery-notes', label: 'Bons livraison / retour', icon: Package,      roles: ['admin','direction','realisation_chef','etudes_chef'] },
       { href: '/admin/achat/extra-expenses', label: 'Extra dépenses',          icon: ClipboardList, roles: ['admin','direction','realisation_chef','etudes_chef'] },
+      { href: '/admin/achat/supply-tracking', label: 'Suivi appro chantier',   icon: BarChart3,     roles: ['admin','direction','realisation_chef','etudes_chef'] },
     ],
   },
   {

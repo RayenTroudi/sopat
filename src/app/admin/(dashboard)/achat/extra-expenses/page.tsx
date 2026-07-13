@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getExtraExpenses, EXPENSE_STATUS_LABELS } from '@/lib/db/achat'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 import ExpenseDecisionButtons from './ExpenseDecisionButtons'
 
 export const dynamic = 'force-dynamic'
@@ -40,13 +41,16 @@ export default async function ExtraExpensesPage({ searchParams }: { searchParams
             FOR-AC-01 — Dépenses hors bon de commande, avec validation direction
           </p>
         </div>
-        <Link
-          href="/admin/achat/extra-expenses/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouvelle dépense
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="extra-expenses" />
+          <Link
+            href="/admin/achat/extra-expenses/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouvelle dépense
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

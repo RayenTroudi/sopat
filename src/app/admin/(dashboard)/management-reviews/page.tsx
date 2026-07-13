@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getManagementReviews } from '@/lib/db/management-reviews'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Revues de direction | SOPAT Admin' }
@@ -43,13 +44,16 @@ export default async function ManagementReviewsPage({ searchParams }: { searchPa
             FOR-MQ-15 / PRC-MI-10 — ISO 9001:2015 §9.3
           </p>
         </div>
-        <Link
-          href="/admin/management-reviews/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouvelle revue
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="management-reviews" />
+          <Link
+            href="/admin/management-reviews/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouvelle revue
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-4">

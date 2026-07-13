@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getDeliveryNotes, NOTE_TYPE_LABELS } from '@/lib/db/achat'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Bons de livraison / retour | SOPAT Admin' }
@@ -30,13 +31,16 @@ export default async function DeliveryNotesPage({ searchParams }: { searchParams
             FOR-AC-06 / FOR-AC-05 — Mouvements de matériel et fournitures
           </p>
         </div>
-        <Link
-          href="/admin/achat/delivery-notes/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouveau bon
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="delivery-notes" />
+          <Link
+            href="/admin/achat/delivery-notes/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouveau bon
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

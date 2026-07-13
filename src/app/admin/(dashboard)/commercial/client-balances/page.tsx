@@ -7,6 +7,7 @@ import {
   type ClientEntryType,
 } from '@/lib/db/client-accounts'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'État de solde client | SOPAT Admin' }
@@ -49,13 +50,16 @@ export default async function ClientBalancesPage({ searchParams }: { searchParam
             FOR-CO-03 — Suivi des factures, encaissements et soldes par client
           </p>
         </div>
-        <Link
-          href="/admin/commercial/client-balances/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouvelle écriture
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="client-balances" />
+          <Link
+            href="/admin/commercial/client-balances/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouvelle écriture
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
