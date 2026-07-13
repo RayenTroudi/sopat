@@ -52,7 +52,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   }
 
   const { id } = await params
-  const ok = await softDeleteAudit(id)
+  const ok = await softDeleteAudit(id, session.user.userId)
   if (!ok) return NextResponse.json({ error: 'Audit introuvable' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }

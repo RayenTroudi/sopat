@@ -84,7 +84,7 @@ export async function DELETE(
 
   const { id } = await params
   try {
-    const ok = await softDeleteClient(id)
+    const ok = await softDeleteClient(id, session.user.userId)
     if (!ok) return NextResponse.json({ error: 'Client introuvable' }, { status: 404 })
     return NextResponse.json({ ok: true })
   } catch (err) {

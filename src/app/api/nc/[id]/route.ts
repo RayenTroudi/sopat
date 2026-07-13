@@ -172,7 +172,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   }
 
   const { id } = await params
-  const ok = await softDeleteNc(id)
+  const ok = await softDeleteNc(id, session.user.userId)
   if (!ok) return NextResponse.json({ error: 'NC introuvable' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }

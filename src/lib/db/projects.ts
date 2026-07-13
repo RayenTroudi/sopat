@@ -420,7 +420,7 @@ export async function softDeleteProject(
     .where(eq(projects.id, id))
 
   if (before.dmsDocumentCode) {
-    await obsoleteDmsDocument(db, before.dmsDocumentCode)
+    await obsoleteDmsDocument(db, before.dmsDocumentCode, actorId)
   }
 
   await logActivity({

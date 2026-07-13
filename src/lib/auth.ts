@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { NextResponse } from 'next/server'
 import { getSession } from '@/lib/session'
 import type { SessionData } from '@/lib/session'
 import type { UserRole } from '@/lib/auth-utils'
@@ -59,6 +60,27 @@ export async function requireRole(roles: UserRole[]): Promise<SessionData> {
   if (!session) redirect('/login')
   if (!roles.includes(session.role)) redirect('/admin/dashboard')
   return session
+}
+
+// ── API route guard ───────────────────────────────────────────────────────────
+// Single permission check for API routes (RBAC). Usage:
+//   const guard = await requireApiRole(['admin', 'direction'])
+//   if ('response' in guard) return guard.response
+//   const { session } = guard
+
+export type ApiGuardResult =
+  | { session: LegacySession }
+  | { response: NextResponse }
+
+export async function requireApiRole(roles: UserRole[]): Promise<ApiGuardResult> {
+  const session = await auth()
+  if (!session) {
+    return { response: NextResponse.json({ error: 'Non autorisé' }, { status: 401 }) }
+  }
+  if (!roles.includes(session.user.role)) {
+    return { response: NextResponse.json({ error: 'Accès refusé' }, { status: 403 }) }
+  }
+  return { session }
 }
 
 // ── Legacy cookie cleanup ─────────────────────────────────────────────────────

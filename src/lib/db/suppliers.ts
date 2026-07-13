@@ -161,7 +161,7 @@ export async function getSupplierById(id: string): Promise<SupplierRow | null> {
   } as SupplierRow
 }
 
-export async function softDeleteSupplier(id: string): Promise<boolean> {
+export async function softDeleteSupplier(id: string, actorId: string): Promise<boolean> {
   return db.transaction(async (tx) => {
     const result = await tx
       .update(suppliers)
@@ -172,7 +172,7 @@ export async function softDeleteSupplier(id: string): Promise<boolean> {
     if (result.length === 0) return false
 
     const code = result[0].dmsDocumentCode
-    if (code) await obsoleteDmsDocument(tx, code)
+    if (code) await obsoleteDmsDocument(tx, code, actorId)
 
     return true
   })

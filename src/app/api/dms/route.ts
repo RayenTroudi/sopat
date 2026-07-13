@@ -2,9 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
+import { auth, requireApiRole } from '@/lib/auth'
 import { listDmsDocuments, createDmsDocument } from '@/lib/dms/queries'
 import { isValidCode } from '@/lib/dms/codes'
+import { logDmsAudit } from '@/lib/dms/audit'
+import { db } from '@/db'
 
 const createSchema = z.object({
   documentNumber:    z.string().min(1).max(50).toUpperCase().refine(isValidCode, {
@@ -45,12 +47,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-
-  if (session.user.role !== 'admin' && session.user.role !== 'direction') {
-    return NextResponse.json({ error: 'Accès réservé aux administrateurs' }, { status: 403 })
-  }
+  const guard = await requireApiRole(['admin', 'direction'])
+  if ('response' in guard) return guard.response
+  const { session } = guard
 
   const body = await req.json()
   const parsed = createSchema.safeParse(body)
@@ -76,6 +75,19 @@ export async function POST(req: NextRequest) {
     observations:      d.observations,
     createdBy:         session.user.userId,
   })
+  await logDmsAudit(db, {
+    documentId: doc.id,
+    event:      'created',
+    actorId:    session.user.userId,
+    actorRole:  session.user.role,
+    newState: {
+      documentNumber: doc.documentNumber,
+      title:          doc.title,
+      category:       doc.category,
+      department:     doc.department,
+      status:         doc.status,
+    },
+  }).catch((err) => console.error('[dms-audit] created', err))
   revalidateTag('dms-documents-list', 'default')
   return NextResponse.json(doc, { status: 201 })
 }

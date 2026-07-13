@@ -513,7 +513,7 @@ export async function updateNcFields(
     .where(eq(nonConformances.id, id))
 }
 
-export async function softDeleteNc(id: string): Promise<boolean> {
+export async function softDeleteNc(id: string, actorId: string): Promise<boolean> {
   const result = await db
     .update(nonConformances)
     .set({ deletedAt: new Date() })
@@ -521,11 +521,11 @@ export async function softDeleteNc(id: string): Promise<boolean> {
     .returning({ id: nonConformances.id, dmsDocumentCode: nonConformances.dmsDocumentCode })
   if (result.length === 0) return false
   const code = result[0].dmsDocumentCode
-  if (code) await obsoleteDmsDocument(db, code)
+  if (code) await obsoleteDmsDocument(db, code, actorId)
   return true
 }
 
-export async function softDeleteCapa(id: string, ncId: string): Promise<boolean> {
+export async function softDeleteCapa(id: string, ncId: string, actorId: string): Promise<boolean> {
   const result = await db
     .update(correctiveActions)
     .set({ status: 'closed' })
@@ -533,11 +533,11 @@ export async function softDeleteCapa(id: string, ncId: string): Promise<boolean>
     .returning({ id: correctiveActions.id, dmsDocumentCode: correctiveActions.dmsDocumentCode })
   if (result.length === 0) return false
   const code = result[0].dmsDocumentCode
-  if (code) await obsoleteDmsDocument(db, code)
+  if (code) await obsoleteDmsDocument(db, code, actorId)
   return true
 }
 
-export async function softDeleteAudit(id: string): Promise<boolean> {
+export async function softDeleteAudit(id: string, actorId: string): Promise<boolean> {
   const result = await db
     .update(auditLogs)
     .set({ status: 'completed' })
@@ -545,7 +545,7 @@ export async function softDeleteAudit(id: string): Promise<boolean> {
     .returning({ id: auditLogs.id, dmsDocumentCode: auditLogs.dmsDocumentCode })
   if (result.length === 0) return false
   const code = result[0].dmsDocumentCode
-  if (code) await obsoleteDmsDocument(db, code)
+  if (code) await obsoleteDmsDocument(db, code, actorId)
   return true
 }
 

@@ -71,7 +71,14 @@ export function canAccessPath(role: UserRole, pathname: string): boolean {
   if (hasFullAccess(role)) return true
   // Dashboard root is always accessible to authenticated users
   if (pathname === '/admin') return true
-  return ROLE_ALLOWED_PREFIXES[role].some((prefix) => pathname.startsWith(prefix))
+  return (ROLE_ALLOWED_PREFIXES[role] ?? []).some((prefix) => pathname.startsWith(prefix))
+}
+
+// Landing page for a role — used when middleware denies access to a path.
+// Always a path the role is allowed to reach, so no redirect loop is possible.
+export function roleHome(role: UserRole): string {
+  if (hasFullAccess(role)) return '/admin/dashboard'
+  return ROLE_ALLOWED_PREFIXES[role]?.[0] ?? '/login'
 }
 
 export function canAccessDocuments(role: UserRole): boolean {

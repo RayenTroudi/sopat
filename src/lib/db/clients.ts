@@ -314,7 +314,7 @@ export async function updateClient(id: string, input: UpdateClientInput): Promis
   return result.length > 0
 }
 
-export async function softDeleteClient(id: string): Promise<boolean> {
+export async function softDeleteClient(id: string, actorId: string): Promise<boolean> {
   return db.transaction(async (tx) => {
     const result = await tx
       .update(clients)
@@ -325,7 +325,7 @@ export async function softDeleteClient(id: string): Promise<boolean> {
     if (result.length === 0) return false
 
     const code = result[0].dmsDocumentCode
-    if (code) await obsoleteDmsDocument(tx, code)
+    if (code) await obsoleteDmsDocument(tx, code, actorId)
 
     return true
   })

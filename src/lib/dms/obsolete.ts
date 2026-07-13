@@ -5,13 +5,35 @@
 import { db } from '../../../db/index'
 import { dmsDocuments } from '../../../db/schema'
 import { eq } from 'drizzle-orm'
+import { logDmsAudit } from './audit'
 
 type Tx = Parameters<Parameters<(typeof db)['transaction']>[0]>[0]
 
-export async function obsoleteDmsDocument(txOrDb: Tx | typeof db, code: string): Promise<void> {
+export async function obsoleteDmsDocument(
+  txOrDb: Tx | typeof db,
+  code: string,
+  actorId: string,
+): Promise<void> {
   if (!code) return
-  await (txOrDb as typeof db)
+  const database = txOrDb as typeof db
+
+  const [before] = await database
+    .select({ id: dmsDocuments.id, status: dmsDocuments.status })
+    .from(dmsDocuments)
+    .where(eq(dmsDocuments.documentNumber, code))
+    .limit(1)
+  if (!before) return
+
+  await database
     .update(dmsDocuments)
     .set({ status: 'obsolete' })
     .where(eq(dmsDocuments.documentNumber, code))
+
+  await logDmsAudit(database, {
+    documentId:    before.id,
+    event:         'obsoleted',
+    actorId,
+    previousState: { status: before.status },
+    newState:      { status: 'obsolete' },
+  })
 }

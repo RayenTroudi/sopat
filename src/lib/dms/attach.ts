@@ -3,6 +3,7 @@ import { sql } from 'drizzle-orm'
 import { db } from '../../../db/index'
 import { dmsDocuments, dmsDocumentLinks } from '../../../db/schema'
 import { buildCode, TYPE_CODES, PROCESS_CODES, type TypeCode, type ProcessCode } from './codes'
+import { logDmsAudit } from './audit'
 
 type Tx = Parameters<Parameters<(typeof db)['transaction']>[0]>[0]
 
@@ -75,6 +76,21 @@ export async function attachDmsCode(
       linkRole:    'origin',
       createdBy:   opts.authorId,
     })
+
+  // 4. Audit trail (ISO 9001 7.5.3 traceability)
+  await logDmsAudit(tx, {
+    documentId: doc.id,
+    event:      'created',
+    actorId:    opts.authorId,
+    newState: {
+      documentNumber: code,
+      title:          designation,
+      category:       opts.category,
+      department:     opts.department,
+      status:         'effective',
+    },
+    metadata: { linkedEntityType: opts.entityType, linkedEntityId: opts.entityId },
+  })
 
   return code
 }

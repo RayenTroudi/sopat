@@ -15,6 +15,7 @@ export default async function DocumentsPage() {
       users={users}
       canEdit={canEdit}
       currentUserId={session.user.userId}
+      currentUserRole={session.user.role}
     />
   )
 }

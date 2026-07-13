@@ -2,10 +2,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { z } from 'zod'
-import { auth } from '@/lib/auth'
+import { requireApiRole } from '@/lib/auth'
 import { db } from '../../../../../db/index'
 import { dmsDocuments } from '../../../../../db/schema'
 import { eq, isNull, and } from 'drizzle-orm'
+import { logDmsAudit } from '@/lib/dms/audit'
 
 const highlightSchema = z.object({
   rowHighlight: z.enum(['none', 'green', 'red']),
@@ -24,27 +25,24 @@ const updateSchema = z.object({
   confidentiality:   z.enum(['public','internal','confidential','restricted']).optional(),
 })
 
-async function requireAdmin(req: NextRequest) {
-  const session = await auth()
-  if (!session) return null
-  if (session.user.role !== 'admin' && session.user.role !== 'direction') return null
-  return session
-}
-
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  if (session.user.role !== 'admin' && session.user.role !== 'direction') {
-    return NextResponse.json({ error: 'Accès réservé aux administrateurs' }, { status: 403 })
-  }
+  const guard = await requireApiRole(['admin', 'direction'])
+  if ('response' in guard) return guard.response
+  const { session } = guard
 
   const { id } = await params
   const body = await req.json()
   const parsed = highlightSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Données invalides' }, { status: 400 })
+
+  const [before] = await db
+    .select({ rowHighlight: dmsDocuments.rowHighlight })
+    .from(dmsDocuments)
+    .where(and(eq(dmsDocuments.id, id), isNull(dmsDocuments.deletedAt)))
+    .limit(1)
 
   const [updated] = await db
     .update(dmsDocuments)
@@ -53,6 +51,16 @@ export async function PATCH(
     .returning({ id: dmsDocuments.id, rowHighlight: dmsDocuments.rowHighlight })
 
   if (!updated) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+
+  await logDmsAudit(db, {
+    documentId:    updated.id,
+    event:         'updated',
+    actorId:       session.user.userId,
+    actorRole:     session.user.role,
+    previousState: before ? { rowHighlight: before.rowHighlight } : null,
+    newState:      { rowHighlight: updated.rowHighlight },
+  }).catch((err) => console.error('[dms-audit] rowHighlight', err))
+
   revalidateTag('dms-documents-list', 'default')
   return NextResponse.json(updated)
 }
@@ -61,8 +69,9 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireAdmin(req)
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  const guard = await requireApiRole(['admin', 'direction'])
+  if ('response' in guard) return guard.response
+  const { session } = guard
 
   const { id } = await params
   const body = await req.json()
@@ -72,24 +81,65 @@ export async function PUT(
   }
 
   const d = parsed.data
+
+  const [before] = await db
+    .select({
+      title:             dmsDocuments.title,
+      category:          dmsDocuments.category,
+      department:        dmsDocuments.department,
+      versionLabel:      dmsDocuments.versionLabel,
+      effectiveDate:     dmsDocuments.effectiveDate,
+      storageType:       dmsDocuments.storageType,
+      managedByPassword: dmsDocuments.managedByPassword,
+      observations:      dmsDocuments.observations,
+      isoClauses:        dmsDocuments.isoClauses,
+      confidentiality:   dmsDocuments.confidentiality,
+    })
+    .from(dmsDocuments)
+    .where(and(eq(dmsDocuments.id, id), isNull(dmsDocuments.deletedAt)))
+    .limit(1)
+
+  const newState = {
+    title:             d.title,
+    category:          d.category,
+    department:        d.department,
+    versionLabel:      d.versionLabel ?? null,
+    effectiveDate:     d.effectiveDate ?? null,
+    storageType:       d.storageType ?? null,
+    managedByPassword: d.managedByPassword ?? false,
+    observations:      d.observations ?? null,
+    isoClauses:        d.isoClauses ?? [],
+    confidentiality:   d.confidentiality ?? 'internal',
+  }
+
   const [updated] = await db
     .update(dmsDocuments)
     .set({
-      title:             d.title,
-      category:          d.category as any,
-      department:        d.department as any,
-      versionLabel:      d.versionLabel ?? null,
-      effectiveDate:     d.effectiveDate ? new Date(d.effectiveDate) : null,
-      storageType:       d.storageType ?? null,
-      managedByPassword: d.managedByPassword ?? false,
-      observations:      d.observations ?? null,
-      isoClauses:        d.isoClauses ?? [],
-      confidentiality:   d.confidentiality ?? 'internal',
+      title:             newState.title,
+      category:          newState.category as any,
+      department:        newState.department as any,
+      versionLabel:      newState.versionLabel,
+      effectiveDate:     newState.effectiveDate ? new Date(newState.effectiveDate) : null,
+      storageType:       newState.storageType,
+      managedByPassword: newState.managedByPassword,
+      observations:      newState.observations,
+      isoClauses:        newState.isoClauses,
+      confidentiality:   newState.confidentiality,
     })
     .where(and(eq(dmsDocuments.id, id), isNull(dmsDocuments.deletedAt)))
     .returning({ id: dmsDocuments.id })
 
   if (!updated) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+
+  await logDmsAudit(db, {
+    documentId:    updated.id,
+    event:         'updated',
+    actorId:       session.user.userId,
+    actorRole:     session.user.role,
+    previousState: before ?? null,
+    newState,
+  }).catch((err) => console.error('[dms-audit] update', err))
+
   revalidateTag('dms-documents-list', 'default')
   return NextResponse.json({ id: updated.id })
 }
@@ -98,13 +148,18 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  if (session.user.role !== 'admin' && session.user.role !== 'direction') {
-    return NextResponse.json({ error: 'Accès réservé aux administrateurs' }, { status: 403 })
-  }
+  const guard = await requireApiRole(['admin', 'direction'])
+  if ('response' in guard) return guard.response
+  const { session } = guard
 
   const { id } = await params
+
+  const [before] = await db
+    .select({ status: dmsDocuments.status })
+    .from(dmsDocuments)
+    .where(and(eq(dmsDocuments.id, id), isNull(dmsDocuments.deletedAt)))
+    .limit(1)
+
   const [updated] = await db
     .update(dmsDocuments)
     .set({ status: 'obsolete', deletedAt: new Date() })
@@ -112,6 +167,16 @@ export async function DELETE(
     .returning({ id: dmsDocuments.id, documentNumber: dmsDocuments.documentNumber })
 
   if (!updated) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+
+  await logDmsAudit(db, {
+    documentId:    updated.id,
+    event:         'soft_deleted',
+    actorId:       session.user.userId,
+    actorRole:     session.user.role,
+    previousState: before ? { status: before.status } : null,
+    newState:      { status: 'obsolete' },
+  }).catch((err) => console.error('[dms-audit] soft_deleted', err))
+
   revalidateTag('dms-documents-list', 'default')
   return NextResponse.json({ ok: true, documentNumber: updated.documentNumber })
 }

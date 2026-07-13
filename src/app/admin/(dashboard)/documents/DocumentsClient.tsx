@@ -38,6 +38,60 @@ const STATUS_COLORS: Record<string, string> = {
   archived:         'bg-[var(--admin-border)] text-[var(--admin-text-muted)]',
 }
 
+// ── Workflow (ISO 9001 §7.5.2) ───────────────────────────────────────────────
+// Miroir client de src/lib/dms/workflow.ts — le serveur revalide chaque action.
+
+type WorkflowAction =
+  | 'submit_for_review' | 'review_approved' | 'review_rejected'
+  | 'approve' | 'reject' | 'publish'
+  | 'request_revision' | 'mark_obsolete' | 'archive'
+
+const ACTION_LABELS: Record<WorkflowAction, string> = {
+  submit_for_review: 'Soumettre pour révision',
+  review_approved:   'Valider la révision',
+  review_rejected:   'Rejeter la révision',
+  approve:           'Approuver',
+  reject:            'Rejeter',
+  publish:           'Publier (en vigueur)',
+  request_revision:  'Demander une révision',
+  mark_obsolete:     'Marquer obsolète',
+  archive:           'Archiver',
+}
+
+const NEXT_ACTIONS: Record<string, WorkflowAction[]> = {
+  draft:            ['submit_for_review'],
+  under_revision:   ['submit_for_review', 'mark_obsolete'],
+  in_review:        ['review_approved', 'review_rejected'],
+  pending_approval: ['approve', 'reject'],
+  approved:         ['publish', 'request_revision', 'mark_obsolete'],
+  effective:        ['request_revision', 'mark_obsolete'],
+  obsolete:         ['archive'],
+  archived:         [],
+}
+
+const DEPARTMENT_REVIEWER_ROLE: Record<string, string> = {
+  etudes:      'etudes_chef',
+  realisation: 'realisation_chef',
+  entretien:   'entretien_chef',
+  rh:          'rh_manager',
+}
+
+function allowedActions(
+  doc: DmsDocRow,
+  actor: { userId: string; role: string },
+): WorkflowAction[] {
+  const candidates = NEXT_ACTIONS[doc.status] ?? []
+  if (actor.role === 'admin' || actor.role === 'direction') return candidates
+  const chefRole = DEPARTMENT_REVIEWER_ROLE[doc.department]
+  return candidates.filter((a) => {
+    if (a === 'submit_for_review') {
+      return actor.userId === doc.ownerId || actor.userId === doc.authorId || actor.role === chefRole
+    }
+    if (a === 'review_approved' || a === 'review_rejected') return actor.role === chefRole
+    return false
+  })
+}
+
 function simplifiedStatus(status: string, highlight?: string): { label: string; className: string } {
   if (status === 'obsolete' || status === 'archived') {
     return { label: 'Éliminé', className: 'bg-gray-100 text-gray-500' }
@@ -106,9 +160,10 @@ type User = { id: string; name: string }
 // ── Props ────────────────────────────────────────────────────────────────────
 
 type Props = {
-  users:         User[]
-  canEdit:       boolean
-  currentUserId: string
+  users:           User[]
+  canEdit:         boolean
+  currentUserId:   string
+  currentUserRole: string
 }
 
 // ── Form state ───────────────────────────────────────────────────────────────
@@ -132,7 +187,7 @@ const EMPTY_FORM = {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
+export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserRole }: Props) {
   const [allRows, setAllRows]   = useState<DmsDocRow[]>([])
   const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -152,6 +207,27 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
   const [togglingId, setTogglingId]   = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<DmsDocRow | null>(null)
   const [deletingId, setDeletingId]       = useState<string | null>(null)
+  const [workflowMenuId, setWorkflowMenuId]   = useState<string | null>(null)
+  const [transitioningId, setTransitioningId] = useState<string | null>(null)
+  const [workflowError, setWorkflowError]     = useState('')
+
+  async function handleTransition(doc: DmsDocRow, action: WorkflowAction) {
+    setTransitioningId(doc.id)
+    setWorkflowMenuId(null)
+    setWorkflowError('')
+    const res = await fetch(`/api/dms/${doc.id}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    })
+    const data = await res.json() as { ok?: boolean; status?: string; error?: string }
+    if (res.ok && data.status) {
+      setAllRows(prev => prev.map(r => r.id === doc.id ? { ...r, status: data.status! } : r))
+    } else {
+      setWorkflowError(data.error ?? 'Erreur lors de la transition')
+    }
+    setTransitioningId(null)
+  }
 
   async function handleDeleteDoc(doc: DmsDocRow) {
     setDeletingId(doc.id)
@@ -436,6 +512,14 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
         )}
       </div>
 
+      {/* Workflow error */}
+      {workflowError && (
+        <div className="flex items-center justify-between text-sm px-4 py-2.5 rounded-lg border" style={{ borderColor: 'rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.05)', color: '#dc2626' }}>
+          <span>{workflowError}</span>
+          <button onClick={() => setWorkflowError('')} className="text-xs underline ml-4 shrink-0">Fermer</button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         {loading ? (
@@ -500,6 +584,16 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                         {doc.assetUrl && (
                           <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="inline-block mt-2 text-xs underline" style={{ color: 'var(--admin-blue)' }}>Ouvrir PDF</a>
                         )}
+                        <div className="flex items-center gap-2 mt-2 flex-wrap">
+                          <WorkflowMenu
+                            doc={doc}
+                            actions={allowedActions(doc, { userId: currentUserId, role: currentUserRole })}
+                            open={workflowMenuId === doc.id}
+                            busy={transitioningId === doc.id}
+                            onToggle={() => setWorkflowMenuId(workflowMenuId === doc.id ? null : doc.id)}
+                            onAction={(a) => void handleTransition(doc, a)}
+                          />
+                        </div>
                         {canEdit && (
                           <div className="flex items-center gap-2 mt-2 flex-wrap">
                             <button
@@ -540,7 +634,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                 <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
                   {[
                     'Type', 'Processus', 'Code', 'Désignation',
-                    'Version', 'Date', 'Classement', 'MDP',
+                    'Version', 'Statut', 'Date', 'Classement', 'MDP',
                     'Observations', '',
                   ].map(h => (
                     <th key={h} className="text-left px-3 py-2.5 text-xs font-medium whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
@@ -578,6 +672,12 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                       <td className="px-3 py-2.5 text-xs text-center whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
                         {doc.versionLabel ?? '—'}
                       </td>
+                      {/* Statut (cycle de vie ISO §7.5.2) */}
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className={cn('text-[10px] px-2 py-0.5 rounded font-medium', STATUS_COLORS[doc.status] ?? '')}>
+                          {STATUS_LABELS[doc.status] ?? doc.status}
+                        </span>
+                      </td>
                       {/* Date */}
                       <td className="px-3 py-2.5 text-xs whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
                         {fmt(doc.effectiveDate)}
@@ -607,6 +707,14 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId }: Props) {
                           {doc.assetUrl && (
                             <a href={doc.assetUrl} target="_blank" rel="noopener noreferrer" className="text-xs underline" style={{ color: 'var(--admin-blue)' }}>PDF</a>
                           )}
+                          <WorkflowMenu
+                            doc={doc}
+                            actions={allowedActions(doc, { userId: currentUserId, role: currentUserRole })}
+                            open={workflowMenuId === doc.id}
+                            busy={transitioningId === doc.id}
+                            onToggle={() => setWorkflowMenuId(workflowMenuId === doc.id ? null : doc.id)}
+                            onAction={(a) => void handleTransition(doc, a)}
+                          />
                           {canEdit && (
                             <>
                               <button
@@ -1024,6 +1132,55 @@ function DmsStepHeader({ number, title }: { number: string; title: string }) {
       </div>
       <p className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{title}</p>
       <div className="flex-1 h-px" style={{ background: 'var(--admin-border)' }} />
+    </div>
+  )
+}
+
+function WorkflowMenu({
+  doc, actions, open, busy, onToggle, onAction,
+}: {
+  doc: DmsDocRow
+  actions: WorkflowAction[]
+  open: boolean
+  busy: boolean
+  onToggle: () => void
+  onAction: (action: WorkflowAction) => void
+}) {
+  if (actions.length === 0) return null
+  return (
+    <div className="relative inline-block">
+      <button
+        title="Actions du cycle de vie (ISO §7.5.2)"
+        disabled={busy}
+        onClick={onToggle}
+        className="text-[11px] px-1.5 py-0.5 rounded border transition-colors hover:opacity-80 disabled:opacity-40"
+        style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
+      >
+        {busy ? <Loader2 className="w-3 h-3 animate-spin inline" /> : '⚙️'}
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={onToggle} />
+          <div
+            className="absolute right-0 top-full mt-1 z-40 rounded-lg border shadow-lg py-1 min-w-[200px]"
+            style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}
+          >
+            <p className="px-3 py-1 text-[10px] uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>
+              {STATUS_LABELS[doc.status] ?? doc.status} →
+            </p>
+            {actions.map((a) => (
+              <button
+                key={a}
+                onClick={() => onAction(a)}
+                className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--admin-bg)]"
+                style={{ color: 'var(--admin-text)' }}
+              >
+                {ACTION_LABELS[a]}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   )
 }

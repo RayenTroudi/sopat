@@ -130,7 +130,7 @@ export async function DELETE(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Action corrective introuvable' }, { status: 404 })
   }
 
-  const ok = await softDeleteCapa(capaId, id)
+  const ok = await softDeleteCapa(capaId, id, session.user.userId)
   if (!ok) return NextResponse.json({ error: 'Introuvable' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }
