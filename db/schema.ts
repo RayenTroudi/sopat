@@ -3392,6 +3392,142 @@ export const commercialOffers = pgTable('commercial_offers', {
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
+// ─── Commercial : État de solde client (FOR-CO-03) ───────────────────────────
+
+export const clientEntryTypeEnum = pgEnum('client_entry_type', [
+  'facture',
+  'encaissement',
+  'avoir',
+])
+
+export const clientAccountEntries = pgTable('client_account_entries', {
+  id:        uuid('id').primaryKey().defaultRandom(),
+  clientId:  uuid('client_id').notNull(),
+  projectId: uuid('project_id'),
+  entryType: clientEntryTypeEnum('entry_type').notNull(),
+  amount:    decimal('amount', { precision: 14, scale: 3 }).notNull(),
+  currency:  varchar('currency', { length: 10 }).notNull().default('TND'),
+  entryDate: date('entry_date').notNull(),
+  reference: varchar('reference', { length: 100 }),
+  notes:     text('notes'),
+  deletedAt: timestamp('deleted_at'),
+  ...timestamps,
+  createdBy: uuid('created_by').notNull(),
+}, (t) => [
+  index('client_account_entries_client_idx').on(t.clientId),
+  index('client_account_entries_type_idx').on(t.entryType),
+  foreignKey({ columns: [t.clientId],  foreignColumns: [clients.id] }),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Aspects environnementaux — AES (PLA-MI-04/05 / PRC-MI-11) ───────────────
+
+export const aesConditionEnum = pgEnum('aes_condition', [
+  'normale',
+  'anormale',
+  'urgence',
+])
+
+export const aesStatusEnum = pgEnum('aes_status', [
+  'identified',
+  'controlled',
+  'closed',
+])
+
+export const environmentalAspects = pgTable('environmental_aspects', {
+  id:               uuid('id').primaryKey().defaultRandom(),
+  reference:        varchar('reference', { length: 30 }).notNull().unique(),
+  activity:         text('activity').notNull(),
+  aspect:           text('aspect').notNull(),
+  impact:           text('impact'),
+  condition:        aesConditionEnum('condition').notNull().default('normale'),
+  frequency:        integer('frequency'),
+  gravity:          integer('gravity'),
+  significance:     integer('significance'),
+  isSignificant:    boolean('is_significant').notNull().default(false),
+  controlMeasures:  text('control_measures'),
+  legalRequirement: text('legal_requirement'),
+  status:           aesStatusEnum('status').notNull().default('identified'),
+  deletedAt:        timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:        uuid('created_by').notNull(),
+}, (t) => [
+  index('environmental_aspects_status_idx').on(t.status),
+  index('environmental_aspects_significant_idx').on(t.isSignificant),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+// ─── Achat : Bons de livraison / retour (FOR-AC-06 / FOR-AC-05) ──────────────
+
+export const deliveryNoteTypeEnum = pgEnum('delivery_note_type', [
+  'livraison',
+  'retour',
+])
+
+export type DeliveryNoteItem = {
+  designation: string
+  unit: string
+  quantity: number
+  observation?: string
+}
+
+export const deliveryNotes = pgTable('delivery_notes', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  reference:    varchar('reference', { length: 30 }).notNull().unique(),
+  noteType:     deliveryNoteTypeEnum('note_type').notNull(),
+  noteDate:     date('note_date').notNull(),
+  projectId:    uuid('project_id'),
+  supplierId:   uuid('supplier_id'),
+  counterparty: varchar('counterparty', { length: 255 }),
+  items:        jsonb('items').$type<DeliveryNoteItem[]>().notNull().default([]),
+  driverName:   varchar('driver_name', { length: 255 }),
+  receiverName: varchar('receiver_name', { length: 255 }),
+  observations: text('observations'),
+  deletedAt:    timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:    uuid('created_by').notNull(),
+}, (t) => [
+  index('delivery_notes_type_idx').on(t.noteType),
+  index('delivery_notes_project_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.supplierId], foreignColumns: [suppliers.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
+// ─── Achat : Extra dépenses (FOR-AC-01) ──────────────────────────────────────
+
+export const extraExpenseStatusEnum = pgEnum('extra_expense_status', [
+  'pending',
+  'approved',
+  'rejected',
+])
+
+export const extraExpenses = pgTable('extra_expenses', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  reference:     varchar('reference', { length: 30 }).notNull().unique(),
+  projectId:     uuid('project_id'),
+  expenseDate:   date('expense_date').notNull(),
+  category:      varchar('category', { length: 100 }),
+  description:   text('description').notNull(),
+  amount:        decimal('amount', { precision: 12, scale: 3 }).notNull(),
+  currency:      varchar('currency', { length: 10 }).notNull().default('TND'),
+  justification: text('justification'),
+  status:        extraExpenseStatusEnum('status').notNull().default('pending'),
+  approvedBy:    uuid('approved_by'),
+  approvedAt:    timestamp('approved_at'),
+  rejectReason:  text('reject_reason'),
+  deletedAt:     timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:     uuid('created_by').notNull(),
+}, (t) => [
+  index('extra_expenses_status_idx').on(t.status),
+  index('extra_expenses_project_idx').on(t.projectId),
+  foreignKey({ columns: [t.projectId],  foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.approvedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+])
+
 // ─── RH: Substitutes (LIS-RH-01) ─────────────────────────────────────────────
 
 export const substitutes = pgTable('substitutes', {

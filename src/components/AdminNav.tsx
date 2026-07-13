@@ -58,6 +58,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/regulatory-watch',    label: 'Veille Réglementaire',   icon: Scale,          roles: ['admin','direction'] },
       { href: '/admin/auditors',            label: 'Auditeurs Internes',     icon: UserCheck,      roles: ['admin','direction'] },
       { href: '/admin/management-plan',     label: 'Plan de Management',     icon: CalendarRange,  roles: ['admin','direction'] },
+      { href: '/admin/environment/aspects', label: 'Aspects environnementaux', icon: Leaf,         roles: ['admin','direction'] },
       { href: '/admin/environment/waste',   label: 'Déchets',                icon: Trash2,         roles: ['admin','direction'] },
       { href: '/admin/environment/hse-checklist', label: 'Checklist HSE',   icon: HardHat,        roles: ['admin','direction'] },
     ],
@@ -66,7 +67,16 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Commercial',
     roles: ['admin','direction','etudes_chef'],
     items: [
-      { href: '/admin/commercial/offers', label: 'Suivi des offres', icon: Briefcase, roles: ['admin','direction','etudes_chef'] },
+      { href: '/admin/commercial/offers',          label: 'Suivi des offres',      icon: Briefcase, roles: ['admin','direction','etudes_chef'] },
+      { href: '/admin/commercial/client-balances', label: 'État de solde client',  icon: Coins,     roles: ['admin','direction','etudes_chef'] },
+    ],
+  },
+  {
+    label: 'Achat',
+    roles: ['admin','direction','realisation_chef','etudes_chef'],
+    items: [
+      { href: '/admin/achat/delivery-notes', label: 'Bons livraison / retour', icon: Package,      roles: ['admin','direction','realisation_chef','etudes_chef'] },
+      { href: '/admin/achat/extra-expenses', label: 'Extra dépenses',          icon: ClipboardList, roles: ['admin','direction','realisation_chef','etudes_chef'] },
     ],
   },
   {

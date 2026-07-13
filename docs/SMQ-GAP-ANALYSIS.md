@@ -30,7 +30,7 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 | PRC MI 08 / FOR MI 07 Risques & opportunités | ✅ | `/admin/risks-opportunities` |
 | PRC MI 09 / FOR MI 13/14 Audits internes + programme | ✅ | `/admin/audits`, `/admin/audit-programs`, `/admin/auditors` (LIS MI 08) |
 | PRC MI 10 / FOR MQ 15 Revue de direction | ❌→✅ | **Nouveau module `/admin/management-reviews` (cette itération)** |
-| PRC MI 11 / PLA MI 04/05 Aspects environnementaux (AES) | ❌ | À créer : registre AES avec évaluation (fréquence×gravité) |
+| PRC MI 11 / PLA MI 04/05 Aspects environnementaux (AES) | ❌→✅ | **Nouveau module `/admin/environment/aspects` (F×G, seuil 9)** |
 | PRC MI 12 / LIS MI 09 Gestion des déchets (+ dangereux) | ⚠ | `waste_records` existe ; pas de registre spécifique déchets dangereux |
 | FOR MI 10 Tableau de bord (KPI SMQ) | ✅ | Dashboard SMQ (`kpi-smq.ts`) |
 | FOR MI 12 Check-list SME & SST | ✅ | `/admin/environment/hse-checklist` |
@@ -49,7 +49,7 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 | PRS CO 01 Processus commercial | ⚠ | Cycle projet existe, pipeline avant-vente absent |
 | FOR CO 01 Tableau de suivi des offres | ❌→✅ | **Nouveau module `/admin/commercial/offers` (cette itération)** |
 | FOR CO 02 Bordereau des prix | ⚠ | `realisation_line_items` (attachement/décompte) couvrent l'aval ; bordereau d'offre à lier au module offres |
-| FOR CO 03 État de solde client | ❌ | À créer : suivi des paiements/soldes par client |
+| FOR CO 03 État de solde client | ❌→✅ | **Nouveau module `/admin/commercial/client-balances` (factures/encaissements/avoirs, solde par client)** |
 | LIS CO 01 Liste des références | ⚠ | Portfolio export s'en rapproche |
 | ORG CO 01/02 Offre de prix / Contrat d'entretien | ⚠ | Génération PDF existante à étendre |
 
@@ -78,9 +78,9 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 | PRC AC 02 / FOR AC 11 Sélection & évaluation fournisseurs | ✅ `supplier_evaluations` |
 | LIS AC 01 Fournisseurs agréés | ✅ `suppliers` |
 | Bons de commande | ✅ `purchase_orders` |
-| FOR AC 01 Extra dépenses | ❌ |
-| FOR AC 05 Bon de retour / FOR AC 06 Bon de livraison | ❌ |
-| FOR AC 10 Suivi approvisionnement chantier | ❌ |
+| FOR AC 01 Extra dépenses | ❌→✅ | **`/admin/achat/extra-expenses` avec validation direction** |
+| FOR AC 05 Bon de retour / FOR AC 06 Bon de livraison | ❌→✅ | **`/admin/achat/delivery-notes` (lignes d'articles, BL-/BR-)** |
+| FOR AC 10 Suivi approvisionnement chantier | ⚠ | Couvert partiellement par BC + bons de livraison liés au projet ; vue de synthèse à créer |
 
 ### Ressources Humaines (RH)
 | Document | Statut |
@@ -106,9 +106,9 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 
 ## 4. Reste à faire (priorisé)
 
-1. **État de solde client (FOR CO 03)** + bordereau des prix lié aux offres
-2. **Registre AES** (aspects environnementaux, PLA MI 04/05)
-3. **Formulaires Achat** : bon de livraison, bon de retour, extra dépenses, suivi appro chantier
+1. ~~État de solde client (FOR CO 03)~~ ✅ fait — bordereau des prix (FOR CO 02) lié aux offres reste à faire
+2. ~~Registre AES (PLA MI 04/05)~~ ✅ fait
+3. ~~Formulaires Achat : bons livraison/retour, extra dépenses~~ ✅ faits — vue « suivi appro chantier » (FOR AC 10) à créer
 4. **Revue documentaire périodique (FOR MI 01)** dans le DMS
 5. **Connaissances organisationnelles (ORG MI 09)**
 6. Page « Contexte & politiques » (publication des ORG MI 01–08 depuis le DMS)
