@@ -6,6 +6,7 @@ import Projects from '@/components/sections/Projects'
 import Process from '@/components/sections/Process'
 import Clients from '@/components/sections/Clients'
 import Testimonial from '@/components/sections/Testimonial'
+import Documents from '@/components/sections/Documents'
 import Contact from '@/components/sections/Contact'
 import LatestPosts from '@/components/LatestPosts'
 
@@ -21,6 +22,7 @@ export default async function Page() {
         <Process />
         <Clients />
         <Testimonial />
+        <Documents />
         <LatestPosts />
         <Contact />
       </main>
