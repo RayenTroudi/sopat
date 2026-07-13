@@ -97,6 +97,32 @@ export async function getNextExpenseReference() {
   return `DEP-${year}-${seq}`
 }
 
+/** FOR-AC-10 : synthèse approvisionnement d'un chantier (BC + bons). */
+export async function getProjectSupplyTracking(projectId: string) {
+  const { purchaseOrders } = await import('@/db/schema')
+  const [orders, notes] = await Promise.all([
+    db
+      .select({
+        order: purchaseOrders,
+        supplierName: suppliers.name,
+      })
+      .from(purchaseOrders)
+      .leftJoin(suppliers, eq(purchaseOrders.supplierId, suppliers.id))
+      .where(eq(purchaseOrders.projectId, projectId))
+      .orderBy(desc(purchaseOrders.purchaseDate)),
+    db
+      .select({
+        note: deliveryNotes,
+        supplierName: suppliers.name,
+      })
+      .from(deliveryNotes)
+      .leftJoin(suppliers, eq(deliveryNotes.supplierId, suppliers.id))
+      .where(and(eq(deliveryNotes.projectId, projectId), isNull(deliveryNotes.deletedAt)))
+      .orderBy(desc(deliveryNotes.noteDate)),
+  ])
+  return { orders, notes }
+}
+
 export async function getProjectsForSelect() {
   return db
     .select({ id: projects.id, name: projects.name })

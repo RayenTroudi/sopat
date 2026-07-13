@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getOrganizationalKnowledge, KNOWLEDGE_STATUS_LABELS } from '@/lib/db/organizational-knowledge'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 import KnowledgeStatusButton from './KnowledgeStatusButton'
 
 export const dynamic = 'force-dynamic'
@@ -33,13 +34,16 @@ export default async function KnowledgePage() {
             ORG-MI-09 — ISO 9001:2015 §7.1.6
           </p>
         </div>
-        <Link
-          href="/admin/knowledge/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouvelle connaissance
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="knowledge" />
+          <Link
+            href="/admin/knowledge/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouvelle connaissance
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

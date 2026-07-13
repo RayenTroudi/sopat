@@ -3528,6 +3528,25 @@ export const extraExpenses = pgTable('extra_expenses', {
   foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
 ])
 
+// ─── Commercial : Bordereau des prix (FOR-CO-02) ─────────────────────────────
+
+export const offerLineItems = pgTable('offer_line_items', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  offerId:     uuid('offer_id').notNull(),
+  position:    integer('position').notNull().default(0),
+  designation: text('designation').notNull(),
+  unit:        varchar('unit', { length: 20 }).notNull().default('U'),
+  quantity:    decimal('quantity', { precision: 12, scale: 2 }).notNull(),
+  unitPrice:   decimal('unit_price', { precision: 12, scale: 3 }).notNull(),
+  total:       decimal('total', { precision: 14, scale: 3 }).notNull(),
+  ...timestamps,
+  createdBy:   uuid('created_by').notNull(),
+}, (t) => [
+  index('offer_line_items_offer_idx').on(t.offerId),
+  foreignKey({ columns: [t.offerId],   foreignColumns: [commercialOffers.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
 // ─── Revue documentaire périodique (FOR-MI-01 / PRC-MI-01) ───────────────────
 
 export const documentReviewStatusEnum = pgEnum('document_review_status', [

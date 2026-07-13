@@ -1,8 +1,9 @@
 import { db } from '@/db'
-import { commercialOffers, clients, users } from '@/db/schema'
+import { commercialOffers, offerLineItems, clients, users } from '@/db/schema'
 import { eq, and, isNull, desc, count } from 'drizzle-orm'
 
 export type CommercialOffer = typeof commercialOffers.$inferSelect
+export type OfferLineItem = typeof offerLineItems.$inferSelect
 
 export type OfferStatus =
   | 'en_preparation'
@@ -50,6 +51,14 @@ export async function getOfferById(id: string) {
     .leftJoin(clients, eq(commercialOffers.clientId, clients.id))
     .where(and(eq(commercialOffers.id, id), isNull(commercialOffers.deletedAt)))
   return row ?? null
+}
+
+export async function getOfferLineItems(offerId: string) {
+  return db
+    .select()
+    .from(offerLineItems)
+    .where(eq(offerLineItems.offerId, offerId))
+    .orderBy(offerLineItems.position, offerLineItems.createdAt)
 }
 
 export async function getNextOfferReference() {

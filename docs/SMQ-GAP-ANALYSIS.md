@@ -48,7 +48,7 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 |---|---|---|
 | PRS CO 01 Processus commercial | ⚠ | Cycle projet existe, pipeline avant-vente absent |
 | FOR CO 01 Tableau de suivi des offres | ❌→✅ | **Nouveau module `/admin/commercial/offers` (cette itération)** |
-| FOR CO 02 Bordereau des prix | ⚠ | `realisation_line_items` (attachement/décompte) couvrent l'aval ; bordereau d'offre à lier au module offres |
+| FOR CO 02 Bordereau des prix | ⚠→✅ | **Lignes de bordereau sur la fiche offre (`offer_line_items`, total auto-synchronisé)** |
 | FOR CO 03 État de solde client | ❌→✅ | **Nouveau module `/admin/commercial/client-balances` (factures/encaissements/avoirs, solde par client)** |
 | LIS CO 01 Liste des références | ⚠ | Portfolio export s'en rapproche |
 | ORG CO 01/02 Offre de prix / Contrat d'entretien | ⚠ | Génération PDF existante à étendre |
@@ -80,7 +80,7 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 | Bons de commande | ✅ `purchase_orders` |
 | FOR AC 01 Extra dépenses | ❌→✅ | **`/admin/achat/extra-expenses` avec validation direction** |
 | FOR AC 05 Bon de retour / FOR AC 06 Bon de livraison | ❌→✅ | **`/admin/achat/delivery-notes` (lignes d'articles, BL-/BR-)** |
-| FOR AC 10 Suivi approvisionnement chantier | ⚠ | Couvert partiellement par BC + bons de livraison liés au projet ; vue de synthèse à créer |
+| FOR AC 10 Suivi approvisionnement chantier | ⚠→✅ | **Vue de synthèse `/admin/achat/supply-tracking` (BC + bons par projet)** |
 
 ### Ressources Humaines (RH)
 | Document | Statut |
@@ -106,12 +106,12 @@ Le SMQ SOPAT est organisé en **6 processus** (et non 4) :
 
 ## 4. Reste à faire (priorisé)
 
-1. ~~État de solde client (FOR CO 03)~~ ✅ fait — bordereau des prix (FOR CO 02) lié aux offres reste à faire
-2. ~~Registre AES (PLA MI 04/05)~~ ✅ fait
-3. ~~Formulaires Achat : bons livraison/retour, extra dépenses~~ ✅ faits — vue « suivi appro chantier » (FOR AC 10) à créer
-4. ~~Revue documentaire périodique (FOR MI 01)~~ ✅ fait
-5. ~~Connaissances organisationnelles (ORG MI 09)~~ ✅ fait
+1. ~~État de solde client (FOR CO 03)~~ ✅ — ~~bordereau des prix (FOR CO 02)~~ ✅ (lignes sur fiche offre)
+2. ~~Registre AES (PLA MI 04/05)~~ ✅
+3. ~~Formulaires Achat + suivi appro chantier (FOR AC 10)~~ ✅
+4. ~~Revue documentaire périodique (FOR MI 01)~~ ✅
+5. ~~Connaissances organisationnelles (ORG MI 09)~~ ✅
 6. Page « Contexte & politiques » (publication des ORG MI 01–08 depuis le DMS)
-7. **Export Excel professionnel** généralisé (bouton en haut à droite de chaque dashboard) — nécessite `exceljs` (le paquet `xlsx` actuel ne gère pas le style)
+7. ~~Export Excel professionnel~~ ✅ **infrastructure `exceljs` en place** (`src/lib/export/excel.ts`, `/api/export?register=…`) : logo SOPAT, en-têtes stylés, filtres respectés, boutons sur les 9 nouveaux registres — à étendre aux dashboards historiques (SMQ, NC, RH, RSE…)
 8. Exports PDF/PPTX de rapports de direction
 9. Notifications/escalades automatiques (échéances CAPA, audits, revues)

@@ -2,6 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getDocumentReviews, DOC_REVIEW_STATUS_LABELS } from '@/lib/db/document-reviews'
 import Link from 'next/link'
+import ExportExcelButton from '@/components/ExportExcelButton'
 import ReviewStatusSelect from './ReviewStatusSelect'
 
 export const dynamic = 'force-dynamic'
@@ -33,13 +34,16 @@ export default async function DocumentReviewsPage() {
             FOR-MI-01 / PRC-MI-01 — Revue périodique des informations documentées
           </p>
         </div>
-        <Link
-          href="/admin/document-reviews/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouvelle revue
-        </Link>
+        <div className="flex items-center gap-2">
+          <ExportExcelButton register="document-reviews" />
+          <Link
+            href="/admin/document-reviews/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouvelle revue
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
