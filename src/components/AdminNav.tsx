@@ -102,6 +102,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/realisation',                  label: 'Registre chantiers',     icon: HardHat,       roles: ['admin', 'direction', 'realisation_chef', 'realisation_team'], exact: true },
       { href: '/admin/realisation/weekly-schedule',  label: 'Planning hebdomadaire',  icon: CalendarClock, roles: ['admin', 'direction', 'realisation_chef', 'realisation_team'] },
+      { href: '/admin/direction/achievements',       label: 'Réalisations',           icon: Trophy,        roles: ['admin', 'direction'] },
     ],
   },
   {
@@ -129,15 +130,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/rse/partnerships', label: 'Partenariats', icon: Handshake, roles: ['admin','direction'] },
       { href: '/admin/rse/events',       label: 'Événements',   icon: Sparkles,  roles: ['admin','direction'] },
       { href: '/admin/rse/impact',       label: 'Impact RSE',   icon: BarChart2, roles: ['admin','direction'], exact: true },
-    ],
-  },
-  {
-    label: 'Direction',
-    roles: ['admin','direction'],
-    items: [
-      { href: '/admin/direction/achievements', label: 'Réalisations',     icon: Trophy,   roles: ['admin','direction'] },
-      { href: '/admin/direction/portfolio',    label: 'Portfolio Export', icon: BookOpen, roles: ['admin','direction'] },
-      { href: '/admin/settings/currencies',    label: 'Métriques devise', icon: Coins,    roles: ['admin','direction'] },
     ],
   },
   {

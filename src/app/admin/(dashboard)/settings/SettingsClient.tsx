@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import type { AllSettings } from '@/lib/db/settings'
+import type { ExchangeRateRow } from '@/lib/db/exchange-rates'
 import { ROLE_LABELS } from '@/lib/auth-utils'
 import type { UserRole } from '@/lib/auth-utils'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { CurrenciesClient } from './currencies/CurrenciesClient'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -250,8 +252,8 @@ function NotificationsSection({ initial }: { initial: AllSettings['notifications
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function SettingsClient({ initialSettings }: { initialSettings: AllSettings }) {
-  const [tab, setTab] = useState<'company' | 'smtp' | 'notifications'>('company')
+export function SettingsClient({ initialSettings, currentRates }: { initialSettings: AllSettings; currentRates: ExchangeRateRow[] }) {
+  const [tab, setTab] = useState<'company' | 'smtp' | 'notifications' | 'currencies'>('company')
 
   return (
     <div className="space-y-6 max-w-[900px]">
@@ -271,10 +273,12 @@ export function SettingsClient({ initialSettings }: { initialSettings: AllSettin
           <TabsTrigger value="company">Société</TabsTrigger>
           <TabsTrigger value="smtp">SMTP</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="currencies">Devises</TabsTrigger>
         </TabsList>
         <TabsContent value="company"><CompanySection initial={initialSettings.company} /></TabsContent>
         <TabsContent value="smtp"><SmtpSection initial={initialSettings.smtp} /></TabsContent>
         <TabsContent value="notifications"><NotificationsSection initial={initialSettings.notifications} /></TabsContent>
+        <TabsContent value="currencies"><CurrenciesClient currentRates={currentRates} /></TabsContent>
       </Tabs>
     </div>
   )

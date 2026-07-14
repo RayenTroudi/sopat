@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { auth } from '@/lib/auth'
 import { getAllSettings } from '@/lib/db/settings'
+import { getCurrentRates } from '@/lib/db/exchange-rates'
 import { SettingsClient } from './SettingsClient'
 
 export const dynamic = 'force-dynamic'
@@ -11,9 +12,12 @@ export default async function SettingsPage() {
   if (!session) redirect('/login')
   if (session.user.role !== 'admin') redirect('/admin')
 
-  const settings = await getAllSettings()
+  const [settings, currentRates] = await Promise.all([
+    getAllSettings(),
+    getCurrentRates(),
+  ])
   // Mask password before sending to client
   const safe = { ...settings, smtp: { ...settings.smtp, password: settings.smtp.password ? '••••••••' : '' } }
 
-  return <SettingsClient initialSettings={safe} />
+  return <SettingsClient initialSettings={safe} currentRates={currentRates} />
 }
