@@ -1,6 +1,7 @@
 import { db } from '../../../db/index'
 import { systemSettings } from '../../../db/schema'
 import { eq } from 'drizzle-orm'
+import { DEFAULT_ENGINE_CONFIG, type BudgetEngineConfig } from '../budget-engine'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -115,4 +116,19 @@ export async function getIsoCertificateWarning(): Promise<{ daysLeft: number; wa
   const today    = new Date()
   const daysLeft = Math.ceil((expiry.getTime() - today.getTime()) / 86400000)
   return { daysLeft, warn: daysLeft <= 60 }
+}
+
+// ─── Configuration du moteur d'estimation budgétaire ─────────────────────────
+// Coefficients éditables (clé 'budget_engine_config'). Fusion superficielle avec
+// les défauts pour que l'ajout de nouveaux coefficients ne casse pas une config
+// enregistrée avec une version antérieure.
+
+export async function getBudgetEngineConfig(): Promise<BudgetEngineConfig> {
+  const [row] = await db
+    .select({ value: systemSettings.value })
+    .from(systemSettings)
+    .where(eq(systemSettings.key, 'budget_engine_config'))
+    .limit(1)
+  const stored = (row?.value ?? {}) as Partial<BudgetEngineConfig>
+  return { ...DEFAULT_ENGINE_CONFIG, ...stored }
 }
