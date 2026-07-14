@@ -590,6 +590,7 @@ import {
   predictBudget,
   type EngineInput,
   type PlantCategory,
+  type ProjectType,
 } from '@/lib/budget-engine'
 import { z } from 'zod'
 
@@ -606,7 +607,9 @@ const plantItemSchema = z.object({
 
 const bodySchema = z.object({
   project_id: z.string().uuid(),
-  project_type: z.enum(['residential', 'commercial', 'public']),
+  // Valeur brute de projects.project_type (espace_public, residentiel, …) —
+  // l'ancien enum residential/commercial/public rejetait tous les vrais projets.
+  project_type: z.string().min(1),
   site_area_m2: z.number().min(0),
   region: z.enum(['tunis', 'sfax', 'sousse', 'bizerte', 'gabes']).default('tunis'),
   season: z.enum(['spring', 'summer', 'autumn', 'winter']).default('spring'),
@@ -616,6 +619,20 @@ const bodySchema = z.object({
 const VALID_CATEGORIES = new Set<string>([
   'tree', 'palm', 'shrub', 'ground_cover', 'climber', 'grass', 'aquatic', 'other',
 ])
+
+// Le type projet en base est mappé vers la taxonomie de coefficients du moteur.
+// La similarité (calibration), elle, compare les types en base bruts entre eux.
+const DB_TYPE_TO_ENGINE: Record<string, ProjectType> = {
+  residentiel: 'residential',
+  interieur: 'residential',
+  residential: 'residential',
+  siege_social: 'commercial',
+  hotelier_touristique: 'commercial',
+  commercial: 'commercial',
+  espace_public: 'public',
+  ingenierie_territoriale: 'public',
+  public: 'public',
+}
 
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -634,9 +651,10 @@ export async function POST(req: NextRequest) {
   }
 
   const config = await getBudgetEngineConfig()
+  const engineType: ProjectType = DB_TYPE_TO_ENGINE[data.project_type] ?? 'residential'
 
   const input: EngineInput = {
-    projectType: data.project_type,
+    projectType: engineType,
     siteAreaM2: data.site_area_m2,
     region: data.region,
     season: data.season,
@@ -650,6 +668,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Calibration : ratio réel/estimé des projets terminés comparables
+  // (comparaison sur le type en base brut — hôtelier avec hôtelier, etc.)
   const similar = await getSimilarCompletedProjects({
     excludeProjectId: data.project_id,
     projectType: data.project_type,
@@ -659,7 +678,7 @@ export async function POST(req: NextRequest) {
   const refs: string[] = []
   for (const s of similar) {
     const est = computeBottomUp(
-      { projectType: data.project_type, siteAreaM2: s.siteAreaM2, region: 'tunis', season: 'spring', plantList: s.plantList },
+      { projectType: engineType, siteAreaM2: s.siteAreaM2, region: 'tunis', season: 'spring', plantList: s.plantList },
       config
     ).total
     if (est > 0) {
@@ -690,7 +709,7 @@ export async function POST(req: NextRequest) {
 
 Remove the entire block from the comment `// ─── Rule-based fallback (mirrors Python fallback in the API route) ───────────` to the end of the `ruleBased` function (currently lines 108–138). Keep everything above it (types, `runPrediction`, formatters, status colors) unchanged. `is_fallback?: boolean` stays in `PredictionResult` (old DB rows have it).
 
-- [ ] **Step 3: Send `unit` from EtudesTab**
+- [ ] **Step 3: Send `unit` and the raw project type from EtudesTab**
 
 In `src/components/projects/EtudesTab.tsx`, `runPrediction()`, change the plant list mapping:
 
@@ -705,6 +724,18 @@ In `src/components/projects/EtudesTab.tsx`, `runPrediction()`, change the plant 
 ```
 
 (The only addition is the `unit: r.unit,` line.)
+
+Then in the `body` object a few lines below, replace the miscast project type line:
+
+```ts
+      project_type: (projectType as 'residential' | 'commercial' | 'public') || 'residential',
+```
+
+with the raw DB value (the API now accepts it and maps it server-side):
+
+```ts
+      project_type: projectType || 'residentiel',
+```
 
 - [ ] **Step 4: Remove the fallback badge in `src/components/budget/BudgetPredictionPanel.tsx`**
 
