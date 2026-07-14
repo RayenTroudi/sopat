@@ -11,6 +11,7 @@ import type { InternationalReportRow } from '@/lib/db/international'
 import type { EquipmentReportData } from '@/lib/db/equipment'
 import type { PlatformOverview, ProjectPhaseReport } from '@/lib/db/reports-overview'
 import { OverviewTab } from './OverviewTab'
+import { ProjectPhaseTab } from './ProjectPhaseTab'
 import { REGION_LABELS, REGION_COLORS } from '@/lib/db/international'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import DirectionReportButtons from '@/components/DirectionReportButtons'
@@ -1088,7 +1089,7 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
 
       {/* Tab content */}
       {activeTab === 'overview'      && <OverviewTab overview={overview} year={year} />}
-      {activeTab === 'perproject'    && null /* remplacé par ProjectPhaseTab à la tâche 3 */}
+      {activeTab === 'perproject'    && <ProjectPhaseTab reports={phaseReports} />}
       {activeTab === 'budget'        && <BudgetVarianceReport rows={budgetVariance} countryFilter={countryFilter} />}
       {activeTab === 'nc'            && <NcAnalysisChart data={ncMonthly} />}
       {activeTab === 'timeline'      && <ProjectTimeline projects={timeline} />}
