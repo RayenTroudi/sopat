@@ -191,29 +191,25 @@ export async function deleteAssetRecord(assetId: string) {
 
 export type SignoffCheck = {
   hasPlantList: boolean
-  hasBudgetApproved: boolean
   hasRender3d: boolean
   hasClientValidation: boolean
   allPassed: boolean
 }
 
 export async function checkEtudesSignoffPrerequisites(projectId: string): Promise<SignoffCheck> {
-  const [plantList, assets, project] = await Promise.all([
+  const [plantList, assets] = await Promise.all([
     getPlantList(projectId),
     getProjectAssets(projectId),
-    db.select({ approvedBudget: projects.approvedBudget }).from(projects).where(eq(projects.id, projectId)).limit(1),
   ])
 
   const hasPlantList = plantList.length > 0
-  const hasBudgetApproved = !!project[0]?.approvedBudget && Number(project[0].approvedBudget) > 0
   const hasRender3d = assets.some((a) => a.assetType === 'render_3d')
   const hasClientValidation = assets.some((a) => a.assetType === 'reception_document')
 
   return {
     hasPlantList,
-    hasBudgetApproved,
     hasRender3d,
     hasClientValidation,
-    allPassed: hasPlantList && hasBudgetApproved && hasRender3d && hasClientValidation,
+    allPassed: hasPlantList && hasRender3d && hasClientValidation,
   }
 }

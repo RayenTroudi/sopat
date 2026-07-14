@@ -105,13 +105,11 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
 function buildMissingMessages(checks: {
   hasPlantList: boolean
-  hasBudgetApproved: boolean
   hasRender3d: boolean
   hasClientValidation: boolean
 }): string[] {
   const missing: string[] = []
   if (!checks.hasPlantList) missing.push('La liste végétale doit contenir au moins un article')
-  if (!checks.hasBudgetApproved) missing.push('Un budget approuvé doit être saisi')
   if (!checks.hasRender3d) missing.push('Au moins un rendu 3D doit être téléchargé')
   if (!checks.hasClientValidation) missing.push('Le document de validation client doit être téléchargé')
   return missing
