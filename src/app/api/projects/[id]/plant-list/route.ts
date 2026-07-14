@@ -25,16 +25,21 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   }
 }
 
+// Le formulaire envoie des chaînes vides ('') pour les champs optionnels non
+// renseignés (supplierId, plantSpeciesId, notes…) plutôt que `undefined` —
+// on les normalise avant validation pour ne pas rejeter des lignes valides.
+const emptyToUndefined = (v: unknown) => (typeof v === 'string' && v.trim() === '' ? undefined : v)
+
 const itemSchema = z.object({
   botanicalName: z.string().min(1),
-  commonName: z.string().optional(),
+  commonName: z.preprocess(emptyToUndefined, z.string().optional()),
   category: z.enum(['tree', 'shrub', 'ground_cover', 'climber', 'palm', 'grass', 'aquatic', 'other']),
   quantity: z.string().min(1),
   unit: z.enum(['unit', 'm2', 'm3', 'kg', 'liter', 'ml']),
-  unitPriceEstimate: z.string().optional(),
-  supplierId: z.string().uuid().optional(),
-  notes: z.string().optional(),
-  plantSpeciesId: z.string().uuid().optional(),
+  unitPriceEstimate: z.preprocess(emptyToUndefined, z.string().optional()),
+  supplierId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
+  notes: z.preprocess(emptyToUndefined, z.string().optional()),
+  plantSpeciesId: z.preprocess(emptyToUndefined, z.string().uuid().optional()),
 })
 
 const bodySchema = z.object({

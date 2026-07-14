@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -81,67 +81,104 @@ function rowSubtotal(row: PlantRow): number {
   return qty * price
 }
 
-// ─── Species Typeahead ────────────────────────────────────────────────────────
+// ─── Species Combobox — sélection depuis la Palette Végétale ─────────────────
+//
+// La liste complète (LIS-ET-02/03, ~50 espèces) est chargée une seule fois par
+// le parent et filtrée localement ici : pas de latence réseau à chaque frappe.
+// Une espèce absente de la palette peut toujours être saisie librement, mais
+// elle est alors visuellement marquée comme « hors palette » et un lien permet
+// de l'y ajouter directement pour la réutiliser sur les prochains projets.
 
-function SpeciesTypeahead({
+function SpeciesCombobox({
   value,
+  isLinked,
+  species,
   onChange,
   onSelectSpecies,
+  onClearLink,
 }: {
   value: string
+  isLinked: boolean
+  species: PlantSpecies[]
   onChange: (v: string) => void
   onSelectSpecies: (s: PlantSpecies) => void
+  onClearLink: () => void
 }) {
-  const [results, setResults] = useState<PlantSpecies[]>([])
   const [open, setOpen] = useState(false)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const wrapRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    clearTimeout(timeoutRef.current)
-    if (value.length < 2) { setResults([]); setOpen(false); return }
-    timeoutRef.current = setTimeout(async () => {
-      const res = await fetch(`/api/plant-species?q=${encodeURIComponent(value)}`)
-      if (res.ok) {
-        const data: PlantSpecies[] = await res.json()
-        setResults(data)
-        setOpen(data.length > 0)
-      }
-    }, 220)
-    return () => clearTimeout(timeoutRef.current)
-  }, [value])
+  const query = value.trim().toLowerCase()
+  const results = query.length === 0
+    ? species.slice(0, 30)
+    : species.filter((s) =>
+        s.botanicalName.toLowerCase().includes(query) ||
+        (s.commonNameFr ?? '').toLowerCase().includes(query)
+      ).slice(0, 30)
 
   return (
-    <div className="relative">
+    <div className="relative" ref={wrapRef}>
       <input
         type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => { onChange(e.target.value); if (isLinked) onClearLink() }}
+        onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
-        onFocus={() => value.length >= 2 && results.length > 0 && setOpen(true)}
-        placeholder="Nom botanique…"
+        placeholder="Rechercher dans la palette végétale…"
         className="w-full text-xs px-2 py-1.5 border rounded focus:outline-none focus:ring-1 focus:ring-green/30"
-        style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)', background: 'var(--admin-surface)' }}
+        style={{
+          borderColor: isLinked ? 'var(--admin-emerald)' : 'var(--admin-border)',
+          color: 'var(--admin-text)',
+          background: 'var(--admin-surface)',
+        }}
       />
+      {isLinked ? (
+        <p className="text-xs mt-0.5 pl-0.5 flex items-center gap-1" style={{ color: 'var(--admin-emerald)' }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+          Liée à la palette végétale
+        </p>
+      ) : value.trim().length > 0 ? (
+        <p className="text-xs mt-0.5 pl-0.5" style={{ color: 'var(--admin-amber, #B8870A)' }}>
+          Hors palette — non trouvée dans la liste
+        </p>
+      ) : null}
+
       {open && (
-        <ul
-          className="absolute z-20 left-0 top-full mt-1 w-64 rounded-lg border shadow-lg overflow-hidden"
+        <div
+          className="absolute z-20 left-0 top-full mt-1 w-72 rounded-lg border shadow-lg overflow-hidden"
           style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)' }}
         >
-          {results.map((s) => (
-            <li key={s.id}>
-              <button
-                type="button"
-                onMouseDown={() => { onSelectSpecies(s); setOpen(false) }}
-                className="w-full text-left px-3 py-2 hover:bg-[var(--admin-bg)] transition-colors"
-              >
-                <p className="text-xs font-medium italic" style={{ color: 'var(--admin-text)' }}>{s.botanicalName}</p>
-                {s.commonNameFr && (
-                  <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{s.commonNameFr}</p>
-                )}
-              </button>
-            </li>
-          ))}
-        </ul>
+          <ul className="max-h-56 overflow-y-auto">
+            {results.map((s) => (
+              <li key={s.id}>
+                <button
+                  type="button"
+                  onMouseDown={() => { onSelectSpecies(s); setOpen(false) }}
+                  className="w-full text-left px-3 py-2 hover:bg-[var(--admin-bg)] transition-colors"
+                >
+                  <p className="text-xs font-medium italic" style={{ color: 'var(--admin-text)' }}>{s.botanicalName}</p>
+                  {s.commonNameFr && (
+                    <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>{s.commonNameFr}</p>
+                  )}
+                </button>
+              </li>
+            ))}
+            {results.length === 0 && (
+              <li className="px-3 py-2 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                Aucune espèce trouvée dans la palette.
+              </li>
+            )}
+          </ul>
+          <a
+            href="/admin/etude/plant-species/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            onMouseDown={(e) => e.preventDefault()}
+            className="block px-3 py-2 text-xs font-medium border-t hover:bg-[var(--admin-bg)] transition-colors"
+            style={{ borderColor: 'var(--admin-border)', color: 'var(--green)' }}
+          >
+            + Ajouter une espèce à la palette végétale →
+          </a>
+        </div>
       )}
     </div>
   )
@@ -153,15 +190,18 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
   const [rows, setRows] = useState<PlantRow[]>(
     initialRows.length > 0 ? initialRows : [emptyRow()]
   )
+  const [species, setSpecies] = useState<PlantSpecies[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [saving, setSaving] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
+    // Palette végétale complète (LIS-ET-02/03) — chargée une fois, filtrée localement
     fetch('/api/plant-species')
       .then((r) => r.json())
-      .catch(() => [])
+      .then((data) => { if (Array.isArray(data)) setSpecies(data) })
+      .catch(() => {})
 
     fetch(`/api/projects/${projectId}/plant-list`)
       .then((r) => r.json())
@@ -172,11 +212,6 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
       })
       .catch(() => {})
 
-    fetch('/api/plant-species')
-      .then((r) => r.json())
-      .catch(() => [])
-
-    // load suppliers
     fetch('/api/suppliers')
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setSuppliers(data) })
@@ -210,7 +245,17 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
   async function handleSave() {
     setSaving(true)
     setSaveError('')
-    const validRows = rows.filter((r) => r.botanicalName.trim())
+
+    // Une ligne n'est enregistrée que si elle a au moins une espèce et une quantité
+    const validRows = rows.filter((r) => r.botanicalName.trim() && r.quantity.trim())
+    const incomplete = rows.some((r) => r.botanicalName.trim() && !r.quantity.trim())
+
+    if (validRows.length === 0) {
+      setSaving(false)
+      setSaveError(incomplete ? 'Indiquez une quantité pour chaque espèce ajoutée.' : 'Ajoutez au moins une espèce.')
+      return
+    }
+
     const res = await fetch(`/api/projects/${projectId}/plant-list`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -219,10 +264,11 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
     setSaving(false)
     if (res.ok) {
       setSavedAt(new Date())
+      if (incomplete) setSaveError('Lignes sans quantité ignorées — ajoutez une quantité pour les inclure.')
       onSaved?.(validRows)
     } else {
-      const data = await res.json()
-      setSaveError(data.error ?? 'Erreur de sauvegarde')
+      const data = await res.json().catch(() => null)
+      setSaveError(data?.error ?? 'Erreur de sauvegarde')
     }
   }
 
@@ -252,11 +298,14 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
               const sub = rowSubtotal(row)
               return (
                 <tr key={row._key} className="group">
-                  <td className="py-1.5 pr-2 w-52">
-                    <SpeciesTypeahead
+                  <td className="py-1.5 pr-2 w-56">
+                    <SpeciesCombobox
                       value={row.botanicalName}
-                      onChange={(v) => updateRow(row._key, { botanicalName: v, plantSpeciesId: '' })}
+                      isLinked={!!row.plantSpeciesId}
+                      species={species}
+                      onChange={(v) => updateRow(row._key, { botanicalName: v })}
                       onSelectSpecies={(s) => handleSelectSpecies(row._key, s)}
+                      onClearLink={() => updateRow(row._key, { plantSpeciesId: '' })}
                     />
                     {row.commonName && (
                       <p className="text-xs mt-0.5 pl-0.5 italic" style={{ color: 'var(--admin-text-muted)' }}>{row.commonName}</p>
