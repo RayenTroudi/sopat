@@ -72,6 +72,9 @@ export async function POST(req: NextRequest) {
 
   const config = await getBudgetEngineConfig()
   const engineType: ProjectType = DB_TYPE_TO_ENGINE[data.project_type] ?? 'residential'
+  if (!(data.project_type in DB_TYPE_TO_ENGINE)) {
+    console.warn(`[ML predict] Type projet inconnu "${data.project_type}" — coefficients residential par défaut`)
+  }
 
   const input: EngineInput = {
     projectType: engineType,
