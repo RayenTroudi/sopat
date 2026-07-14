@@ -104,35 +104,3 @@ export function getPredictionStatusBg(confidenceScore: number): string {
   if (confidenceScore >= 55) return 'var(--admin-amber-dim)'
   return 'var(--admin-red-dim)'
 }
-
-// ─── Rule-based fallback (mirrors Python fallback in the API route) ───────────
-
-const BASE_COST_PER_M2: Record<string, number> = {
-  residential: 180,
-  commercial:  220,
-  public:      160,
-}
-
-export function ruleBased(meta: ProjectMeta, plantList: PlantListItem[]): PredictionResult {
-  const base = (BASE_COST_PER_M2[meta.project_type] ?? 180) * meta.site_area_m2
-  const plantCost = plantList.reduce((s, p) => s + p.quantity * p.unit_price_estimate, 0)
-  const total = Math.max(base, plantCost * 1.6)
-  const breakdown: PredictionBreakdown = {
-    plants:          Math.round(total * 0.42),
-    soil_substrates: Math.round(total * 0.20),
-    labor:           Math.round(total * 0.25),
-    equipment:       Math.round(total * 0.08),
-    logistics:       Math.round(total * 0.05),
-  }
-  return {
-    predicted_total:      Math.round(total),
-    confidence_low:       Math.round(total * 0.85),
-    confidence_high:      Math.round(total * 1.15),
-    confidence_score:     42,
-    breakdown,
-    top_cost_drivers:     ['Estimation manuelle', `Surface: ${meta.site_area_m2} m²`, meta.project_type],
-    model_version:        'fallback-rule-based',
-    similar_projects_used: 0,
-    is_fallback:          true,
-  }
-}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ScatterChart, Scatter, XAxis, YAxis, Tooltip,
@@ -8,14 +8,6 @@ import {
 } from 'recharts'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type ModelMetadata = {
-  model_version:    string
-  training_date:    string
-  training_samples: number
-  rmse:             number
-  r2:               number
-}
 
 type PredictionRow = {
   id:              string
@@ -33,10 +25,11 @@ type PredictionRow = {
   variancePct:     number | null
 }
 
+type EngineInfo = { version: string; completedProjects: number }
+
 type StatusData = {
-  metadata:     ModelMetadata | null
-  trainingRows: number
-  predictions:  PredictionRow[]
+  engine:      EngineInfo | null
+  predictions: PredictionRow[]
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -67,97 +60,6 @@ function Section({ title, subtitle, action, children }: { title: string; subtitl
   )
 }
 
-// ─── Retrain panel ────────────────────────────────────────────────────────────
-
-function RetrainPanel({ onDone }: { onDone: () => void }) {
-  const [running, setRunning]     = useState(false)
-  const [log, setLog]             = useState<string[]>([])
-  const [done, setDone]           = useState(false)
-  const [error, setError]         = useState('')
-  const logRef                    = useRef<HTMLDivElement>(null)
-
-  async function startRetrain() {
-    setRunning(true); setLog([]); setDone(false); setError('')
-
-    try {
-      const res = await fetch('/api/ml/retrain', { method: 'POST' })
-      if (!res.ok || !res.body) {
-        setError('Impossible de démarrer le réentraînement.')
-        setRunning(false)
-        return
-      }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-
-      while (true) {
-        const { value, done: streamDone } = await reader.read()
-        if (streamDone) break
-        const text = decoder.decode(value, { stream: true })
-        for (const line of text.split('\n')) {
-          if (!line.trim()) continue
-          try {
-            const ev = JSON.parse(line) as { status: string; message: string }
-            setLog((prev) => [...prev, ev.message])
-            if (ev.status === 'done')  { setDone(true);  onDone() }
-            if (ev.status === 'error') { setError(ev.message) }
-          } catch {
-            setLog((prev) => [...prev, line])
-          }
-        }
-      }
-    } catch (err) {
-      setError(String(err))
-    }
-    setRunning(false)
-  }
-
-  // Auto-scroll log
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
-  }, [log])
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-start gap-4">
-        <div className="flex-1">
-          <p className="text-sm" style={{ color: 'var(--admin-text)' }}>
-            Réentraîne le modèle XGBoost sur le fichier CSV d'entraînement actuel.
-            Le nouveau modèle remplacera immédiatement l'ancien.
-          </p>
-          <p className="text-xs mt-1" style={{ color: 'var(--admin-text-muted)' }}>
-            Durée estimée : 30–60 secondes selon la taille des données.
-          </p>
-        </div>
-        <button
-          onClick={() => void startRetrain()}
-          disabled={running}
-          className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-medium text-white disabled:opacity-60"
-          style={{ background: running ? 'var(--admin-text-muted)' : 'var(--admin-emerald)' }}
-        >
-          {running ? '⟳ En cours…' : 'Réentraîner le modèle'}
-        </button>
-      </div>
-
-      {(log.length > 0 || error) && (
-        <div
-          ref={logRef}
-          className="rounded-lg p-4 font-mono text-xs space-y-1 max-h-48 overflow-y-auto"
-          style={{ background: 'var(--admin-bg)', border: '1px solid var(--admin-border)' }}
-        >
-          {log.map((line, i) => (
-            <p key={i} style={{ color: line.includes('erreur') || line.includes('error') ? 'var(--admin-red)' : 'var(--admin-text)' }}>
-              {line}
-            </p>
-          ))}
-          {error && <p style={{ color: 'var(--admin-red)' }}>❌ {error}</p>}
-          {done && <p style={{ color: 'var(--admin-emerald)' }}>✓ Réentraînement terminé.</p>}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function MLSettingsClient() {
@@ -172,7 +74,6 @@ export function MLSettingsClient() {
 
   useEffect(() => { void load() }, [])
 
-  const meta       = data?.metadata
   const scatterData = (data?.predictions ?? [])
     .filter((p) => p.actualSpend !== null && parseFloat(p.predictedTotal) > 0)
     .map((p) => ({
@@ -195,56 +96,35 @@ export function MLSettingsClient() {
     <div className="space-y-6 max-w-[1200px]">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Modèle de prédiction ML</h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>XGBoost · Gestion et réentraînement</p>
+          <h1 className="text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Prédiction budgétaire</h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>Moteur déterministe v2 · calibration automatique</p>
         </div>
         <Link href="/admin/settings" className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>← Paramètres</Link>
       </div>
 
-      {/* Model info card */}
-      <Section title="Informations du modèle actuel">
-        {!meta ? (
-          <p className="text-sm text-center py-4" style={{ color: 'var(--admin-text-muted)' }}>
-            Aucun modèle entraîné. Cliquez sur "Réentraîner" pour générer le premier modèle.
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-            {[
-              { label: 'Version',           value: meta.model_version },
-              { label: 'Date d\'entraînement', value: new Date(meta.training_date).toLocaleDateString('fr-FR') },
-              { label: 'Échantillons',      value: String(meta.training_samples) },
-              { label: 'RMSE',              value: fmtTnd(meta.rmse) },
-              { label: 'R²',                value: meta.r2.toFixed(4) },
-            ].map(({ label, value }) => (
-              <div key={label}>
-                <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{label}</p>
-                <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--admin-text)' }}>{value}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      {/* Training data management */}
-      <Section title="Données d'entraînement"
-        subtitle={`${data?.trainingRows ?? 0} échantillons dans le CSV d'entraînement`}>
-        <div className="flex flex-wrap gap-3">
-          <a
-            href="/api/ml/training-data"
-            className="text-xs px-4 py-2 rounded-lg font-medium"
-            style={{ background: 'var(--admin-blue-dim)', color: 'var(--admin-blue)' }}
-          >
-            ↓ Télécharger le CSV d'entraînement
-          </a>
-          <p className="text-xs self-center" style={{ color: 'var(--admin-text-muted)' }}>
-            Pour augmenter le jeu de données, ajoutez des lignes au CSV et relancez l'entraînement.
-          </p>
+      {/* Engine info card */}
+      <Section
+        title="Moteur d'estimation v2"
+        subtitle="Estimation déterministe par poste, calibrée sur les coûts réels des projets terminés"
+      >
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {[
+            { label: 'Version',                        value: data?.engine?.version ?? '—' },
+            { label: 'Projets terminés (calibration)', value: String(data?.engine?.completedProjects ?? 0) },
+            { label: 'Méthode',                        value: 'Bottom-up + calibration' },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--admin-text-muted)' }}>{label}</p>
+              <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--admin-text)' }}>{value}</p>
+            </div>
+          ))}
         </div>
-      </Section>
-
-      {/* Retrain */}
-      <Section title="Réentraîner le modèle" subtitle="Déclenche scripts/retrain_model.py sur les données existantes">
-        <RetrainPanel onDone={() => void load()} />
+        <p className="text-xs mt-4" style={{ color: 'var(--admin-text-muted)' }}>
+          Chaque poste (plantes, sols &amp; substrats, main d&apos;œuvre, matériel, logistique) est calculé
+          à partir de la liste végétale réelle du projet, puis calibré sur le ratio coût réel / estimation
+          des projets terminés comparables. Plus de projets terminés = estimations plus précises.
+          La validation humaine du chef reste requise pour chaque budget.
+        </p>
       </Section>
 
       {/* Scatter chart: predicted vs actual */}

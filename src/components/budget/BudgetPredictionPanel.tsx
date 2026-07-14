@@ -317,14 +317,6 @@ export function BudgetPredictionPanel({
         </div>
         <div className="flex flex-col items-end gap-2">
           <ConfidenceBadge score={result.confidence_score} />
-          {result.is_fallback && (
-            <span
-              className="text-xs px-2 py-0.5 rounded"
-              style={{ background: 'var(--admin-amber-dim)', color: 'var(--admin-amber)' }}
-            >
-              Estimation manuelle (modèle indisponible)
-            </span>
-          )}
         </div>
       </div>
 

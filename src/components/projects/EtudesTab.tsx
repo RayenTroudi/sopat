@@ -70,13 +70,11 @@ function SignoffPanel({
   phaseStatus,
   plantCount,
   assets,
-  approvedBudget,
 }: {
   projectId: string
   phaseStatus: string
   plantCount: number
   assets: UploadedAsset[]
-  approvedBudget: string | null
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -85,11 +83,9 @@ function SignoffPanel({
 
   const hasRender3d = assets.some((a) => a.assetType === 'render_3d')
   const hasClientVal = assets.some((a) => a.assetType === 'reception_document')
-  const hasBudget = !!approvedBudget && Number(approvedBudget) > 0
 
   const checks = [
     { key: 'plant',  label: `Liste végétale — ${plantCount} article(s)`, passed: plantCount > 0 },
-    { key: 'budget', label: 'Budget approuvé saisi',                      passed: hasBudget },
     { key: 'render', label: 'Au moins un rendu 3D téléchargé',            passed: hasRender3d },
     { key: 'client', label: 'Document de validation client téléchargé',   passed: hasClientVal },
   ]
@@ -249,6 +245,7 @@ function PredictionSection({
         species:             r.botanicalName,
         category:            r.category,
         quantity:            parseFloat(r.quantity) || 0,
+        unit:                r.unit,
         unit_price_estimate: parseFloat(r.unitPriceEstimate) || 0,
       }))
 
@@ -262,7 +259,7 @@ function PredictionSection({
 
     const body = {
       project_id:   projectId,
-      project_type: (projectType as 'residential' | 'commercial' | 'public') || 'residential',
+      project_type: projectType || 'residentiel',
       site_area_m2: parseFloat(siteAreaM2 ?? '0') || 0,
       region:       'tunis' as const,
       season,
@@ -547,7 +544,6 @@ export function EtudesTab({
           phaseStatus={phaseStatus}
           plantCount={plantCount}
           assets={assets}
-          approvedBudget={liveApprovedBudget}
         />
       </Section>
     </div>
