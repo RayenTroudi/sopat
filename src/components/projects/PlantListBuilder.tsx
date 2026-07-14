@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -105,7 +106,8 @@ function SpeciesCombobox({
   onClearLink: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const [dropPos, setDropPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const query = value.trim().toLowerCase()
   const results = query.length === 0
@@ -115,13 +117,22 @@ function SpeciesCombobox({
         (s.commonNameFr ?? '').toLowerCase().includes(query)
       ).slice(0, 30)
 
+  function openDrop() {
+    if (inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect()
+      setDropPos({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 288) })
+    }
+    setOpen(true)
+  }
+
   return (
-    <div className="relative" ref={wrapRef}>
+    <div className="relative">
       <input
+        ref={inputRef}
         type="text"
         value={value}
         onChange={(e) => { onChange(e.target.value); if (isLinked) onClearLink() }}
-        onFocus={() => setOpen(true)}
+        onFocus={openDrop}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder="Rechercher dans la palette végétale…"
         className="w-full text-xs px-2 py-1.5 border rounded focus:outline-none focus:ring-1 focus:ring-green/30"
@@ -142,10 +153,20 @@ function SpeciesCombobox({
         </p>
       ) : null}
 
-      {open && (
+      {open && dropPos && createPortal(
         <div
-          className="absolute z-20 left-0 top-full mt-1 w-72 rounded-lg border shadow-lg overflow-hidden"
-          style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)' }}
+          style={{
+            position: 'fixed',
+            top: dropPos.top,
+            left: dropPos.left,
+            width: dropPos.width,
+            zIndex: 9999,
+            background: 'var(--admin-surface)',
+            border: '1px solid var(--admin-border)',
+            borderRadius: '0.5rem',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            overflow: 'hidden',
+          }}
         >
           <ul className="max-h-56 overflow-y-auto">
             {results.map((s) => (
@@ -178,7 +199,8 @@ function SpeciesCombobox({
           >
             + Ajouter une espèce à la palette végétale →
           </a>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
