@@ -21,6 +21,19 @@ type ValidationData = {
   predictionId: string
 }
 
+type PlantListItemRow = {
+  id: string
+  botanicalName: string
+  commonName: string | null
+  category: string
+  quantity: string
+  unit: string
+  unitPriceEstimate: string | null
+  supplierId: string | null
+  notes: string | null
+  plantSpeciesId: string | null
+}
+
 type Props = {
   projectId: string
   phaseStatus: string
@@ -31,6 +44,26 @@ type Props = {
   projectType: string
   siteAreaM2: string | null
   userRole: string
+  initialPlantList?: PlantListItemRow[]
+}
+
+// La liste végétale enregistrée est chargée côté serveur (page.tsx) pour que le
+// badge, le déclencheur de prédiction et la checklist de soumission reflètent
+// l'état réel dès l'affichage — sans elle, ces indicateurs restaient à zéro
+// jusqu'au prochain clic sur "Enregistrer", même si des données existaient déjà.
+function seedPlantRows(items: PlantListItemRow[]): PlantRow[] {
+  return items.map((r) => ({
+    _key: crypto.randomUUID(),
+    botanicalName: r.botanicalName,
+    commonName: r.commonName ?? '',
+    category: r.category,
+    quantity: r.quantity ?? '',
+    unit: r.unit,
+    unitPriceEstimate: r.unitPriceEstimate ?? '',
+    supplierId: r.supplierId ?? '',
+    notes: r.notes ?? '',
+    plantSpeciesId: r.plantSpeciesId ?? '',
+  }))
 }
 
 // ─── Section card ─────────────────────────────────────────────────────────────
@@ -429,10 +462,12 @@ export function EtudesTab({
   isAdmin = false,
   projectType,
   siteAreaM2,
+  initialPlantList = [],
 }: Props) {
   const [assets, setAssets] = useState<UploadedAsset[]>(initialAssets)
-  const [plantCount, setPlantCount] = useState(0)
-  const [plantRows, setPlantRows] = useState<PlantRow[]>([])
+  const [initialRows] = useState<PlantRow[]>(() => seedPlantRows(initialPlantList))
+  const [plantCount, setPlantCount] = useState(initialRows.length)
+  const [plantRows, setPlantRows] = useState<PlantRow[]>(initialRows)
   const [liveApprovedBudget, setLiveApprovedBudget] = useState<string | null>(approvedBudget)
 
   const assetsByType = useCallback(
@@ -473,6 +508,7 @@ export function EtudesTab({
         ) : (
           <PlantListBuilder
             projectId={projectId}
+            initialRows={initialRows}
             onSaved={(rows) => { setPlantCount(rows.length); setPlantRows(rows) }}
           />
         )}

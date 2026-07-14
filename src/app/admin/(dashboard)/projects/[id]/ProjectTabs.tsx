@@ -42,6 +42,19 @@ type ValidationData = {
 
 type User = { id: string; name: string; email: string; role: string }
 
+type PlantListItemRow = {
+  id: string
+  botanicalName: string
+  commonName: string | null
+  category: string
+  quantity: string
+  unit: string
+  unitPriceEstimate: string | null
+  supplierId: string | null
+  notes: string | null
+  plantSpeciesId: string | null
+}
+
 type Props = {
   projectId: string
   activeTab: string
@@ -64,6 +77,7 @@ type Props = {
   currency?: string | null
   initialTeamMembers: TeamMemberRow[]
   projectName?: string
+  initialPlantList: PlantListItemRow[]
 }
 
 const BASE_TABS = [
@@ -127,6 +141,7 @@ export function ProjectTabs({
   currentUserId,
   initialTeamMembers,
   projectName = '',
+  initialPlantList,
 }: Props) {
   const pathname = usePathname()
 
@@ -153,6 +168,7 @@ export function ProjectTabs({
             projectType={projectType}
             siteAreaM2={siteAreaM2}
             userRole={userRole}
+            initialPlantList={initialPlantList}
           />
         )
       }

@@ -225,14 +225,19 @@ export function PlantListBuilder({ projectId, initialRows = [], onSaved }: Props
       .then((data) => { if (Array.isArray(data)) setSpecies(data) })
       .catch(() => {})
 
-    fetch(`/api/projects/${projectId}/plant-list`)
-      .then((r) => r.json())
-      .then((data: Omit<PlantRow, '_key'>[]) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setRows(data.map((r) => ({ ...r, _key: crypto.randomUUID(), quantity: r.quantity ?? '', unitPriceEstimate: r.unitPriceEstimate ?? '', supplierId: r.supplierId ?? '', notes: r.notes ?? '', plantSpeciesId: r.plantSpeciesId ?? '', commonName: r.commonName ?? '' })))
-        }
-      })
-      .catch(() => {})
+    // Le parent (EtudesTab) fournit déjà la liste enregistrée via initialRows
+    // (chargée côté serveur) — on ne refait cet appel que si elle est absente,
+    // pour éviter d'écraser l'état initial par une requête client redondante.
+    if (initialRows.length === 0) {
+      fetch(`/api/projects/${projectId}/plant-list`)
+        .then((r) => r.json())
+        .then((data: Omit<PlantRow, '_key'>[]) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setRows(data.map((r) => ({ ...r, _key: crypto.randomUUID(), quantity: r.quantity ?? '', unitPriceEstimate: r.unitPriceEstimate ?? '', supplierId: r.supplierId ?? '', notes: r.notes ?? '', plantSpeciesId: r.plantSpeciesId ?? '', commonName: r.commonName ?? '' })))
+          }
+        })
+        .catch(() => {})
+    }
 
     fetch('/api/suppliers')
       .then((r) => r.json())

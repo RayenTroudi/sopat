@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidateTag } from 'next/cache'
 import { auth } from '@/lib/auth'
 import { assertProjectAccess, logActivity } from '@/lib/db/projects'
 import { saveBudgetValidation, getLatestBudgetValidation } from '@/lib/db/predictions'
@@ -84,6 +85,14 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
         modificationReason: data.action === 'modify' ? data.modificationReason : undefined,
       },
     })
+
+    // Le budget approuvé écrit par saveBudgetValidation doit se refléter
+    // immédiatement dans la liste des projets (mise en cache 30s) et le tableau
+    // de bord — sans cette invalidation, la nouvelle valeur restait invisible
+    // jusqu'à expiration naturelle du cache.
+    revalidateTag('projects-list', 'default')
+    revalidateTag('dashboard-kpis', 'default')
+    revalidateTag('dashboard-at-risk', 'default')
 
     return NextResponse.json(validation, { status: 201 })
   } catch (err) {
