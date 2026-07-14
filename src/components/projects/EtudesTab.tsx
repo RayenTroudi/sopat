@@ -245,6 +245,7 @@ function PredictionSection({
         species:             r.botanicalName,
         category:            r.category,
         quantity:            parseFloat(r.quantity) || 0,
+        unit:                r.unit,
         unit_price_estimate: parseFloat(r.unitPriceEstimate) || 0,
       }))
 
@@ -258,7 +259,7 @@ function PredictionSection({
 
     const body = {
       project_id:   projectId,
-      project_type: (projectType as 'residential' | 'commercial' | 'public') || 'residential',
+      project_type: projectType || 'residentiel',
       site_area_m2: parseFloat(siteAreaM2 ?? '0') || 0,
       region:       'tunis' as const,
       season,
