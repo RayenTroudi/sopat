@@ -9,6 +9,8 @@ import {
 import type { BudgetVarianceRow, NcMonthlyRow, TimelineProject, MlAccuracySummary } from '@/lib/db/reports'
 import type { InternationalReportRow } from '@/lib/db/international'
 import type { EquipmentReportData } from '@/lib/db/equipment'
+import type { PlatformOverview, ProjectPhaseReport } from '@/lib/db/reports-overview'
+import { OverviewTab } from './OverviewTab'
 import { REGION_LABELS, REGION_COLORS } from '@/lib/db/international'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import DirectionReportButtons from '@/components/DirectionReportButtons'
@@ -22,6 +24,9 @@ type Props = {
   mlAccuracy:     MlAccuracySummary
   international:  InternationalReportRow[]
   equipment:      EquipmentReportData
+  overview:       PlatformOverview
+  phaseReports:   ProjectPhaseReport[]
+  year:           number
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -989,8 +994,8 @@ function EquipmentReport({ data }: { data: EquipmentReportData }) {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy, international, equipment }: Props) {
-  const [activeTab, setActiveTab] = useState<'budget' | 'nc' | 'timeline' | 'ml' | 'international' | 'equipment'>('budget')
+export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy, international, equipment, overview, phaseReports, year }: Props) {
+  const [activeTab, setActiveTab] = useState<'overview' | 'perproject' | 'budget' | 'nc' | 'timeline' | 'ml' | 'international' | 'equipment'>('overview')
   const [countryFilter, setCountryFilter] = useState('')
 
   const ALL_COUNTRIES = '__all__'
@@ -1008,6 +1013,8 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
   }, [international])
 
   const TABS: { key: typeof activeTab; label: string }[] = [
+    { key: 'overview',      label: 'Vue générale' },
+    { key: 'perproject',    label: 'Par projet' },
     { key: 'budget',        label: 'Variance budgétaire' },
     { key: 'nc',            label: 'Analyse NC' },
     { key: 'timeline',      label: 'Chronologie' },
@@ -1028,7 +1035,7 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <DirectionReportButtons />
-          {countries.length > 1 && activeTab !== 'international' && activeTab !== 'equipment' && (
+          {countries.length > 1 && activeTab === 'budget' && (
             <Select
               value={countryFilter === '' ? ALL_COUNTRIES : countryFilter}
               onValueChange={(v) => setCountryFilter(v === ALL_COUNTRIES ? '' : v)}
@@ -1080,6 +1087,8 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
       </div>
 
       {/* Tab content */}
+      {activeTab === 'overview'      && <OverviewTab overview={overview} year={year} />}
+      {activeTab === 'perproject'    && null /* remplacé par ProjectPhaseTab à la tâche 3 */}
       {activeTab === 'budget'        && <BudgetVarianceReport rows={budgetVariance} countryFilter={countryFilter} />}
       {activeTab === 'nc'            && <NcAnalysisChart data={ncMonthly} />}
       {activeTab === 'timeline'      && <ProjectTimeline projects={timeline} />}
