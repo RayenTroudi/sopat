@@ -16,7 +16,7 @@ import {
   plantListItems,
   portfolioSettings,
 } from '../../../db/schema'
-import { eq, and, gte, lte, sql, count, isNull, isNotNull, inArray, desc } from 'drizzle-orm'
+import { eq, and, gte, lt, lte, sql, count, isNull, isNotNull, inArray, desc } from 'drizzle-orm'
 
 // ─── Return types ──────────────────────────────────────────────────────────────
 
@@ -329,14 +329,17 @@ export async function getRseDashboardData(year?: number): Promise<RseDashboardDa
     .orderBy(trainingSessions.year),
 
     // Leave stats (approved this year)
+    // start_date est une colonne `date` — elle exige un littéral YYYY-MM-DD,
+    // pas une simple année ('2026' est rejeté par Postgres : "invalid input
+    // syntax for type date").
     db.select({
       totalDays: sql<number>`COALESCE(SUM(CAST(${leaveRequests.durationDays} AS numeric)), 0)`,
     })
     .from(leaveRequests)
     .where(and(
       eq(leaveRequests.status, 'approuve' as never),
-      gte(leaveRequests.startDate, String(reportYear)),
-      lte(leaveRequests.startDate, String(reportYear + 1)),
+      gte(leaveRequests.startDate, `${reportYear}-01-01`),
+      lt(leaveRequests.startDate, `${reportYear + 1}-01-01`),
     )),
 
     // Leave by type (approved, current year)
