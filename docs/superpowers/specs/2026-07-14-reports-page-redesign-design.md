@@ -64,8 +64,9 @@ Server-computed in `src/lib/db/reports-overview.ts`, one exported function
   - Dépenses mensuelles (line, last 12 months, purchase orders + approved extra
     expenses bucketed by month).
   - Offres par statut (bar: en_preparation/envoyee/en_negociation/gagnee/perdue/annulee).
-- Year selector (defaults to current year) applies to the monthly spend chart and the
-  offers chart (sent_date year); KPI cards stay all-time (labelled "cumul").
+- Year selector (defaults to current year, via `?year=` search param — the page is
+  force-dynamic so the server recomputes) applies to the monthly spend chart; the
+  offers chart and KPI cards stay all-time (labelled "cumul").
 
 ## Tab 2 — Par projet
 
@@ -88,11 +89,14 @@ sorted by création desc. Clicking a row expands an inline phase report — thre
 - CSV export button (existing `exportCsv` helper pattern): one row per project × phase
   with status, dates, durée, dépenses.
 
-## Tab 3 — Analyses
+## Tabs 3+ — Existing sections
 
-The six existing sections (variance budget, NC mensuelles, timeline Gantt, précision
-moteur, international, matériel) move inside this tab **without any modification** to
-their markup or queries.
+The page already has a flat custom tab bar with the six existing sections (variance
+budget, NC mensuelles, timeline Gantt, précision moteur, international, matériel).
+Rather than nesting them under an "Analyses" sub-tab (two-level navigation for no
+gain), the two new tabs — **Vue générale** and **Par projet** — are prepended to the
+existing tab bar, which keeps its current mechanism. The six existing sections stay
+**unmodified**; the default tab becomes Vue générale.
 
 ## Files
 
@@ -102,7 +106,7 @@ their markup or queries.
 | `src/app/admin/(dashboard)/reports/page.tsx` | Fetch the two new datasets in the existing `Promise.all`. |
 | `src/app/admin/(dashboard)/reports/OverviewTab.tsx` | NEW — Vue générale tab UI. |
 | `src/app/admin/(dashboard)/reports/ProjectPhaseTab.tsx` | NEW — Par projet tab UI. |
-| `src/app/admin/(dashboard)/reports/ReportsClient.tsx` | Wrap content in Tabs (shadcn Tabs, as in SettingsClient); existing sections move inside the Analyses TabsContent unchanged; render the two new tab components. |
+| `src/app/admin/(dashboard)/reports/ReportsClient.tsx` | Prepend 'Vue générale' and 'Par projet' to the existing TABS array (default tab = overview); render the two new tab components; existing sections unchanged. |
 
 ## Testing
 
