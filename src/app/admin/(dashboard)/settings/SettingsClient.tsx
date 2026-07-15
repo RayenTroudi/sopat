@@ -215,7 +215,7 @@ function NotificationsSection({ initial }: { initial: AllSettings['notifications
   }
 
   return (
-    <Section title="Notifications système" subtitle="Choisir quels rôles reçoivent chaque type d'email automatique">
+    <Section title="Notifications système" subtitle="Choisir quels rôles reçoivent chaque type de notification automatique">
       <form onSubmit={(e) => void handleSubmit(e)} className="space-y-5">
         {NOTIF_CONFIG.map(({ key, label, description }) => (
           <div key={key} className="space-y-2">

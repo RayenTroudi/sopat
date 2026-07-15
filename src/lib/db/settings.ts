@@ -21,7 +21,7 @@ export type SmtpSettings = {
 }
 
 export type NotificationSettings = {
-  budgetAlert:   string[]   // roles that receive budget alert emails
+  budgetAlert:   string[]   // roles that receive budget alert notifications
   ncAssigned:    string[]
   phaseTransition: string[]
   maintenanceReminder: string[]
