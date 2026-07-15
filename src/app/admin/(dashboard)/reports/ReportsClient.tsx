@@ -1026,22 +1026,13 @@ export function ReportsClient({ budgetVariance, ncMonthly, timeline, mlAccuracy,
 
   return (
     <div className="space-y-6 max-w-[1400px]">
-      {/* Bandeau au thème « SOPAT Portfolio » : fond vert d'eau, logo blanc,
-          titre souligné d'un filet fin blanc */}
-      <div
-        className="rounded-xl px-5 sm:px-6 py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-        style={{ background: '#429181' }}
-      >
-        <div className="flex items-center gap-4 min-w-0">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-sopat-white.png" alt="SOPAT" className="w-11 h-11 shrink-0 object-contain" />
-          <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-semibold text-white">Rapports analytiques</h1>
-            <div className="h-px w-44 my-1.5" style={{ background: 'rgba(255,255,255,0.7)' }} />
-            <p className="text-xs" style={{ color: '#D9EAE5' }}>
-              Analyse des performances · Qualité ISO 9001:2015
-            </p>
-          </div>
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-lg sm:text-xl font-semibold" style={{ color: 'var(--admin-text)' }}>Rapports analytiques</h1>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
+            Analyse des performances · Qualité ISO 9001:2015
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <DirectionReportButtons />
