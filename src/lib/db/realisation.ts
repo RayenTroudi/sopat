@@ -12,6 +12,7 @@ import {
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 import { attachDmsCode } from '../dms/attach'
+import { checkBudgetThresholdAndNotify } from '../notifications'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,7 +144,7 @@ export async function createPurchaseOrder(input: PurchaseOrderInput) {
   const price = parseFloat(input.unitPricePaid)
   const total = (qty * price).toFixed(3)
 
-  return db.transaction(async (tx) => {
+  const result = await db.transaction(async (tx) => {
     const [order] = await tx
       .insert(purchaseOrders)
       .values({
@@ -182,6 +183,10 @@ export async function createPurchaseOrder(input: PurchaseOrderInput) {
 
     return { ...order, dmsDocumentCode: dmsCode }
   })
+
+  await checkBudgetThresholdAndNotify(input.projectId, input.createdBy)
+
+  return result
 }
 
 export async function updatePurchaseOrder(

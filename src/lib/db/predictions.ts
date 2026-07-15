@@ -129,10 +129,16 @@ export async function saveBudgetValidation(input: SaveValidationInput) {
     .set({ status: input.status === 'validated' ? 'accepted' : 'overridden' })
     .where(eq(budgetPredictions.id, input.predictionId))
 
-  // Write the approved budget to the project
+  // Write the approved budget to the project — reset the alert dedupe columns so
+  // a re-approved budget starts a fresh 90%/100% notification cycle.
   await db
     .update(projects)
-    .set({ approvedBudget: String(input.approvedAmount), updatedAt: now })
+    .set({
+      approvedBudget: String(input.approvedAmount),
+      budgetAlert90NotifiedAt: null,
+      budgetAlertOverNotifiedAt: null,
+      updatedAt: now,
+    })
     .where(eq(projects.id, input.projectId))
 
   return validation

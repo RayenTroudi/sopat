@@ -489,6 +489,8 @@ export const projects = pgTable('projects', {
   actualRevenue: decimal('actual_revenue', { precision: 14, scale: 3 }),
   clientId: uuid('client_id'),
   dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
+  budgetAlert90NotifiedAt: timestamp('budget_alert_90_notified_at'),
+  budgetAlertOverNotifiedAt: timestamp('budget_alert_over_notified_at'),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by').notNull(),
@@ -3616,4 +3618,30 @@ export const substitutes = pgTable('substitutes', {
   foreignKey({ columns: [t.holderUserId],     foreignColumns: [users.id] }),
   foreignKey({ columns: [t.substituteUserId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy],        foreignColumns: [users.id] }),
+])
+
+// ─── Notifications ────────────────────────────────────────────────────────────
+
+export const notificationTypeEnum = pgEnum('notification_type', [
+  'phase_transition',
+  'budget_alert',
+])
+
+export const notifications = pgTable('notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  recipientId: uuid('recipient_id').notNull(),
+  type: notificationTypeEnum('type').notNull(),
+  title: varchar('title', { length: 255 }).notNull(),
+  body: text('body'),
+  href: varchar('href', { length: 500 }),
+  projectId: uuid('project_id'),
+  readAt: timestamp('read_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  createdBy: uuid('created_by'),
+}, (t) => [
+  index('notifications_recipient_unread_idx').on(t.recipientId, t.readAt),
+  index('notifications_recipient_created_idx').on(t.recipientId, t.createdAt),
+  foreignKey({ columns: [t.recipientId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])

@@ -10,6 +10,7 @@ import {
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 import { attachDmsCode } from '../dms/attach'
 import { obsoleteDmsDocument } from '../dms/obsolete'
+import { notifyPhaseTransition } from '../notifications'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -560,6 +561,17 @@ export async function transitionPhase(
     newState: { phase: next, projectStatus: newStatus },
     metadata: { notes: signOffData.notes },
   })
+
+  if (next !== 'completed') {
+    await notifyPhaseTransition({
+      projectId,
+      projectReference: project.reference,
+      projectName: project.name,
+      toPhase: next,
+      actorId: signOffData.actorId,
+      actorName: signOffData.actorName,
+    })
+  }
 
   return { ok: true, newStatus }
 }
