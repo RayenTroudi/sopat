@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs'
 import { readFileSync } from 'fs'
 import path from 'path'
+import { XLSX_TEAL, XLSX_DARK, XLSX_TINT, XLSX_WHITE } from './brand'
 
 export type ExcelFormat = 'text' | 'number' | 'currency' | 'date'
 
@@ -18,9 +19,12 @@ export type ExcelSheet = {
   summary?: { label: string; value: string | number }[]
 }
 
-const GREEN = 'FF1F6B3D'
-const IVORY = 'FFFFFFF4'
-const LIGHT = 'FFF3F6F2'
+// Thème « SOPAT Portfolio » : bandeau vert d'eau, en-têtes vert foncé,
+// zébrures en teinte claire dérivée.
+const TEAL  = XLSX_TEAL
+const DARK  = XLSX_DARK
+const WHITE = XLSX_WHITE
+const LIGHT = XLSX_TINT
 
 function numFmt(format?: ExcelFormat): string | undefined {
   switch (format) {
@@ -44,9 +48,10 @@ export async function buildWorkbook(opts: {
   wb.creator = 'SOPAT ERP'
   wb.created = new Date()
 
+  // Logo blanc sur le bandeau vert d'eau (variante générée depuis le logo teal).
   let logoId: number | null = null
   try {
-    const logoPath = path.join(process.cwd(), 'public', 'logo-sopat.png')
+    const logoPath = path.join(process.cwd(), 'public', 'logo-sopat-white.png')
     logoId = wb.addImage({ buffer: readFileSync(logoPath) as unknown as ExcelJS.Buffer, extension: 'png' })
   } catch {
     // logo introuvable : on continue sans image
@@ -59,37 +64,43 @@ export async function buildWorkbook(opts: {
 
     const colCount = sheet.columns.length
 
-    // ── Bandeau ──
-    if (logoId != null) {
-      ws.addImage(logoId, { tl: { col: 0, row: 0 }, ext: { width: 110, height: 74 } })
+    // ── Bandeau vert d'eau (thème portfolio) ──
+    const bandCols = Math.max(colCount, 4)
+    for (let r = 1; r <= 3; r++) {
+      for (let c = 1; c <= bandCols; c++) {
+        ws.getCell(r, c).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: TEAL } }
+      }
     }
-    ws.mergeCells(1, 2, 1, Math.max(colCount, 2))
+    if (logoId != null) {
+      ws.addImage(logoId, { tl: { col: 0.15, row: 0.1 }, ext: { width: 72, height: 72 } })
+    }
+    ws.mergeCells(1, 2, 1, bandCols)
     const titleCell = ws.getCell(1, 2)
     titleCell.value = opts.title
-    titleCell.font = { size: 16, bold: true, color: { argb: GREEN } }
+    titleCell.font = { size: 16, bold: true, color: { argb: WHITE } }
     titleCell.alignment = { vertical: 'middle' }
     ws.getRow(1).height = 28
 
-    ws.mergeCells(2, 2, 2, Math.max(colCount, 2))
+    ws.mergeCells(2, 2, 2, bandCols)
     const deptCell = ws.getCell(2, 2)
     deptCell.value = opts.department
-    deptCell.font = { size: 11, color: { argb: 'FF666666' } }
+    deptCell.font = { size: 11, color: { argb: 'FFD9EAE5' } }
 
-    ws.mergeCells(3, 2, 3, Math.max(colCount, 2))
+    ws.mergeCells(3, 2, 3, bandCols)
     const dateCell = ws.getCell(3, 2)
     dateCell.value = `Exporté le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-    dateCell.font = { size: 10, italic: true, color: { argb: 'FF888888' } }
+    dateCell.font = { size: 10, italic: true, color: { argb: 'FFD9EAE5' } }
     ws.getRow(4).height = 6
 
-    // ── En-têtes ──
+    // ── En-têtes (cartes vert foncé du portfolio) ──
     const headerRow = ws.getRow(5)
     sheet.columns.forEach((col, i) => {
       const cell = headerRow.getCell(i + 1)
       cell.value = col.header
-      cell.font = { bold: true, color: { argb: IVORY }, size: 11 }
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREEN } }
+      cell.font = { bold: true, color: { argb: WHITE }, size: 11 }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: DARK } }
       cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
-      cell.border = { bottom: { style: 'thin', color: { argb: GREEN } } }
+      cell.border = { bottom: { style: 'thin', color: { argb: TEAL } } }
     })
     headerRow.height = 22
 
@@ -125,7 +136,7 @@ export async function buildWorkbook(opts: {
       sheet.summary.forEach((s, i) => {
         const labelCell = ws.getCell(start + i, 1)
         labelCell.value = s.label
-        labelCell.font = { bold: true, color: { argb: GREEN } }
+        labelCell.font = { bold: true, color: { argb: DARK } }
         const valueCell = ws.getCell(start + i, 2)
         valueCell.value = s.value
         valueCell.font = { bold: true }

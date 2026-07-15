@@ -52,6 +52,14 @@ function exportCsv(filename: string, headers: string[], rows: (string | number |
 
 // ─── Carte de phase ───────────────────────────────────────────────────────────
 
+// Thème « SOPAT Portfolio » : cartes de phase vert foncé, texte blanc.
+const BRAND_DARK = '#346158'
+const BRAND_SOFT = '#D9EAE5'
+const BRAND_ALERT_RED = '#FFC9C2'
+const BRAND_ALERT_AMBER = '#F7DFA8'
+const BRAND_LIGHT_GREEN = '#B9E8D4'
+const CARD_DIVIDER = 'rgba(255,255,255,0.25)'
+
 function PhaseCard({ report, phase, currency }: { report: ProjectPhaseReport; phase: PhaseReport; currency: string }) {
   const colors = PHASE_STATUS_COLORS[phase.status] ?? PHASE_STATUS_COLORS.pending
   const budget = report.approvedBudget
@@ -60,55 +68,55 @@ function PhaseCard({ report, phase, currency }: { report: ProjectPhaseReport; ph
     : null
 
   return (
-    <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)' }}>
+    <div className="rounded-lg p-4 space-y-3" style={{ background: BRAND_DARK }}>
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-semibold" style={{ color: 'var(--admin-text)' }}>{PHASE_LABELS[phase.phase]}</p>
+        <p className="text-sm font-semibold text-white">{PHASE_LABELS[phase.phase]}</p>
         <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ background: colors.bg, color: colors.fg }}>
           {PHASE_STATUS_LABELS[phase.status] ?? phase.status}
         </span>
       </div>
 
-      <div className="space-y-1 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-        <p>Début : <span style={{ color: 'var(--admin-text)' }}>{fmtDate(phase.startedAt)}</span></p>
-        <p>Fin : <span style={{ color: 'var(--admin-text)' }}>{fmtDate(phase.completedAt)}</span></p>
-        <p>Durée : <span style={{ color: 'var(--admin-text)' }}>
+      <div className="space-y-1 text-xs" style={{ color: BRAND_SOFT }}>
+        <p>Début : <span className="text-white">{fmtDate(phase.startedAt)}</span></p>
+        <p>Fin : <span className="text-white">{fmtDate(phase.completedAt)}</span></p>
+        <p>Durée : <span className="text-white">
           {phase.durationDays !== null ? `${phase.durationDays} j${phase.completedAt ? '' : ' (en cours)'}` : '—'}
         </span></p>
-        <p>Dépenses : <span className="font-semibold tabular-nums" style={{ color: phase.spend > 0 ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>
+        <p>Dépenses : <span className="font-semibold tabular-nums" style={{ color: phase.spend > 0 ? '#FFFFFF' : BRAND_SOFT }}>
           {phase.spend > 0 ? fmtMoney(phase.spend, currency) : '—'}
         </span></p>
       </div>
 
       {/* Indicateurs propres à la phase */}
       {phase.phase === 'etudes' && (
-        <div className="pt-2 border-t space-y-1 text-xs" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
-          <p>Liste végétale : <span style={{ color: 'var(--admin-text)' }}>{phase.plantItemCount ?? 0} article(s)</span></p>
-          <p>Prédiction budgétaire : <span style={{ color: 'var(--admin-text)' }}>
+        <div className="pt-2 border-t space-y-1 text-xs" style={{ borderColor: CARD_DIVIDER, color: BRAND_SOFT }}>
+          <p>Liste végétale : <span className="text-white">{phase.plantItemCount ?? 0} article(s)</span></p>
+          <p>Prédiction budgétaire : <span className="text-white">
             {phase.predictionTotal !== null ? fmtMoney(phase.predictionTotal, currency) : '—'}
           </span>{phase.predictionVersion ? ` (${phase.predictionVersion})` : ''}</p>
-          <p>Budget validé : <span style={{ color: 'var(--admin-text)' }}>
+          <p>Budget validé : <span className="text-white">
             {budget !== null ? fmtMoney(budget, currency) : '—'}
           </span></p>
         </div>
       )}
 
       {phase.phase === 'realisation' && (
-        <div className="pt-2 border-t space-y-2 text-xs" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
-          <p>Bons d&apos;achat : <span style={{ color: 'var(--admin-text)' }}>{phase.poCount}</span></p>
+        <div className="pt-2 border-t space-y-2 text-xs" style={{ borderColor: CARD_DIVIDER, color: BRAND_SOFT }}>
+          <p>Bons d&apos;achat : <span className="text-white">{phase.poCount}</span></p>
           {spendPct !== null && (
             <div className="space-y-1">
               <div className="flex justify-between">
                 <span>Dépensé vs budget</span>
-                <span className="font-semibold tabular-nums" style={{ color: spendPct > 100 ? 'var(--admin-red)' : spendPct > 90 ? 'var(--admin-amber)' : 'var(--admin-emerald)' }}>
+                <span className="font-semibold tabular-nums" style={{ color: spendPct > 100 ? BRAND_ALERT_RED : spendPct > 90 ? BRAND_ALERT_AMBER : BRAND_LIGHT_GREEN }}>
                   {spendPct}%
                 </span>
               </div>
-              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'var(--admin-border)' }}>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.2)' }}>
                 <div
                   className="h-full rounded-full"
                   style={{
                     width: `${Math.min(100, spendPct)}%`,
-                    background: spendPct > 100 ? 'var(--admin-red)' : spendPct > 90 ? 'var(--admin-amber)' : 'var(--admin-emerald)',
+                    background: spendPct > 100 ? BRAND_ALERT_RED : spendPct > 90 ? BRAND_ALERT_AMBER : BRAND_LIGHT_GREEN,
                   }}
                 />
               </div>
@@ -118,8 +126,8 @@ function PhaseCard({ report, phase, currency }: { report: ProjectPhaseReport; ph
       )}
 
       {phase.phase === 'entretien' && (
-        <div className="pt-2 border-t text-xs" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>
-          <p>Visites de maintenance : <span style={{ color: 'var(--admin-text)' }}>{phase.maintenanceVisitCount ?? 0}</span></p>
+        <div className="pt-2 border-t text-xs" style={{ borderColor: CARD_DIVIDER, color: BRAND_SOFT }}>
+          <p>Visites de maintenance : <span className="text-white">{phase.maintenanceVisitCount ?? 0}</span></p>
         </div>
       )}
     </div>

@@ -5,13 +5,21 @@ import { getSmqKpis } from '@/lib/db/kpi-smq'
 import { getDashboardKpis } from '@/lib/db/dashboard'
 import { getDeadlineAlerts } from '@/lib/db/alerts'
 import PptxGenJS from 'pptxgenjs'
+import path from 'path'
+import {
+  PPTX_TEAL, PPTX_DARK, PPTX_WHITE, PPTX_WHITE_SOFT, PPTX_ALERT_RED, PPTX_ALERT_AMBER,
+} from '@/lib/export/brand'
 
 export const dynamic = 'force-dynamic'
 
-const GREEN = '2D5A27'
-const RED = 'B91C1C'
-const AMBER = 'B8870A'
-const MUTED = '6B7280'
+// Thème « SOPAT Portfolio » : fond vert d'eau, cartes vert foncé, texte blanc,
+// titres soulignés d'un filet fin blanc, logo blanc.
+const TEAL  = PPTX_TEAL
+const DARK  = PPTX_DARK
+const WHITE = PPTX_WHITE
+const SOFT  = PPTX_WHITE_SOFT
+const RED   = PPTX_ALERT_RED
+const AMBER = PPTX_ALERT_AMBER
 
 async function collectData(year: number) {
   const [smq, kpis, alerts] = await Promise.all([
@@ -49,69 +57,88 @@ async function buildPptx(data: ReportData): Promise<Buffer> {
   prs.defineLayout({ name: 'WIDE', width: 13.33, height: 7.5 })
   prs.layout = 'WIDE'
 
-  // Couverture
-  const cover = prs.addSlide()
-  cover.background = { color: GREEN }
-  cover.addText('SOPAT', { x: 0.8, y: 2.2, w: 11.7, h: 1, fontSize: 44, bold: true, color: 'FFFFFF' })
-  cover.addText(`Rapport de direction SMQ — ${data.year}`, { x: 0.8, y: 3.3, w: 11.7, h: 0.8, fontSize: 26, color: 'D6E4D3' })
-  cover.addText(`ISO 9001:2015 §9.3 · Généré le ${data.generatedAt}`, { x: 0.8, y: 4.2, w: 11.7, h: 0.5, fontSize: 14, color: 'D6E4D3' })
+  const logoPath = path.join(process.cwd(), 'public', 'logo-sopat-white.png')
 
-  // KPI
-  const kpiSlide = prs.addSlide()
-  kpiSlide.addText('Indicateurs clés', { x: 0.6, y: 0.4, w: 12, h: 0.6, fontSize: 24, bold: true, color: GREEN })
+  // Titre de page façon portfolio : en haut à droite, souligné d'un filet blanc,
+  // logo blanc en bas à droite.
+  function themedSlide(title: string): PptxGenJS.Slide {
+    const slide = prs.addSlide()
+    slide.background = { color: TEAL }
+    slide.addText(title, { x: 4.5, y: 0.35, w: 8.2, h: 0.7, fontSize: 26, color: WHITE, align: 'right' })
+    slide.addShape('line', { x: 9.2, y: 1.15, w: 3.5, h: 0, line: { color: WHITE, width: 1 } })
+    slide.addImage({ path: logoPath, x: 12.35, y: 6.6, w: 0.7, h: 0.7 })
+    return slide
+  }
+
+  // Couverture — logo blanc centré sur fond vert d'eau, comme la page de garde
+  // du portfolio.
+  const cover = prs.addSlide()
+  cover.background = { color: TEAL }
+  cover.addImage({ path: logoPath, x: 5.42, y: 1.5, w: 2.5, h: 2.5 })
+  cover.addText('SOPAT', { x: 0.8, y: 4.1, w: 11.7, h: 0.9, fontSize: 44, color: WHITE, align: 'center', charSpacing: 6 })
+  cover.addText('SOCIÉTÉ DE PAYSAGE DE TUNISIE', { x: 0.8, y: 5.0, w: 11.7, h: 0.4, fontSize: 13, color: SOFT, align: 'center', charSpacing: 3 })
+  cover.addShape('line', { x: 5.9, y: 5.6, w: 1.5, h: 0, line: { color: WHITE, width: 1 } })
+  cover.addText(`Rapport de direction SMQ — ${data.year}`, { x: 0.8, y: 5.8, w: 11.7, h: 0.6, fontSize: 20, color: WHITE, align: 'center' })
+  cover.addText(`ISO 9001:2015 §9.3 · Généré le ${data.generatedAt}`, { x: 0.8, y: 6.4, w: 11.7, h: 0.4, fontSize: 12, color: SOFT, align: 'center' })
+
+  // KPI — cartes vert foncé arrondies, texte blanc
+  const kpiSlide = themedSlide('Indicateurs clés')
   const cards: { label: string; value: string; color: string }[] = [
-    { label: 'Projets actifs', value: String(data.kpis.activeProjects), color: GREEN },
-    { label: 'Livraison dans les délais', value: `${data.kpis.onTimeDeliveryRate}%`, color: data.kpis.onTimeDeliveryRate >= 80 ? GREEN : AMBER },
-    { label: 'NC ouvertes', value: String(data.kpis.openNcs), color: data.kpis.overdueNcs > 0 ? RED : GREEN },
-    { label: 'Clôture NC dans les délais', value: `${data.kpis.ncSlaClosureRate}%`, color: data.kpis.ncSlaClosureRate >= 80 ? GREEN : AMBER },
-    { label: 'Satisfaction client', value: data.kpis.satisfactionScore != null ? `${data.kpis.satisfactionScore}/5` : '—', color: GREEN },
-    { label: 'Risques criticité élevée', value: String(data.smq.risksHigh), color: data.smq.risksHigh > 0 ? RED : GREEN },
+    { label: 'Projets actifs', value: String(data.kpis.activeProjects), color: WHITE },
+    { label: 'Livraison dans les délais', value: `${data.kpis.onTimeDeliveryRate}%`, color: data.kpis.onTimeDeliveryRate >= 80 ? WHITE : AMBER },
+    { label: 'NC ouvertes', value: String(data.kpis.openNcs), color: data.kpis.overdueNcs > 0 ? RED : WHITE },
+    { label: 'Clôture NC dans les délais', value: `${data.kpis.ncSlaClosureRate}%`, color: data.kpis.ncSlaClosureRate >= 80 ? WHITE : AMBER },
+    { label: 'Satisfaction client', value: data.kpis.satisfactionScore != null ? `${data.kpis.satisfactionScore}/5` : '—', color: WHITE },
+    { label: 'Risques criticité élevée', value: String(data.smq.risksHigh), color: data.smq.risksHigh > 0 ? RED : WHITE },
   ]
   cards.forEach((c, i) => {
     const x = 0.6 + (i % 3) * 4.2
-    const y = 1.4 + Math.floor(i / 3) * 2.6
-    kpiSlide.addShape('roundRect', { x, y, w: 3.9, h: 2.2, fill: { color: 'F5F7F4' }, line: { color: 'D6E4D3' }, rectRadius: 0.08 })
-    kpiSlide.addText(c.label.toUpperCase(), { x: x + 0.25, y: y + 0.25, w: 3.4, h: 0.5, fontSize: 11, color: MUTED })
+    const y = 1.6 + Math.floor(i / 3) * 2.6
+    kpiSlide.addShape('roundRect', { x, y, w: 3.9, h: 2.2, fill: { color: DARK }, line: { color: DARK }, rectRadius: 0.1 })
+    kpiSlide.addText(c.label.toUpperCase(), { x: x + 0.25, y: y + 0.25, w: 3.4, h: 0.5, fontSize: 11, color: SOFT })
     kpiSlide.addText(c.value, { x: x + 0.25, y: y + 0.9, w: 3.4, h: 1, fontSize: 40, bold: true, color: c.color })
   })
 
-  // SMQ table
-  const smqSlide = prs.addSlide()
-  smqSlide.addText(`Performance SMQ ${data.year} (FOR-MI-10)`, { x: 0.6, y: 0.4, w: 12, h: 0.6, fontSize: 24, bold: true, color: GREEN })
+  // SMQ table — en-tête vert foncé, corps vert foncé translucide, texte blanc
+  const smqSlide = themedSlide(`Performance SMQ ${data.year} (FOR-MI-10)`)
   const smqRows: PptxGenJS.TableRow[] = [
     [
-      { text: 'Indicateur', options: { bold: true, color: 'FFFFFF', fill: { color: GREEN } } },
-      { text: 'Valeur', options: { bold: true, color: 'FFFFFF', fill: { color: GREEN } } },
+      { text: 'Indicateur', options: { bold: true, color: WHITE, fill: { color: DARK } } },
+      { text: 'Valeur', options: { bold: true, color: WHITE, fill: { color: DARK } } },
     ],
-    [{ text: `Non-conformités ${data.year} (total / ouvertes / clôturées)` }, { text: `${data.smq.ncTotal} / ${data.smq.ncOpen} / ${data.smq.ncClosed}` }],
-    [{ text: 'Taux de clôture des NC' }, { text: `${data.smq.ncRate}%` }],
-    [{ text: 'Taux d’efficacité des CAPA' }, { text: `${data.smq.capaRate}%` }],
-    [{ text: `Programme d’audit réalisé (${data.smq.auditDone}/${data.smq.auditTotal})` }, { text: `${data.smq.auditRate}%` }],
-    [{ text: 'Conformité check-lists SME & SST' }, { text: `${data.smq.hseRate}%` }],
-    [{ text: 'Déchets suivis (kg)' }, { text: data.smq.wasteKg.toLocaleString('fr-FR') }],
+    ...[
+      [`Non-conformités ${data.year} (total / ouvertes / clôturées)`, `${data.smq.ncTotal} / ${data.smq.ncOpen} / ${data.smq.ncClosed}`],
+      ['Taux de clôture des NC', `${data.smq.ncRate}%`],
+      ['Taux d’efficacité des CAPA', `${data.smq.capaRate}%`],
+      [`Programme d’audit réalisé (${data.smq.auditDone}/${data.smq.auditTotal})`, `${data.smq.auditRate}%`],
+      ['Conformité check-lists SME & SST', `${data.smq.hseRate}%`],
+      ['Déchets suivis (kg)', data.smq.wasteKg.toLocaleString('fr-FR')],
+    ].map((r): PptxGenJS.TableRow => [
+      { text: r[0], options: { color: SOFT } },
+      { text: r[1], options: { color: WHITE, bold: true } },
+    ]),
   ]
-  smqSlide.addTable(smqRows, { x: 0.6, y: 1.3, w: 12, fontSize: 14, border: { pt: 0.5, color: 'D6E4D3' }, rowH: 0.55 })
+  smqSlide.addTable(smqRows, { x: 0.6, y: 1.6, w: 12, fontSize: 14, border: { pt: 0.5, color: TEAL }, fill: { color: DARK }, rowH: 0.55 })
 
   // Alerts
-  const alertSlide = prs.addSlide()
   const overdueCount = data.alerts.filter((a) => a.overdue).length
-  alertSlide.addText(`Alertes & échéances (${overdueCount} en retard)`, { x: 0.6, y: 0.4, w: 12, h: 0.6, fontSize: 24, bold: true, color: GREEN })
+  const alertSlide = themedSlide(`Alertes & échéances (${overdueCount} en retard)`)
   if (data.alerts.length === 0) {
-    alertSlide.addText('Aucune alerte en cours.', { x: 0.6, y: 1.5, w: 12, h: 0.6, fontSize: 16, color: MUTED })
+    alertSlide.addText('Aucune alerte en cours.', { x: 0.6, y: 1.8, w: 12, h: 0.6, fontSize: 16, color: SOFT })
   } else {
     const alertRows: PptxGenJS.TableRow[] = [
       [
-        { text: 'Alerte', options: { bold: true, color: 'FFFFFF', fill: { color: GREEN } } },
-        { text: 'Détail', options: { bold: true, color: 'FFFFFF', fill: { color: GREEN } } },
-        { text: 'Échéance', options: { bold: true, color: 'FFFFFF', fill: { color: GREEN } } },
+        { text: 'Alerte', options: { bold: true, color: WHITE, fill: { color: DARK } } },
+        { text: 'Détail', options: { bold: true, color: WHITE, fill: { color: DARK } } },
+        { text: 'Échéance', options: { bold: true, color: WHITE, fill: { color: DARK } } },
       ],
       ...data.alerts.slice(0, 10).map((a): PptxGenJS.TableRow => [
         { text: a.label, options: { color: a.overdue ? RED : AMBER, bold: true } },
-        { text: a.detail },
-        { text: a.dueDate ?? '—' },
+        { text: a.detail, options: { color: SOFT } },
+        { text: a.dueDate ?? '—', options: { color: WHITE } },
       ]),
     ]
-    alertSlide.addTable(alertRows, { x: 0.6, y: 1.3, w: 12, fontSize: 12, border: { pt: 0.5, color: 'D6E4D3' }, rowH: 0.45 })
+    alertSlide.addTable(alertRows, { x: 0.6, y: 1.6, w: 12, fontSize: 12, border: { pt: 0.5, color: TEAL }, fill: { color: DARK }, rowH: 0.45 })
   }
 
   return (await prs.write({ outputType: 'nodebuffer' })) as Buffer

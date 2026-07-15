@@ -1,26 +1,36 @@
-import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
+import path from 'path'
+import { readFileSync } from 'fs'
+import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer'
+import {
+  BRAND_TEAL, BRAND_DARK, BRAND_WHITE_SOFT, BRAND_ALERT_RED, BRAND_ALERT_AMBER,
+} from '@/lib/export/brand'
 
-const GREEN = '#2D5A27'
-const MUTED = '#6B7280'
-const BORDER = '#D6E4D3'
-const RED = '#B91C1C'
-const AMBER = '#B8870A'
+// Thème « SOPAT Portfolio » : fond vert d'eau, cartes vert foncé arrondies,
+// texte blanc, titre souligné d'un filet fin blanc, logo blanc.
+
+const WHITE = '#FFFFFF'
 
 const s = StyleSheet.create({
-  page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: '#111827' },
-  headerBand: { backgroundColor: GREEN, marginHorizontal: -40, marginTop: -40, padding: 24, paddingHorizontal: 40, marginBottom: 24 },
-  headerTitle: { color: '#FFFFFF', fontSize: 18, fontFamily: 'Helvetica-Bold' },
-  headerSub: { color: '#D6E4D3', fontSize: 9, marginTop: 4 },
-  sectionTitle: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: GREEN, marginTop: 18, marginBottom: 8 },
+  page: { padding: 40, fontSize: 10, fontFamily: 'Helvetica', color: WHITE, backgroundColor: BRAND_TEAL },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
+  logo: { width: 46, height: 46 },
+  headerRight: { alignItems: 'flex-end' },
+  headerTitle: { color: WHITE, fontSize: 20 },
+  headerRule: { marginTop: 6, width: 190, height: 1, backgroundColor: WHITE },
+  headerSub: { color: BRAND_WHITE_SOFT, fontSize: 9, marginTop: 6 },
+  sectionTitle: { fontSize: 13, color: WHITE, marginTop: 18, marginBottom: 8 },
+  sectionRule: { width: 60, height: 1, backgroundColor: WHITE, opacity: 0.7, marginBottom: 10 },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  kpiCard: { width: '31%', border: `1pt solid ${BORDER}`, borderRadius: 6, padding: 10 },
-  kpiLabel: { fontSize: 7.5, color: MUTED, textTransform: 'uppercase' },
-  kpiValue: { fontSize: 16, fontFamily: 'Helvetica-Bold', marginTop: 4 },
-  row: { flexDirection: 'row', borderBottom: `0.5pt solid ${BORDER}`, paddingVertical: 5 },
-  cellLabel: { flex: 3, color: '#111827' },
-  cellValue: { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold' },
-  alertRow: { flexDirection: 'row', paddingVertical: 4, borderBottom: `0.5pt solid ${BORDER}` },
-  footer: { position: 'absolute', bottom: 24, left: 40, right: 40, fontSize: 7.5, color: MUTED, borderTop: `0.5pt solid ${BORDER}`, paddingTop: 6, flexDirection: 'row', justifyContent: 'space-between' },
+  kpiCard: { width: '31%', backgroundColor: BRAND_DARK, borderRadius: 8, padding: 10 },
+  kpiLabel: { fontSize: 7.5, color: BRAND_WHITE_SOFT, textTransform: 'uppercase' },
+  kpiValue: { fontSize: 16, fontFamily: 'Helvetica-Bold', marginTop: 4, color: WHITE },
+  tableCard: { backgroundColor: BRAND_DARK, borderRadius: 8, padding: 12 },
+  row: { flexDirection: 'row', borderBottom: `0.5pt solid ${BRAND_TEAL}`, paddingVertical: 5 },
+  rowLast: { flexDirection: 'row', paddingVertical: 5 },
+  cellLabel: { flex: 3, color: BRAND_WHITE_SOFT },
+  cellValue: { flex: 1, textAlign: 'right', fontFamily: 'Helvetica-Bold', color: WHITE },
+  alertRow: { flexDirection: 'row', paddingVertical: 4, borderBottom: `0.5pt solid ${BRAND_TEAL}` },
+  footer: { position: 'absolute', bottom: 24, left: 40, right: 40, fontSize: 7.5, color: BRAND_WHITE_SOFT, borderTop: `0.5pt solid ${WHITE}`, paddingTop: 6, flexDirection: 'row', justifyContent: 'space-between' },
 })
 
 export type DirectionReportData = {
@@ -51,13 +61,20 @@ export type DirectionReportData = {
 }
 
 export function DirectionReportDocument({ data }: { data: DirectionReportData }) {
+  // Buffer plutôt que chemin : react-pdf traite les chemins Windows comme des
+  // URL (fetch failed) — le composant n'est rendu que côté serveur.
+  let logoSrc: { data: Buffer; format: 'png' } | null = null
+  try {
+    logoSrc = { data: readFileSync(path.join(process.cwd(), 'public', 'logo-sopat-white.png')), format: 'png' }
+  } catch { /* logo absent : on continue sans */ }
+
   const kpiCards = [
-    { label: 'Projets actifs', value: String(data.kpis.activeProjects), color: GREEN },
-    { label: 'Livraison dans les délais', value: `${data.kpis.onTimeDeliveryRate}%`, color: data.kpis.onTimeDeliveryRate >= 80 ? GREEN : AMBER },
-    { label: 'NC ouvertes', value: String(data.kpis.openNcs), color: data.kpis.overdueNcs > 0 ? RED : GREEN },
-    { label: 'Clôture NC dans les délais', value: `${data.kpis.ncSlaClosureRate}%`, color: data.kpis.ncSlaClosureRate >= 80 ? GREEN : AMBER },
-    { label: 'Satisfaction client', value: data.kpis.satisfactionScore != null ? `${data.kpis.satisfactionScore}/5` : '—', color: GREEN },
-    { label: 'Risques criticité élevée', value: String(data.smq.risksHigh), color: data.smq.risksHigh > 0 ? RED : GREEN },
+    { label: 'Projets actifs', value: String(data.kpis.activeProjects), color: WHITE },
+    { label: 'Livraison dans les délais', value: `${data.kpis.onTimeDeliveryRate}%`, color: data.kpis.onTimeDeliveryRate >= 80 ? WHITE : BRAND_ALERT_AMBER },
+    { label: 'NC ouvertes', value: String(data.kpis.openNcs), color: data.kpis.overdueNcs > 0 ? BRAND_ALERT_RED : WHITE },
+    { label: 'Clôture NC dans les délais', value: `${data.kpis.ncSlaClosureRate}%`, color: data.kpis.ncSlaClosureRate >= 80 ? WHITE : BRAND_ALERT_AMBER },
+    { label: 'Satisfaction client', value: data.kpis.satisfactionScore != null ? `${data.kpis.satisfactionScore}/5` : '—', color: WHITE },
+    { label: 'Risques criticité élevée', value: String(data.smq.risksHigh), color: data.smq.risksHigh > 0 ? BRAND_ALERT_RED : WHITE },
   ]
 
   const smqRows = [
@@ -72,14 +89,23 @@ export function DirectionReportDocument({ data }: { data: DirectionReportData })
   return (
     <Document title={`Rapport de direction SMQ ${data.year}`} author="SOPAT ERP">
       <Page size="A4" style={s.page}>
-        <View style={s.headerBand}>
-          <Text style={s.headerTitle}>SOPAT — Rapport de direction SMQ</Text>
-          <Text style={s.headerSub}>
-            Année {data.year} · ISO 9001:2015 §9.3 · Généré le {data.generatedAt}
-          </Text>
+        {/* En-tête façon portfolio : logo blanc à gauche, titre à droite souligné */}
+        <View style={s.header}>
+          {logoSrc ? (
+            // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+            <Image style={s.logo} src={logoSrc} />
+          ) : <View style={s.logo} />}
+          <View style={s.headerRight}>
+            <Text style={s.headerTitle}>Rapport de direction SMQ</Text>
+            <View style={s.headerRule} />
+            <Text style={s.headerSub}>
+              Année {data.year} · ISO 9001:2015 §9.3 · Généré le {data.generatedAt}
+            </Text>
+          </View>
         </View>
 
         <Text style={s.sectionTitle}>Indicateurs clés</Text>
+        <View style={s.sectionRule} />
         <View style={s.kpiGrid}>
           {kpiCards.map((k) => (
             <View key={k.label} style={s.kpiCard}>
@@ -90,9 +116,10 @@ export function DirectionReportDocument({ data }: { data: DirectionReportData })
         </View>
 
         <Text style={s.sectionTitle}>Performance SMQ {data.year} (FOR-MI-10)</Text>
-        <View>
-          {smqRows.map((r) => (
-            <View key={r.label} style={s.row}>
+        <View style={s.sectionRule} />
+        <View style={s.tableCard}>
+          {smqRows.map((r, i) => (
+            <View key={r.label} style={i === smqRows.length - 1 ? s.rowLast : s.row}>
               <Text style={s.cellLabel}>{r.label}</Text>
               <Text style={s.cellValue}>{r.value}</Text>
             </View>
@@ -102,22 +129,25 @@ export function DirectionReportDocument({ data }: { data: DirectionReportData })
         <Text style={s.sectionTitle}>
           Alertes &amp; échéances ({data.alerts.filter((a) => a.overdue).length} en retard)
         </Text>
+        <View style={s.sectionRule} />
         {data.alerts.length === 0 ? (
-          <Text style={{ color: MUTED }}>Aucune alerte en cours.</Text>
+          <Text style={{ color: BRAND_WHITE_SOFT }}>Aucune alerte en cours.</Text>
         ) : (
-          data.alerts.slice(0, 14).map((a, i) => (
-            <View key={i} style={s.alertRow}>
-              <Text style={{ flex: 3, color: a.overdue ? RED : AMBER, fontFamily: 'Helvetica-Bold', fontSize: 9 }}>
-                {a.label}
-              </Text>
-              <Text style={{ flex: 4, color: MUTED, fontSize: 9 }}>{a.detail}</Text>
-              <Text style={{ flex: 1, textAlign: 'right', fontSize: 9 }}>{a.dueDate ?? '—'}</Text>
-            </View>
-          ))
+          <View style={s.tableCard}>
+            {data.alerts.slice(0, 14).map((a, i) => (
+              <View key={i} style={i === Math.min(data.alerts.length, 14) - 1 ? s.rowLast : s.alertRow}>
+                <Text style={{ flex: 3, color: a.overdue ? BRAND_ALERT_RED : BRAND_ALERT_AMBER, fontFamily: 'Helvetica-Bold', fontSize: 9 }}>
+                  {a.label}
+                </Text>
+                <Text style={{ flex: 4, color: BRAND_WHITE_SOFT, fontSize: 9 }}>{a.detail}</Text>
+                <Text style={{ flex: 1, textAlign: 'right', fontSize: 9, color: WHITE }}>{a.dueDate ?? '—'}</Text>
+              </View>
+            ))}
+          </View>
         )}
 
         <View style={s.footer} fixed>
-          <Text>SOPAT — Société Paysagiste de Tunisie · Certifiée ISO 9001:2015</Text>
+          <Text>SOPAT — Société de Paysage de Tunisie · Certifiée ISO 9001:2015</Text>
           <Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>
       </Page>
