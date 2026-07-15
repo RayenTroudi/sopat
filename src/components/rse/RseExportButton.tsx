@@ -11,7 +11,7 @@ export function RseExportButton({ year }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState<string | null>(null)
 
-  async function downloadFile(format: 'xlsx' | 'pptx') {
+  async function downloadFile(format: 'xlsx' | 'pptx' | 'pdf') {
     setLoading(format)
     setOpen(false)
     try {
@@ -31,11 +31,6 @@ export function RseExportButton({ year }: Props) {
     } finally {
       setLoading(null)
     }
-  }
-
-  function handlePdf() {
-    setOpen(false)
-    window.print()
   }
 
   const btnBase =
@@ -85,12 +80,12 @@ export function RseExportButton({ year }: Props) {
               PowerPoint (.pptx)
             </button>
             <button
-              onClick={handlePdf}
+              onClick={() => downloadFile('pdf')}
               className={btnBase}
               style={{ color: 'var(--admin-text)' }}
             >
               <FileText className="w-4 h-4" style={{ color: '#dc2626' }} />
-              PDF (impression)
+              PDF (.pdf)
             </button>
           </div>
         </>

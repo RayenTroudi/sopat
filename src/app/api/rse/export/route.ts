@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createElement } from 'react'
+import path from 'path'
 import { auth } from '@/lib/auth'
 import { getRseDashboardData, type RseDashboardData } from '@/lib/db/rse-dashboard'
-import * as XLSX from 'xlsx'
+import { buildWorkbook, type ExcelSheet } from '@/lib/export/excel'
+import {
+  PPTX_TEAL, PPTX_DARK, PPTX_WHITE, PPTX_WHITE_SOFT,
+} from '@/lib/export/brand'
 import PptxGenJS from 'pptxgenjs'
 
 export const dynamic = 'force-dynamic'
+
+// Exports du tableau de bord Impact RSE au thème « SOPAT Portfolio »
+// (même identité que le rapport de direction : fond vert d'eau, cartes vert
+// foncé, texte blanc, logo blanc).
+
+const TEAL  = PPTX_TEAL
+const DARK  = PPTX_DARK
+const WHITE = PPTX_WHITE
+const SOFT  = PPTX_WHITE_SOFT
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   nettoyage_plage:       'Nettoyage de plage',
@@ -44,404 +58,323 @@ const PARTNER_TYPE_LABELS: Record<string, string> = {
   autre:         'Autre',
 }
 
-function fmtDate(d: Date | string | null): string {
-  if (!d) return ''
-  const dt = typeof d === 'string' ? new Date(d) : d
-  return dt.toLocaleDateString('fr-FR')
-}
-
 function fmtNum(n: number, decimals = 0): string {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })
 }
 
-// ─── Excel export ─────────────────────────────────────────────────────────────
+// ─── Excel (classeur thémé partagé — src/lib/export/excel.ts) ─────────────────
 
-function buildExcel(data: RseDashboardData, year: number): Buffer {
-  const wb = XLSX.utils.book_new()
+async function buildExcel(data: RseDashboardData, year: number): Promise<Buffer> {
+  const { environmental: env, social, partnerships: part } = data
 
-  // --- Summary sheet ---
-  const summaryRows = [
-    ['RAPPORT RSE — SOPAT', ''],
-    [`Année de rapport : ${year}`, `Généré le : ${new Date().toLocaleDateString('fr-FR')}`],
-    ['', ''],
-    ['PILIER ENVIRONNEMENTAL', ''],
-    ['Indicateur', 'Valeur'],
-    ['Déchets collectés lors des événements (kg)', fmtNum(data.environmental.totalWasteKg, 1)],
-    ['Arbres plantés lors des événements', fmtNum(data.environmental.totalTrees)],
-    ['Participants aux événements RSE', fmtNum(data.environmental.totalParticipants)],
-    ['Linéaire de plage nettoyé (m)', fmtNum(data.environmental.totalBeachCleanedM, 1)],
-    ['Zones traitées', fmtNum(data.environmental.totalZonesTreated)],
-    ['Couverture médias (événements)', fmtNum(data.environmental.mediaCoverageCount)],
-    ['Portée réseaux sociaux', fmtNum(data.environmental.totalSocialMediaReach)],
-    ['Articles de presse', fmtNum(data.environmental.totalPressArticles)],
-    ['Score satisfaction moyen (événements)', data.environmental.avgSatisfaction != null ? `${fmtNum(data.environmental.avgSatisfaction, 1)}/10` : 'N/D'],
-    ['Investissement total événements RSE (TND)', fmtNum(data.environmental.totalEventInvestment, 3)],
-    ['Arbres/palmiers en projets d\'aménagement', fmtNum(data.environmental.totalTreesInProjects)],
-    ['Total végétaux en projets', fmtNum(data.environmental.totalPlantsInProjects)],
-    ['', ''],
-    ['PILIER SOCIAL', ''],
-    ['Indicateur', 'Valeur'],
-    ['Effectifs actifs', fmtNum(data.social.totalActiveEmployees)],
-    ['Auditeurs internes qualifiés', fmtNum(data.social.internalAuditorsCount)],
-    ['Sessions de formation réalisées', fmtNum(data.social.trainingSessions)],
-    ['Participants aux formations', fmtNum(data.social.trainingParticipants)],
-    ['Taux de présence aux formations', `${fmtNum(data.social.trainingCompletion)}%`],
-    ['Score évaluation formation (moy.)', data.social.avgHotEvalScore != null ? fmtNum(data.social.avgHotEvalScore, 1) : 'N/D'],
-    ['Jours de congé approuvés (année)', fmtNum(data.social.totalLeaveDays, 1)],
-    ['Non-conformités clôturées (%)', `${fmtNum(data.social.ncsClosedRate)}%`],
-    ['Taux de conformité HSE', data.social.hseComplianceRate != null ? `${fmtNum(data.social.hseComplianceRate)}%` : 'N/D'],
-    ['', ''],
-    ['PILIER PARTENARIATS', ''],
-    ['Indicateur', 'Valeur'],
-    ['Partenariats actifs', fmtNum(data.partnerships.activePartnerships)],
-    ['Total partenariats', fmtNum(data.partnerships.totalPartnerships)],
-    ['Engagements respectés (%)', `${fmtNum(data.partnerships.fulfillmentRate)}%`],
-    ['Engagements en retard', fmtNum(data.partnerships.overdueCommitments)],
+  const syntheseRows = [
+    ...[
+      ['Déchets collectés lors des événements (kg)', fmtNum(env.totalWasteKg, 1)],
+      ['Arbres plantés lors des événements', fmtNum(env.totalTrees)],
+      ['Participants aux événements RSE', fmtNum(env.totalParticipants)],
+      ['Linéaire de plage nettoyé (m)', fmtNum(env.totalBeachCleanedM, 1)],
+      ['Zones traitées', fmtNum(env.totalZonesTreated)],
+      ['Couverture médias (événements)', fmtNum(env.mediaCoverageCount)],
+      ['Portée réseaux sociaux', fmtNum(env.totalSocialMediaReach)],
+      ['Articles de presse', fmtNum(env.totalPressArticles)],
+      ['Score satisfaction moyen (événements)', env.avgSatisfaction != null ? `${fmtNum(env.avgSatisfaction, 1)}/10` : 'N/D'],
+      ['Investissement total événements RSE (TND)', fmtNum(env.totalEventInvestment, 3)],
+      ['Arbres/palmiers en projets d’aménagement', fmtNum(env.totalTreesInProjects)],
+      ['Total végétaux en projets', fmtNum(env.totalPlantsInProjects)],
+    ].map(([indicateur, valeur]) => ({ pilier: 'Environnemental', indicateur, valeur })),
+    ...[
+      ['Effectifs actifs', fmtNum(social.totalActiveEmployees)],
+      ['Auditeurs internes qualifiés', fmtNum(social.internalAuditorsCount)],
+      ['Sessions de formation réalisées', fmtNum(social.trainingSessions)],
+      ['Participants aux formations', fmtNum(social.trainingParticipants)],
+      ['Taux de présence aux formations', `${fmtNum(social.trainingCompletion)}%`],
+      ['Score évaluation formation (moy.)', social.avgHotEvalScore != null ? fmtNum(social.avgHotEvalScore, 1) : 'N/D'],
+      ['Jours de congé approuvés (année)', fmtNum(social.totalLeaveDays, 1)],
+      ['Non-conformités clôturées (%)', `${fmtNum(social.ncsClosedRate)}%`],
+      ['Taux de conformité HSE', social.hseComplianceRate != null ? `${fmtNum(social.hseComplianceRate)}%` : 'N/D'],
+    ].map(([indicateur, valeur]) => ({ pilier: 'Social', indicateur, valeur })),
+    ...[
+      ['Partenariats actifs', fmtNum(part.activePartnerships)],
+      ['Total partenariats', fmtNum(part.totalPartnerships)],
+      ['Engagements respectés (%)', `${fmtNum(part.fulfillmentRate)}%`],
+      ['Engagements en retard', fmtNum(part.overdueCommitments)],
+    ].map(([indicateur, valeur]) => ({ pilier: 'Partenariats', indicateur, valeur })),
   ]
 
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows)
-  wsSummary['!cols'] = [{ wch: 45 }, { wch: 25 }]
-  XLSX.utils.book_append_sheet(wb, wsSummary, 'Synthèse')
+  const sheets: ExcelSheet[] = [
+    {
+      name: 'Synthèse',
+      columns: [
+        { header: 'Pilier', key: 'pilier', width: 18 },
+        { header: 'Indicateur', key: 'indicateur', width: 48 },
+        { header: 'Valeur', key: 'valeur', width: 20 },
+      ],
+      rows: syntheseRows,
+    },
+    {
+      name: 'Tendances environnementales',
+      columns: [
+        { header: 'Année', key: 'year', format: 'number', width: 10 },
+        { header: 'Déchets (kg)', key: 'wasteKg', format: 'number', width: 16 },
+        { header: 'Arbres plantés', key: 'trees', format: 'number', width: 16 },
+        { header: 'Participants', key: 'participants', format: 'number', width: 14 },
+        { header: 'Nb événements', key: 'eventCount', format: 'number', width: 16 },
+        { header: 'Plage nettoyée (m)', key: 'beachCleanedM', format: 'number', width: 18 },
+      ],
+      rows: env.yearlyTrends.map((r) => ({ ...r })),
+    },
+    {
+      name: 'Événements par type',
+      columns: [
+        { header: 'Type d’événement', key: 'type', width: 30 },
+        { header: 'Nombre', key: 'count', format: 'number', width: 12 },
+      ],
+      rows: env.eventsByType.map((r) => ({ type: EVENT_TYPE_LABELS[r.eventType] ?? r.eventType, count: r.count })),
+    },
+    {
+      name: 'Gestion des déchets',
+      columns: [
+        { header: 'Type de déchet', key: 'type', width: 25 },
+        { header: 'Quantité totale (kg)', key: 'totalKg', format: 'number', width: 20 },
+        { header: 'Coût total (TND)', key: 'cost', format: 'currency', width: 18 },
+      ],
+      rows: env.wasteByType.map((r) => ({ type: WASTE_TYPE_LABELS[r.wasteType] ?? r.wasteType, totalKg: r.totalKg, cost: r.cost })),
+    },
+    {
+      name: 'Formations',
+      columns: [
+        { header: 'Année', key: 'year', format: 'number', width: 10 },
+        { header: 'Sessions réalisées', key: 'sessions', format: 'number', width: 20 },
+        { header: 'Participants', key: 'participants', format: 'number', width: 16 },
+      ],
+      rows: social.trainingByYear.map((r) => ({ ...r })),
+    },
+    {
+      name: 'Congés',
+      columns: [
+        { header: 'Type de congé', key: 'type', width: 25 },
+        { header: 'Jours totaux', key: 'totalDays', format: 'number', width: 14 },
+        { header: 'Nombre de demandes', key: 'count', format: 'number', width: 20 },
+      ],
+      rows: social.leaveByType.map((r) => ({ type: LEAVE_TYPE_LABELS[r.leaveType] ?? r.leaveType, totalDays: r.totalDays, count: r.count })),
+    },
+    {
+      name: 'Partenariats',
+      columns: [
+        { header: 'Type de partenaire', key: 'type', width: 25 },
+        { header: 'Nombre', key: 'count', format: 'number', width: 12 },
+      ],
+      rows: part.partnersByType.map((r) => ({ type: PARTNER_TYPE_LABELS[r.partnerType] ?? r.partnerType, count: r.count })),
+    },
+    {
+      name: 'Répartition géographique',
+      columns: [
+        { header: 'Lieu', key: 'location', width: 30 },
+        { header: 'Événements', key: 'eventCount', format: 'number', width: 14 },
+        { header: 'Participants', key: 'totalParticipants', format: 'number', width: 14 },
+        { header: 'Déchets (kg)', key: 'totalWasteKg', format: 'number', width: 14 },
+      ],
+      rows: data.locations.map((r) => ({ ...r })),
+    },
+    {
+      name: 'Événements récents',
+      columns: [
+        { header: 'Titre', key: 'title', width: 42 },
+        { header: 'Date', key: 'date', format: 'date', width: 12 },
+        { header: 'Type', key: 'type', width: 24 },
+        { header: 'Participants', key: 'participants', format: 'number', width: 14 },
+        { header: 'Déchets (kg)', key: 'wasteKg', format: 'number', width: 14 },
+        { header: 'Arbres', key: 'trees', format: 'number', width: 10 },
+      ],
+      rows: data.recentEvents.map((r) => ({
+        title: r.title,
+        date: r.date,
+        type: EVENT_TYPE_LABELS[r.eventType] ?? r.eventType,
+        participants: r.participants,
+        wasteKg: r.wasteKg,
+        trees: r.trees,
+      })),
+    },
+  ]
 
-  // --- Environmental trends ---
-  const envHeaders = ['Année', 'Déchets (kg)', 'Arbres plantés', 'Participants', 'Nb événements', 'Plage nettoyée (m)']
-  const envRows = data.environmental.yearlyTrends.map((r) => [
-    r.year, r.wasteKg, r.trees, r.participants, r.eventCount, r.beachCleanedM,
-  ])
-  const wsEnv = XLSX.utils.aoa_to_sheet([envHeaders, ...envRows])
-  wsEnv['!cols'] = envHeaders.map(() => ({ wch: 20 }))
-  XLSX.utils.book_append_sheet(wb, wsEnv, 'Tendances environnementales')
-
-  // --- Events by type ---
-  const typeHeaders = ['Type d\'événement', 'Nombre']
-  const typeRows = data.environmental.eventsByType.map((r) => [
-    EVENT_TYPE_LABELS[r.eventType] ?? r.eventType,
-    r.count,
-  ])
-  const wsTypes = XLSX.utils.aoa_to_sheet([typeHeaders, ...typeRows])
-  wsTypes['!cols'] = [{ wch: 30 }, { wch: 15 }]
-  XLSX.utils.book_append_sheet(wb, wsTypes, 'Événements par type')
-
-  // --- Internal waste tracking ---
-  const wasteHeaders = ['Type de déchet', 'Quantité totale (kg)', 'Coût total (TND)']
-  const wasteRows = data.environmental.wasteByType.map((r) => [
-    WASTE_TYPE_LABELS[r.wasteType] ?? r.wasteType,
-    r.totalKg,
-    r.cost,
-  ])
-  const wsWaste = XLSX.utils.aoa_to_sheet([wasteHeaders, ...wasteRows])
-  wsWaste['!cols'] = [{ wch: 25 }, { wch: 22 }, { wch: 20 }]
-  XLSX.utils.book_append_sheet(wb, wsWaste, 'Gestion des déchets')
-
-  // --- Formations ---
-  const trainHeaders = ['Année', 'Sessions réalisées', 'Participants']
-  const trainRows = data.social.trainingByYear.map((r) => [r.year, r.sessions, r.participants])
-  const wsTrain = XLSX.utils.aoa_to_sheet([trainHeaders, ...trainRows])
-  wsTrain['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 18 }]
-  XLSX.utils.book_append_sheet(wb, wsTrain, 'Formations')
-
-  // --- Congés par type ---
-  const leaveHeaders = ['Type de congé', 'Jours totaux', 'Nombre de demandes']
-  const leaveRows = data.social.leaveByType.map((r) => [
-    LEAVE_TYPE_LABELS[r.leaveType] ?? r.leaveType,
-    r.totalDays,
-    r.count,
-  ])
-  const wsLeave = XLSX.utils.aoa_to_sheet([leaveHeaders, ...leaveRows])
-  wsLeave['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 22 }]
-  XLSX.utils.book_append_sheet(wb, wsLeave, 'Congés')
-
-  // --- Partnerships ---
-  const partHeaders = ['Type de partenaire', 'Nombre']
-  const partRows = data.partnerships.partnersByType.map((r) => [
-    PARTNER_TYPE_LABELS[r.partnerType] ?? r.partnerType,
-    r.count,
-  ])
-  const wsPartners = XLSX.utils.aoa_to_sheet([partHeaders, ...partRows])
-  wsPartners['!cols'] = [{ wch: 25 }, { wch: 15 }]
-  XLSX.utils.book_append_sheet(wb, wsPartners, 'Partenariats')
-
-  // --- Locations ---
-  const locHeaders = ['Lieu', 'Événements', 'Participants', 'Déchets (kg)']
-  const locRows = data.locations.map((r) => [
-    r.location, r.eventCount, r.totalParticipants, r.totalWasteKg,
-  ])
-  const wsLoc = XLSX.utils.aoa_to_sheet([locHeaders, ...locRows])
-  wsLoc['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 16 }]
-  XLSX.utils.book_append_sheet(wb, wsLoc, 'Répartition géographique')
-
-  // --- Recent events ---
-  const evtHeaders = ['Titre', 'Date', 'Type', 'Participants', 'Déchets (kg)', 'Arbres']
-  const evtRows = data.recentEvents.map((r) => [
-    r.title,
-    fmtDate(r.date),
-    EVENT_TYPE_LABELS[r.eventType] ?? r.eventType,
-    r.participants ?? '',
-    r.wasteKg != null ? r.wasteKg : '',
-    r.trees ?? '',
-  ])
-  const wsEvt = XLSX.utils.aoa_to_sheet([evtHeaders, ...evtRows])
-  wsEvt['!cols'] = [{ wch: 40 }, { wch: 14 }, { wch: 25 }, { wch: 14 }, { wch: 16 }, { wch: 10 }]
-  XLSX.utils.book_append_sheet(wb, wsEvt, 'Événements récents')
-
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+  return buildWorkbook({
+    title: `Rapport Impact RSE — ${year}`,
+    department: 'Responsabilité Sociale d’Entreprise',
+    sheets,
+  })
 }
 
-// ─── PowerPoint builder ───────────────────────────────────────────────────────
+// ─── PowerPoint (thème portfolio) ─────────────────────────────────────────────
 
 async function buildPptx(data: RseDashboardData, year: number): Promise<Buffer> {
   const prs = new PptxGenJS()
-  prs.layout  = 'LAYOUT_WIDE'
-  prs.title   = `SOPAT — Rapport RSE ${year}`
-  prs.author  = 'SOPAT Platform'
+  prs.defineLayout({ name: 'WIDE', width: 13.33, height: 7.5 })
+  prs.layout = 'WIDE'
+  prs.title  = `SOPAT — Rapport RSE ${year}`
+  prs.author = 'SOPAT ERP'
 
-  const GREEN_DARK = '#1A5C36'
-  const GREEN      = '#1C7A48'
-  const WHITE      = '#FFFFFF'
-  const GRAY       = '#6B7280'
-  const LIGHT_BG   = '#F8FAF9'
-  const BORDER     = '#D1D5DB'
+  const logoPath = path.join(process.cwd(), 'public', 'logo-sopat-white.png')
+  const { environmental: env, social, partnerships: part } = data
 
-  // ── Slide 1: Cover ──
+  function themedSlide(title: string): PptxGenJS.Slide {
+    const slide = prs.addSlide()
+    slide.background = { color: TEAL }
+    slide.addText(title, { x: 4.5, y: 0.35, w: 8.2, h: 0.7, fontSize: 26, color: WHITE, align: 'right' })
+    slide.addShape('line', { x: 9.2, y: 1.15, w: 3.5, h: 0, line: { color: WHITE, width: 1 } })
+    slide.addImage({ path: logoPath, x: 12.35, y: 6.6, w: 0.7, h: 0.7 })
+    return slide
+  }
+
+  function labelValueColumns(slide: PptxGenJS.Slide, items: [string, string][], startY = 1.6) {
+    items.forEach(([label, val], i) => {
+      const col = i % 2
+      const row = Math.floor(i / 2)
+      const x = 0.6 + col * 6.3
+      const y = startY + row * 0.62
+      slide.addText(label, { x, y, w: 4.6, h: 0.45, fontSize: 12, color: SOFT })
+      slide.addText(val, { x: x + 4.6, y, w: 1.6, h: 0.45, fontSize: 12, bold: true, color: WHITE, align: 'right' })
+    })
+  }
+
+  function tableHeader(cells: string[]): PptxGenJS.TableRow {
+    return cells.map((text) => ({ text, options: { bold: true, color: WHITE, fill: { color: DARK } } }))
+  }
+
+  // Couverture — page de garde du portfolio
   const cover = prs.addSlide()
-  cover.background = { color: GREEN_DARK }
-  cover.addText('RAPPORT RSE', {
-    x: 0.8, y: 1.0, w: 10, h: 0.8,
-    fontSize: 36, bold: true, color: WHITE, fontFace: 'Calibri',
-  })
-  cover.addText('Responsabilité Sociale d\'Entreprise', {
-    x: 0.8, y: 1.9, w: 10, h: 0.5,
-    fontSize: 20, color: '#A7D9BC', fontFace: 'Calibri',
-  })
-  cover.addText(`Exercice ${year}`, {
-    x: 0.8, y: 2.6, w: 6, h: 0.5,
-    fontSize: 16, color: WHITE, fontFace: 'Calibri',
-  })
-  cover.addText(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, {
-    x: 0.8, y: 3.1, w: 6, h: 0.4,
-    fontSize: 12, color: '#A7D9BC', fontFace: 'Calibri',
-  })
-  cover.addText('SOPAT', {
-    x: 0.8, y: 5.2, w: 5, h: 0.4,
-    fontSize: 14, bold: true, color: WHITE, fontFace: 'Calibri',
-  })
+  cover.background = { color: TEAL }
+  cover.addImage({ path: logoPath, x: 5.42, y: 1.5, w: 2.5, h: 2.5 })
+  cover.addText('SOPAT', { x: 0.8, y: 4.1, w: 11.7, h: 0.9, fontSize: 44, color: WHITE, align: 'center', charSpacing: 6 })
+  cover.addText('SOCIÉTÉ DE PAYSAGE DE TUNISIE', { x: 0.8, y: 5.0, w: 11.7, h: 0.4, fontSize: 13, color: SOFT, align: 'center', charSpacing: 3 })
+  cover.addShape('line', { x: 5.9, y: 5.6, w: 1.5, h: 0, line: { color: WHITE, width: 1 } })
+  cover.addText(`Rapport Impact RSE — ${year}`, { x: 0.8, y: 5.8, w: 11.7, h: 0.6, fontSize: 20, color: WHITE, align: 'center' })
+  cover.addText(`Généré le ${new Date().toLocaleDateString('fr-FR')}`, { x: 0.8, y: 6.4, w: 11.7, h: 0.4, fontSize: 12, color: SOFT, align: 'center' })
 
-  // ── Slide 2: Executive Summary ──
-  const summary = prs.addSlide()
-  summary.background = { color: LIGHT_BG }
-  summary.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.7, fill: { color: GREEN } })
-  summary.addText('Synthèse Exécutive', {
-    x: 0.4, y: 0.1, w: 12, h: 0.5,
-    fontSize: 18, bold: true, color: WHITE, fontFace: 'Calibri',
-  })
-  summary.addText(`Rapport RSE ${year} — SOPAT`, {
-    x: 0.4, y: 0.85, w: 12, h: 0.35,
-    fontSize: 11, color: GRAY, fontFace: 'Calibri',
-  })
-
+  // Synthèse — cartes vert foncé
+  const summary = themedSlide('Synthèse exécutive')
   const kpis = [
-    { label: 'Déchets collectés',       val: `${fmtNum(data.environmental.totalWasteKg, 1)} kg` },
-    { label: 'Arbres plantés',           val: fmtNum(data.environmental.totalTrees) },
-    { label: 'Participants RSE',         val: fmtNum(data.environmental.totalParticipants) },
-    { label: 'Événements réalisés',      val: `${fmtNum(data.environmental.completedEvents)} / ${fmtNum(data.environmental.totalEvents)}` },
-    { label: 'Partenariats actifs',      val: fmtNum(data.partnerships.activePartnerships) },
-    { label: 'Engagements respectés',    val: `${fmtNum(data.partnerships.fulfillmentRate)}%` },
-    { label: 'Employés actifs',          val: fmtNum(data.social.totalActiveEmployees) },
-    { label: 'Formations réalisées',     val: fmtNum(data.social.trainingSessions) },
+    { label: 'Déchets collectés',    val: `${fmtNum(env.totalWasteKg, 1)} kg` },
+    { label: 'Arbres plantés',        val: fmtNum(env.totalTrees) },
+    { label: 'Participants RSE',      val: fmtNum(env.totalParticipants) },
+    { label: 'Événements réalisés',   val: `${fmtNum(env.completedEvents)} / ${fmtNum(env.totalEvents)}` },
+    { label: 'Partenariats actifs',   val: fmtNum(part.activePartnerships) },
+    { label: 'Engagements respectés', val: `${fmtNum(part.fulfillmentRate)}%` },
+    { label: 'Employés actifs',       val: fmtNum(social.totalActiveEmployees) },
+    { label: 'Formations réalisées',  val: fmtNum(social.trainingSessions) },
   ]
-
-  const cols = 4
   kpis.forEach((k, i) => {
-    const col = i % cols
-    const row = Math.floor(i / cols)
-    const x = 0.3 + col * 3.2
-    const y = 1.4 + row * 1.65
-    summary.addShape(prs.ShapeType.rect, { x, y, w: 3.0, h: 1.4, fill: { color: WHITE }, line: { color: BORDER, pt: 1 } })
-    summary.addShape(prs.ShapeType.rect, { x, y, w: 0.05, h: 1.4, fill: { color: GREEN } })
-    summary.addText(k.val, { x: x + 0.15, y: y + 0.12, w: 2.7, h: 0.55, fontSize: 22, bold: true, color: GREEN_DARK, fontFace: 'Calibri' })
-    summary.addText(k.label, { x: x + 0.15, y: y + 0.72, w: 2.7, h: 0.5, fontSize: 10, color: GRAY, fontFace: 'Calibri', wrap: true })
+    const x = 0.6 + (i % 4) * 3.12
+    const y = 1.6 + Math.floor(i / 4) * 2.5
+    summary.addShape('roundRect', { x, y, w: 2.9, h: 2.1, fill: { color: DARK }, line: { color: DARK }, rectRadius: 0.1 })
+    summary.addText(k.label.toUpperCase(), { x: x + 0.2, y: y + 0.22, w: 2.5, h: 0.6, fontSize: 10, color: SOFT })
+    summary.addText(k.val, { x: x + 0.2, y: y + 0.95, w: 2.5, h: 0.9, fontSize: 28, bold: true, color: WHITE })
   })
 
-  // ── Slide 3: Environmental ──
-  const envSlide = prs.addSlide()
-  envSlide.background = { color: LIGHT_BG }
-  envSlide.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.7, fill: { color: GREEN } })
-  envSlide.addText('Pilier Environnemental', {
-    x: 0.4, y: 0.1, w: 12, h: 0.5, fontSize: 18, bold: true, color: WHITE, fontFace: 'Calibri',
-  })
-  const envItems: [string, string][] = [
-    ['Déchets collectés (événements)', `${fmtNum(data.environmental.totalWasteKg, 1)} kg`],
-    ['Arbres plantés (événements)', fmtNum(data.environmental.totalTrees)],
-    ['Linéaire de plage nettoyé', `${fmtNum(data.environmental.totalBeachCleanedM, 1)} m`],
-    ['Zones traitées', fmtNum(data.environmental.totalZonesTreated)],
-    ['Arbres en projets', fmtNum(data.environmental.totalTreesInProjects)],
-    ['Total végétaux en projets', fmtNum(data.environmental.totalPlantsInProjects)],
-    ['Investissement RSE (TND)', fmtNum(data.environmental.totalEventInvestment, 3)],
-    ['Couverture médias', fmtNum(data.environmental.mediaCoverageCount)],
-    ['Portée réseaux sociaux', fmtNum(data.environmental.totalSocialMediaReach)],
-    ['Score satisfaction moyen', data.environmental.avgSatisfaction != null ? `${fmtNum(data.environmental.avgSatisfaction, 1)}/10` : 'N/D'],
-  ]
-  envItems.forEach(([label, val], i) => {
-    const col = i % 2
-    const row = Math.floor(i / 2)
-    const x = 0.3 + col * 6.4
-    const y = 0.9 + row * 0.7
-    envSlide.addText(`${label}: `, { x, y, w: 4.5, h: 0.4, fontSize: 11, color: GRAY, fontFace: 'Calibri' })
-    envSlide.addText(val, { x: x + 4.5, y, w: 1.5, h: 0.4, fontSize: 11, bold: true, color: GREEN_DARK, fontFace: 'Calibri' })
-  })
-
-  if (data.environmental.yearlyTrends.length > 0) {
-    envSlide.addText('Tendances annuelles', {
-      x: 0.3, y: 4.55, w: 6, h: 0.3, fontSize: 11, bold: true, color: GREEN_DARK, fontFace: 'Calibri',
-    })
+  // Pilier environnemental
+  const envSlide = themedSlide('Pilier Environnemental')
+  labelValueColumns(envSlide, [
+    ['Déchets collectés (événements)', `${fmtNum(env.totalWasteKg, 1)} kg`],
+    ['Arbres plantés (événements)', fmtNum(env.totalTrees)],
+    ['Linéaire de plage nettoyé', `${fmtNum(env.totalBeachCleanedM, 1)} m`],
+    ['Zones traitées', fmtNum(env.totalZonesTreated)],
+    ['Arbres en projets', fmtNum(env.totalTreesInProjects)],
+    ['Total végétaux en projets', fmtNum(env.totalPlantsInProjects)],
+    ['Investissement RSE (TND)', fmtNum(env.totalEventInvestment, 3)],
+    ['Couverture médias', fmtNum(env.mediaCoverageCount)],
+    ['Portée réseaux sociaux', fmtNum(env.totalSocialMediaReach)],
+    ['Score satisfaction moyen', env.avgSatisfaction != null ? `${fmtNum(env.avgSatisfaction, 1)}/10` : 'N/D'],
+  ])
+  if (env.yearlyTrends.length > 0) {
     const rows: PptxGenJS.TableRow[] = [
-      ['Année', 'Déchets (kg)', 'Arbres', 'Participants', 'Événements'].map((cell) => ({
-        text: cell, options: { bold: true, color: WHITE, fill: { color: GREEN }, fontFace: 'Calibri', fontSize: 10, align: 'center' as const },
-      })),
-      ...data.environmental.yearlyTrends.map((r, ri) =>
-        [String(r.year), fmtNum(r.wasteKg, 1), fmtNum(r.trees), fmtNum(r.participants), fmtNum(r.eventCount)].map((cell) => ({
-          text: cell,
-          options: { color: GREEN_DARK, fill: { color: ri % 2 === 0 ? '#EDF5F0' : WHITE }, fontFace: 'Calibri', fontSize: 10, align: 'center' as const },
-        }))
-      ),
+      tableHeader(['Année', 'Déchets (kg)', 'Arbres', 'Participants', 'Événements']),
+      ...env.yearlyTrends.map((r): PptxGenJS.TableRow => [
+        { text: String(r.year), options: { color: WHITE, bold: true } },
+        { text: fmtNum(r.wasteKg, 1), options: { color: SOFT } },
+        { text: fmtNum(r.trees), options: { color: SOFT } },
+        { text: fmtNum(r.participants), options: { color: SOFT } },
+        { text: fmtNum(r.eventCount), options: { color: SOFT } },
+      ]),
     ]
-    envSlide.addTable(rows, { x: 0.3, y: 4.9, w: 12.5, h: 0.36 * (rows.length), colW: [1.5, 2.5, 2, 2.5, 2] })
+    envSlide.addTable(rows, { x: 0.6, y: 5.0, w: 12, fontSize: 11, border: { pt: 0.5, color: TEAL }, fill: { color: DARK }, rowH: 0.38 })
   }
 
-  // ── Slide 4: Social ──
-  const socialSlide = prs.addSlide()
-  socialSlide.background = { color: LIGHT_BG }
-  socialSlide.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.7, fill: { color: '#1D4ED8' } })
-  socialSlide.addText('Pilier Social', {
-    x: 0.4, y: 0.1, w: 12, h: 0.5, fontSize: 18, bold: true, color: WHITE, fontFace: 'Calibri',
-  })
-  const socialItems: [string, string][] = [
-    ['Effectifs actifs', fmtNum(data.social.totalActiveEmployees)],
-    ['Auditeurs internes qualifiés', fmtNum(data.social.internalAuditorsCount)],
-    ['Sessions de formation', fmtNum(data.social.trainingSessions)],
-    ['Participants formations', fmtNum(data.social.trainingParticipants)],
-    ['Présence formations', `${fmtNum(data.social.trainingCompletion)}%`],
-    ['Score évaluation moyen', data.social.avgHotEvalScore != null ? fmtNum(data.social.avgHotEvalScore, 1) : 'N/D'],
-    ['Jours de congé approuvés', fmtNum(data.social.totalLeaveDays, 1)],
-    ['NC clôturées', `${fmtNum(data.social.ncsClosedRate)}%`],
-    ['Conformité HSE', data.social.hseComplianceRate != null ? `${fmtNum(data.social.hseComplianceRate)}%` : 'N/D'],
-  ]
-  socialItems.forEach(([label, val], i) => {
-    const col = i % 2
-    const row = Math.floor(i / 2)
-    const x = 0.3 + col * 6.4
-    const y = 0.9 + row * 0.75
-    socialSlide.addText(`${label}: `, { x, y, w: 4.5, h: 0.4, fontSize: 11, color: GRAY, fontFace: 'Calibri' })
-    socialSlide.addText(val, { x: x + 4.5, y, w: 1.5, h: 0.4, fontSize: 11, bold: true, color: '#1D4ED8', fontFace: 'Calibri' })
-  })
+  // Pilier social
+  const socialSlide = themedSlide('Pilier Social')
+  labelValueColumns(socialSlide, [
+    ['Effectifs actifs', fmtNum(social.totalActiveEmployees)],
+    ['Auditeurs internes qualifiés', fmtNum(social.internalAuditorsCount)],
+    ['Sessions de formation', fmtNum(social.trainingSessions)],
+    ['Participants formations', fmtNum(social.trainingParticipants)],
+    ['Présence formations', `${fmtNum(social.trainingCompletion)}%`],
+    ['Score évaluation moyen', social.avgHotEvalScore != null ? fmtNum(social.avgHotEvalScore, 1) : 'N/D'],
+    ['Jours de congé approuvés', fmtNum(social.totalLeaveDays, 1)],
+    ['NC clôturées', `${fmtNum(social.ncsClosedRate)}%`],
+    ['Conformité HSE', social.hseComplianceRate != null ? `${fmtNum(social.hseComplianceRate)}%` : 'N/D'],
+  ])
 
-  // ── Slide 5: Partnerships ──
-  const partSlide = prs.addSlide()
-  partSlide.background = { color: LIGHT_BG }
-  partSlide.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.7, fill: { color: '#B45309' } })
-  partSlide.addText('Pilier Partenariats & Communauté', {
-    x: 0.4, y: 0.1, w: 12, h: 0.5, fontSize: 18, bold: true, color: WHITE, fontFace: 'Calibri',
-  })
-  const partItems: [string, string][] = [
-    ['Partenariats actifs', fmtNum(data.partnerships.activePartnerships)],
-    ['Total partenariats', fmtNum(data.partnerships.totalPartnerships)],
-    ['Taux engagements respectés', `${fmtNum(data.partnerships.fulfillmentRate)}%`],
-    ['Engagements en retard', fmtNum(data.partnerships.overdueCommitments)],
-    ['Participants RSE', fmtNum(data.environmental.totalParticipants)],
-    ['Portée réseaux sociaux', fmtNum(data.environmental.totalSocialMediaReach)],
-  ]
-  partItems.forEach(([label, val], i) => {
-    const col = i % 2
-    const row = Math.floor(i / 2)
-    const x = 0.3 + col * 6.4
-    const y = 0.9 + row * 0.75
-    partSlide.addText(`${label}: `, { x, y, w: 4.5, h: 0.4, fontSize: 11, color: GRAY, fontFace: 'Calibri' })
-    partSlide.addText(val, { x: x + 4.5, y, w: 1.5, h: 0.4, fontSize: 11, bold: true, color: '#B45309', fontFace: 'Calibri' })
-  })
-
-  if (data.partnerships.topPartners.length > 0) {
-    partSlide.addText('Partenaires actifs', {
-      x: 0.3, y: 4.15, w: 6, h: 0.3, fontSize: 11, bold: true, color: '#B45309', fontFace: 'Calibri',
-    })
+  // Pilier partenariats
+  const partSlide = themedSlide('Pilier Partenariats & Communauté')
+  labelValueColumns(partSlide, [
+    ['Partenariats actifs', fmtNum(part.activePartnerships)],
+    ['Total partenariats', fmtNum(part.totalPartnerships)],
+    ['Taux engagements respectés', `${fmtNum(part.fulfillmentRate)}%`],
+    ['Engagements en retard', fmtNum(part.overdueCommitments)],
+  ])
+  if (part.topPartners.length > 0) {
     const rows: PptxGenJS.TableRow[] = [
-      ['Partenaire', 'Type', 'Statut'].map((cell) => ({
-        text: cell, options: { bold: true, color: WHITE, fill: { color: '#B45309' }, fontFace: 'Calibri', fontSize: 10 },
-      })),
-      ...data.partnerships.topPartners.map((p, ri) =>
-        [
-          p.partnerName,
-          PARTNER_TYPE_LABELS[p.partnerType] ?? p.partnerType,
-          p.status === 'actif' ? 'Actif' : p.status,
-        ].map((cell) => ({
-          text: cell,
-          options: { color: '#4a3000', fill: { color: ri % 2 === 0 ? '#FEF9EE' : WHITE }, fontFace: 'Calibri', fontSize: 10 },
-        }))
-      ),
+      tableHeader(['Partenaire', 'Type', 'Statut']),
+      ...part.topPartners.map((p): PptxGenJS.TableRow => [
+        { text: p.partnerName, options: { color: WHITE, bold: true } },
+        { text: PARTNER_TYPE_LABELS[p.partnerType] ?? p.partnerType, options: { color: SOFT } },
+        { text: p.status === 'actif' ? 'Actif' : p.status, options: { color: SOFT } },
+      ]),
     ]
-    partSlide.addTable(rows, { x: 0.3, y: 4.5, w: 12.5, h: 0.36 * rows.length, colW: [7.5, 3, 2] })
+    partSlide.addTable(rows, { x: 0.6, y: 3.4, w: 12, fontSize: 12, border: { pt: 0.5, color: TEAL }, fill: { color: DARK }, rowH: 0.42 })
   }
 
-  // ── Slide 6: Geographic distribution ──
+  // Répartition géographique
   if (data.locations.length > 0) {
-    const locSlide = prs.addSlide()
-    locSlide.background = { color: LIGHT_BG }
-    locSlide.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.7, fill: { color: GREEN } })
-    locSlide.addText('Répartition Géographique', {
-      x: 0.4, y: 0.1, w: 12, h: 0.5, fontSize: 18, bold: true, color: WHITE, fontFace: 'Calibri',
-    })
+    const locSlide = themedSlide('Répartition géographique')
     const rows: PptxGenJS.TableRow[] = [
-      ['Lieu', 'Événements', 'Participants', 'Déchets (kg)'].map((cell) => ({
-        text: cell, options: { bold: true, color: WHITE, fill: { color: GREEN }, fontFace: 'Calibri', fontSize: 11, align: 'center' as const },
-      })),
-      ...data.locations.map((loc, ri) =>
-        [loc.location, fmtNum(loc.eventCount), fmtNum(loc.totalParticipants), fmtNum(loc.totalWasteKg, 1)].map((cell) => ({
-          text: cell,
-          options: { color: GREEN_DARK, fill: { color: ri % 2 === 0 ? '#EDF5F0' : WHITE }, fontFace: 'Calibri', fontSize: 11 },
-        }))
-      ),
+      tableHeader(['Lieu', 'Événements', 'Participants', 'Déchets (kg)']),
+      ...data.locations.map((l): PptxGenJS.TableRow => [
+        { text: l.location, options: { color: WHITE, bold: true } },
+        { text: fmtNum(l.eventCount), options: { color: SOFT } },
+        { text: fmtNum(l.totalParticipants), options: { color: SOFT } },
+        { text: fmtNum(l.totalWasteKg, 1), options: { color: SOFT } },
+      ]),
     ]
-    locSlide.addTable(rows, { x: 0.3, y: 0.9, w: 12.5, h: 0.42 * rows.length, colW: [5.5, 2.5, 2.5, 2] })
+    locSlide.addTable(rows, { x: 0.6, y: 1.6, w: 12, fontSize: 12, border: { pt: 0.5, color: TEAL }, fill: { color: DARK }, rowH: 0.42 })
   }
 
-  // ── Slide 7: Recent Events ──
+  // Derniers événements
   if (data.recentEvents.length > 0) {
-    const evtSlide = prs.addSlide()
-    evtSlide.background = { color: LIGHT_BG }
-    evtSlide.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.7, fill: { color: GREEN } })
-    evtSlide.addText('Derniers Événements RSE', {
-      x: 0.4, y: 0.1, w: 12, h: 0.5, fontSize: 18, bold: true, color: WHITE, fontFace: 'Calibri',
-    })
+    const evtSlide = themedSlide('Derniers événements RSE')
     const rows: PptxGenJS.TableRow[] = [
-      ['Titre', 'Date', 'Type', 'Participants', 'Déchets (kg)', 'Arbres'].map((cell) => ({
-        text: cell, options: { bold: true, color: WHITE, fill: { color: GREEN }, fontFace: 'Calibri', fontSize: 9, align: 'center' as const },
-      })),
-      ...data.recentEvents.slice(0, 10).map((e, ri) => {
+      tableHeader(['Titre', 'Date', 'Type', 'Participants', 'Déchets (kg)', 'Arbres']),
+      ...data.recentEvents.slice(0, 10).map((e): PptxGenJS.TableRow => {
         const dateStr = e.date ? new Date(e.date instanceof Date ? e.date : String(e.date)).toLocaleDateString('fr-FR') : ''
         return [
-          e.title.length > 35 ? e.title.slice(0, 35) + '…' : e.title,
-          dateStr,
-          EVENT_TYPE_LABELS[e.eventType] ?? e.eventType,
-          e.participants != null ? fmtNum(e.participants) : '—',
-          e.wasteKg != null ? fmtNum(e.wasteKg, 1) : '—',
-          e.trees != null ? fmtNum(e.trees) : '—',
-        ].map((cell) => ({
-          text: cell,
-          options: { color: GREEN_DARK, fill: { color: ri % 2 === 0 ? '#EDF5F0' : WHITE }, fontFace: 'Calibri', fontSize: 9 },
-        }))
+          { text: e.title.length > 40 ? `${e.title.slice(0, 40)}…` : e.title, options: { color: WHITE } },
+          { text: dateStr, options: { color: SOFT } },
+          { text: EVENT_TYPE_LABELS[e.eventType] ?? e.eventType, options: { color: SOFT } },
+          { text: e.participants != null ? fmtNum(e.participants) : '—', options: { color: SOFT } },
+          { text: e.wasteKg != null ? fmtNum(e.wasteKg, 1) : '—', options: { color: SOFT } },
+          { text: e.trees != null ? fmtNum(e.trees) : '—', options: { color: SOFT } },
+        ]
       }),
     ]
-    evtSlide.addTable(rows, { x: 0.3, y: 0.9, w: 12.5, h: 0.38 * rows.length, colW: [4.5, 1.5, 2.5, 1.5, 1.5, 1] })
+    evtSlide.addTable(rows, { x: 0.6, y: 1.6, w: 12, fontSize: 10, border: { pt: 0.5, color: TEAL }, fill: { color: DARK }, rowH: 0.4, colW: [4.2, 1.3, 2.5, 1.5, 1.5, 1] })
   }
 
-  const buf = (await prs.write({ outputType: 'nodebuffer' })) as Buffer
-  return buf
+  return (await prs.write({ outputType: 'nodebuffer' })) as Buffer
 }
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
   const session = await auth()
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
 
   const { searchParams } = new URL(req.url)
   const format = searchParams.get('format') ?? 'xlsx'
@@ -451,7 +384,7 @@ export async function GET(req: NextRequest) {
   const data = await getRseDashboardData(year)
 
   if (format === 'xlsx') {
-    const buffer = buildExcel(data, year)
+    const buffer = await buildExcel(data, year)
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
@@ -472,9 +405,25 @@ export async function GET(req: NextRequest) {
     })
   }
 
+  if (format === 'pdf') {
+    const { renderToBuffer } = await import('@react-pdf/renderer')
+    const { RseReportDocument } = await import('@/components/pdf/RseReportDocument')
+    const element = createElement(RseReportDocument, {
+      data, year, generatedAt: new Date().toLocaleDateString('fr-FR'),
+    }) as unknown as Parameters<typeof renderToBuffer>[0]
+    const buffer = await renderToBuffer(element)
+    return new NextResponse(new Uint8Array(buffer), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="SOPAT_RSE_${year}.pdf"`,
+      },
+    })
+  }
+
   if (format === 'json') {
     return NextResponse.json(data)
   }
 
-  return NextResponse.json({ error: 'Unsupported format. Use ?format=xlsx, ?format=pptx or ?format=json' }, { status: 400 })
+  return NextResponse.json({ error: 'Format non supporté : ?format=xlsx, pptx, pdf ou json' }, { status: 400 })
 }
