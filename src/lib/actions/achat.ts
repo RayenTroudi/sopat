@@ -6,6 +6,7 @@ import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
 import { getNextDeliveryNoteReference, getNextExpenseReference } from '@/lib/db/achat'
+import { checkBudgetThresholdAndNotify } from '@/lib/notifications'
 
 function canManageAchat(role: string) {
   return ['admin', 'direction', 'realisation_chef', 'etudes_chef'].includes(role)
@@ -104,7 +105,7 @@ export async function decideExtraExpense(
   if (!['admin', 'direction'].includes(session.user.role))
     return { success: false, error: 'Validation réservée à la direction' }
 
-  await db
+  const [updated] = await db
     .update(extraExpenses)
     .set({
       status: decision,
@@ -114,6 +115,12 @@ export async function decideExtraExpense(
       updatedAt: new Date(),
     })
     .where(eq(extraExpenses.id, id))
+    .returning({ projectId: extraExpenses.projectId })
+
+  if (decision === 'approved' && updated?.projectId) {
+    await checkBudgetThresholdAndNotify(updated.projectId, session.user.userId)
+  }
+
   revalidatePath('/admin/achat/extra-expenses')
   return { success: true }
 }
