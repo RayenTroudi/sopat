@@ -103,7 +103,7 @@ export function AdminNotifications() {
       {open && (
         <div
           className="absolute right-0 top-full mt-1.5 w-80 rounded-xl border shadow-lg overflow-hidden z-50"
-          style={{ background: '#FFFFFF', borderColor: 'rgba(0,0,0,0.12)' }}
+          style={{ background: '#F4F8F5', borderColor: 'rgba(0,0,0,0.12)' }}
         >
           <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: 'rgba(0,0,0,0.08)' }}>
             <p className="text-sm font-semibold" style={{ color: 'rgba(0,0,0,0.8)' }}>Notifications</p>

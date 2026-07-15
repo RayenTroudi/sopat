@@ -123,7 +123,7 @@ export function AdminSearch() {
       {showDropdown && (
         <div
           className="absolute left-0 top-full mt-1.5 w-full rounded-xl border shadow-lg overflow-hidden z-50"
-          style={{ background: '#FFFFFF', borderColor: 'rgba(0,0,0,0.12)' }}
+          style={{ background: '#F4F8F5', borderColor: 'rgba(0,0,0,0.12)' }}
         >
           {results.length === 0 ? (
             <p className="px-4 py-3 text-xs" style={{ color: 'rgba(0,0,0,0.4)' }}>
