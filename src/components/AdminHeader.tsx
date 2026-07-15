@@ -2,7 +2,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, Bell, ChevronDown, Search } from 'lucide-react'
+import { Menu, Bell, ChevronDown } from 'lucide-react'
+import { AdminSearch } from '@/components/AdminSearch'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
@@ -45,31 +46,7 @@ export function AdminHeader({ name, role, userId }: Props) {
           <Menu className="w-5 h-5" />
         </Button>
 
-        <div
-          className="relative hidden lg:flex items-center"
-          style={{ maxWidth: '320px', width: '100%' }}
-        >
-          <Search
-            className="absolute left-3 pointer-events-none"
-            style={{ width: '14px', height: '14px', color: 'rgba(0,0,0,0.4)' }}
-          />
-          <input
-            type="search"
-            placeholder="Rechercher…"
-            className="w-full text-sm outline-none bg-transparent"
-            style={{
-              height:       '34px',
-              paddingLeft:  '34px',
-              paddingRight: '12px',
-              borderRadius: '10px',
-              border:       '1.5px solid rgba(0,0,0,0.15)',
-              color:        '#000000',
-              background:   '#F4F8F5',
-            }}
-            onFocus={e => e.currentTarget.style.borderColor = 'rgba(0,0,0,0.4)'}
-            onBlur={e => e.currentTarget.style.borderColor = 'rgba(0,0,0,0.15)'}
-          />
-        </div>
+        <AdminSearch />
       </div>
 
       {/* Right: bell + user dropdown */}
