@@ -2,8 +2,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, Bell, ChevronDown } from 'lucide-react'
+import { Menu, ChevronDown } from 'lucide-react'
 import { AdminSearch } from '@/components/AdminSearch'
+import { AdminNotifications } from '@/components/AdminNotifications'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import {
@@ -51,15 +52,7 @@ export function AdminHeader({ name, role, userId }: Props) {
 
       {/* Right: bell + user dropdown */}
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          aria-label="Notifications"
-          style={{ color: 'rgba(0,0,0,0.5)' }}
-        >
-          <Bell className="w-4 h-4" />
-        </Button>
+        <AdminNotifications />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
