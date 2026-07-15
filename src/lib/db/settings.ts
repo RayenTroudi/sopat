@@ -132,3 +132,9 @@ export async function getBudgetEngineConfig(): Promise<BudgetEngineConfig> {
   const stored = (row?.value ?? {}) as Partial<BudgetEngineConfig>
   return { ...DEFAULT_ENGINE_CONFIG, ...stored }
 }
+
+// ─── Paramètres de notifications (accès direct, sans company/smtp) ───────────
+
+export async function getNotificationSettings(): Promise<NotificationSettings> {
+  return getSetting<NotificationSettings>('notifications', DEFAULTS.notifications)
+}
