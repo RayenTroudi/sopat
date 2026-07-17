@@ -6,6 +6,7 @@ import { getLatestBudgetValidation } from '@/lib/db/predictions'
 import { getPlantList, getActiveSuppliers } from '@/lib/db/etudes'
 import { getActiveUsers } from '@/lib/db/iso'
 import { getProjectTeamMembers } from '@/lib/db/realisation'
+import { getProjectAchats } from '@/lib/db/achat'
 import { PhaseBadge } from '@/components/projects/PhaseBadge'
 import { BudgetBadge } from '@/components/projects/BudgetBadge'
 import { ProjectTabs } from './ProjectTabs'
@@ -59,12 +60,31 @@ export default async function ProjectDetailPage({
 
   const { project, phases, activityLog, assets } = data
 
-  const [latestValidation, plantList, users, teamMembers] = await Promise.all([
+  const [latestValidation, plantList, users, teamMembers, achats] = await Promise.all([
     getLatestBudgetValidation(id),
     getPlantList(id),
     getActiveUsers(),
     getProjectTeamMembers(id),
+    getProjectAchats(id),
   ])
+
+  const achatExpenses = achats.expenses.map(({ expense, creatorName }) => ({
+    id:              expense.id,
+    reference:       expense.reference,
+    expenseDate:     expense.expenseDate,
+    category:        expense.category,
+    description:     expense.description,
+    amount:          expense.amount,
+    currency:        expense.currency,
+    status:          expense.status,
+    source:          expense.source,
+    ocrRawText:      expense.ocrRawText,
+    ocrSuggested:    expense.ocrSuggested as {
+      amount?: string; expenseDate?: string; description?: string; confidence?: number
+    } | null,
+    receiptImageUrl: expense.receiptImageUrl,
+    creatorName,
+  }))
 
   // Derive plant zones from plant categories in the études list
   const plantZones = [...new Set(plantList.map((p) => {
@@ -178,6 +198,8 @@ export default async function ProjectDetailPage({
         initialTeamMembers={teamMembers}
         projectName={project.name}
         initialPlantList={plantList}
+        achatExpenses={achatExpenses}
+        achatBudget={achats.budget}
       />
     </div>
   )

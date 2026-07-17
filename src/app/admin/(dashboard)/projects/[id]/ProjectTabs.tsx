@@ -8,6 +8,7 @@ import { EtudesTab } from '@/components/projects/EtudesTab'
 import { RealisationTab } from '@/components/realisation/RealisationTab'
 import { EntretienTab } from '@/components/entretien/EntretienTab'
 import { BudgetSummaryBanner } from '@/components/budget/OfficialBudgetCard'
+import { AchatsTab, type AchatExpense } from '@/components/achat/AchatsTab'
 import type { UploadedAsset } from '@/components/upload/CloudinaryUploader'
 import { ZonesTab } from '@/components/projects/ZonesTab'
 import type { TeamMemberRow } from '@/lib/db/realisation'
@@ -78,12 +79,21 @@ type Props = {
   initialTeamMembers: TeamMemberRow[]
   projectName?: string
   initialPlantList: PlantListItemRow[]
+  achatExpenses: AchatExpense[]
+  achatBudget: {
+    approvedBudget: number | null
+    poTotal: number
+    expensesTotal: number
+    spent: number
+    percentSpent: number | null
+  }
 }
 
 const BASE_TABS = [
   { key: 'etudes',      label: 'Études' },
   { key: 'realisation', label: 'Réalisation' },
   { key: 'entretien',   label: 'Entretien' },
+  { key: 'achats',      label: 'Achats' },
   { key: 'documents',   label: 'Documents' },
   { key: 'activite',    label: 'Activité' },
 ]
@@ -142,6 +152,9 @@ export function ProjectTabs({
   initialTeamMembers,
   projectName = '',
   initialPlantList,
+  achatExpenses,
+  achatBudget,
+  currency,
 }: Props) {
   const pathname = usePathname()
 
@@ -207,6 +220,16 @@ export function ProjectTabs({
           </div>
         )
       }
+
+      case 'achats':
+        return (
+          <AchatsTab
+            expenses={achatExpenses}
+            budget={achatBudget}
+            currency={currency ?? 'TND'}
+            canEdit={isAdmin}
+          />
+        )
 
       case 'documents':
         return (

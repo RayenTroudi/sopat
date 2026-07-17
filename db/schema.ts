@@ -3515,6 +3515,11 @@ export const extraExpenses = pgTable('extra_expenses', {
   amount:        decimal('amount', { precision: 12, scale: 3 }).notNull(),
   currency:      varchar('currency', { length: 10 }).notNull().default('TND'),
   justification: text('justification'),
+  // Provenance mobile OCR : valeurs suggérées par l'IA vs valeurs validées par l'utilisateur
+  source:        varchar('source', { length: 20 }).notNull().default('web'),
+  ocrRawText:    text('ocr_raw_text'),
+  ocrSuggested:  jsonb('ocr_suggested'),
+  receiptImageUrl: varchar('receipt_image_url', { length: 500 }),
   status:        extraExpenseStatusEnum('status').notNull().default('pending'),
   approvedBy:    uuid('approved_by'),
   approvedAt:    timestamp('approved_at'),

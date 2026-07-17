@@ -43,3 +43,20 @@ export async function uploadBufferToCloudinary(
     stream.end(buffer)
   })
 }
+
+/** Upload d'une image (resource_type image — transformations Cloudinary possibles). */
+export async function uploadImageToCloudinary(
+  buffer: Buffer,
+  opts: { folder: string; publicId?: string },
+): Promise<{ publicId: string; secureUrl: string; bytes: number }> {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: 'image', folder: opts.folder, public_id: opts.publicId },
+      (err, res) => {
+        if (err || !res) return reject(err ?? new Error('Cloudinary upload returned no result'))
+        resolve({ publicId: res.public_id, secureUrl: res.secure_url, bytes: res.bytes })
+      },
+    )
+    stream.end(buffer)
+  })
+}

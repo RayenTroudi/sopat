@@ -4,7 +4,7 @@ import { db } from '@/db'
 import { deliveryNotes, extraExpenses, type DeliveryNoteItem } from '@/db/schema'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
-import { eq } from 'drizzle-orm'
+import { eq, and, isNull } from 'drizzle-orm'
 import { getNextDeliveryNoteReference, getNextExpenseReference } from '@/lib/db/achat'
 import { checkBudgetThresholdAndNotify } from '@/lib/notifications'
 
@@ -122,6 +122,53 @@ export async function decideExtraExpense(
   }
 
   revalidatePath('/admin/achat/extra-expenses')
+  return { success: true }
+}
+
+export async function updateExtraExpense(
+  id: string,
+  data: {
+    expenseDate?: string
+    category?: string
+    description?: string
+    amount?: string
+    ocrSuggested?: Record<string, unknown> | null
+  },
+) {
+  const session = await auth()
+  if (!session) return { success: false, error: 'Non autorisé' }
+  if (!canManageAchat(session.user.role))
+    return { success: false, error: 'Accès non autorisé' }
+
+  if (data.amount !== undefined) {
+    if (!/^\d+(\.\d{1,3})?$/.test(data.amount) || parseFloat(data.amount) <= 0)
+      return { success: false, error: 'Montant invalide' }
+  }
+  if (data.description !== undefined && data.description.trim() === '')
+    return { success: false, error: 'Description requise' }
+
+  const [updated] = await db
+    .update(extraExpenses)
+    .set({
+      expenseDate:  data.expenseDate,
+      category:     data.category,
+      description:  data.description,
+      amount:       data.amount,
+      ocrSuggested: data.ocrSuggested,
+      updatedAt:    new Date(),
+    })
+    .where(and(eq(extraExpenses.id, id), isNull(extraExpenses.deletedAt)))
+    .returning({ projectId: extraExpenses.projectId, status: extraExpenses.status })
+
+  if (!updated) return { success: false, error: 'Dépense introuvable' }
+
+  // Le montant modifié d'une dépense approuvée change la consommation budget.
+  if (updated.status === 'approved' && updated.projectId) {
+    await checkBudgetThresholdAndNotify(updated.projectId, session.user.userId)
+  }
+
+  revalidatePath('/admin/achat/extra-expenses')
+  if (updated.projectId) revalidatePath(`/admin/projects/${updated.projectId}`)
   return { success: true }
 }
 

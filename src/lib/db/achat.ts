@@ -1,6 +1,6 @@
 import { db } from '@/db'
-import { deliveryNotes, extraExpenses, projects, suppliers, users } from '@/db/schema'
-import { eq, and, isNull, desc, count } from 'drizzle-orm'
+import { deliveryNotes, extraExpenses, projects, purchaseOrders, suppliers, users } from '@/db/schema'
+import { eq, and, isNull, desc, count, sql } from 'drizzle-orm'
 
 export type DeliveryNote = typeof deliveryNotes.$inferSelect
 export type ExtraExpense = typeof extraExpenses.$inferSelect
@@ -88,6 +88,52 @@ export async function getExtraExpenses(filters?: { status?: string }) {
       )
     )
     .orderBy(desc(extraExpenses.expenseDate))
+}
+
+/**
+ * Dépenses extra d'un projet + consommation budgétaire.
+ * Utilisé par l'onglet « Achats » de la fiche projet : liste des dépenses
+ * (avec photo + données OCR pour celles scannées via mobile) et pourcentage
+ * de budget consommé (BC + dépenses approuvées, même règle que les alertes).
+ */
+export async function getProjectAchats(projectId: string) {
+  const [project] = await db
+    .select({ approvedBudget: projects.approvedBudget, currency: projects.currency })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1)
+
+  const rows = await db
+    .select({ expense: extraExpenses, creatorName: users.name })
+    .from(extraExpenses)
+    .leftJoin(users, eq(extraExpenses.createdBy, users.id))
+    .where(and(eq(extraExpenses.projectId, projectId), isNull(extraExpenses.deletedAt)))
+    .orderBy(desc(extraExpenses.expenseDate))
+
+  const [poRow] = await db
+    .select({ total: sql<string>`coalesce(sum(${purchaseOrders.totalCost}::numeric), 0)::text` })
+    .from(purchaseOrders)
+    .where(eq(purchaseOrders.projectId, projectId))
+
+  const approvedExpensesTotal = rows
+    .filter((r) => r.expense.status === 'approved')
+    .reduce((s, r) => s + Number(r.expense.amount), 0)
+
+  const poTotal = parseFloat(poRow?.total ?? '0')
+  const approved = project?.approvedBudget ? parseFloat(project.approvedBudget) : null
+  const spent = poTotal + approvedExpensesTotal
+
+  return {
+    expenses: rows,
+    currency: project?.currency ?? 'TND',
+    budget: {
+      approvedBudget: approved,
+      poTotal,
+      expensesTotal: approvedExpensesTotal,
+      spent,
+      percentSpent: approved && approved > 0 ? Math.round((spent / approved) * 1000) / 10 : null,
+    },
+  }
 }
 
 export async function getNextExpenseReference() {

@@ -4,6 +4,7 @@ import { getExtraExpenses, EXPENSE_STATUS_LABELS } from '@/lib/db/achat'
 import Link from 'next/link'
 import ExportExcelButton from '@/components/ExportExcelButton'
 import ExpenseDecisionButtons from './ExpenseDecisionButtons'
+import ExpenseScanDetails from './ExpenseScanDetails'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Extra dépenses | SOPAT Admin' }
@@ -92,7 +93,7 @@ export default async function ExtraExpensesPage({ searchParams }: { searchParams
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
-                {['Réf.', 'Date', 'Projet', 'Catégorie', 'Description', 'Montant', 'Statut', 'Demandeur', canDecide ? 'Validation' : ''].map((h) => (
+                {['Réf.', 'Date', 'Projet', 'Catégorie', 'Description', 'Scan', 'Montant', 'Statut', 'Demandeur', canDecide ? 'Validation' : ''].map((h) => (
                   <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -113,6 +114,23 @@ export default async function ExtraExpensesPage({ searchParams }: { searchParams
                   <td className="px-4 py-3 max-w-xs">
                     <p className="truncate text-[13px]" style={{ color: 'var(--admin-text)' }}>{expense.description}</p>
                   </td>
+                  <td className="px-4 py-3">
+                    {expense.source === 'mobile_ocr' ? (
+                      <ExpenseScanDetails
+                        reference={expense.reference}
+                        imageUrl={expense.receiptImageUrl}
+                        ocrRawText={expense.ocrRawText}
+                        ocrSuggested={expense.ocrSuggested as { amount?: string; expenseDate?: string; description?: string } | null}
+                        validated={{
+                          amount: expense.amount,
+                          expenseDate: expense.expenseDate,
+                          description: expense.description,
+                        }}
+                      />
+                    ) : (
+                      <span style={{ color: 'var(--admin-text-muted)' }}>—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-[13px] font-medium" style={{ color: 'var(--admin-text)' }}>
                     {Number(expense.amount).toLocaleString('fr-FR')} {expense.currency}
                   </td>
@@ -131,7 +149,7 @@ export default async function ExtraExpensesPage({ searchParams }: { searchParams
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+                  <td colSpan={10} className="px-4 py-12 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
                     Aucune dépense.{' '}
                     <Link href="/admin/achat/extra-expenses/new" style={{ color: 'var(--admin-accent)' }} className="hover:underline">
                       Créer la première
