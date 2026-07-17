@@ -52,11 +52,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const status = searchParams.get('status') as ProjectStatus | null
   const projectType = searchParams.get('projectType') as ProjectType | null
+  const country = searchParams.get('country')
   const page = parseInt(searchParams.get('page') ?? '1', 10)
   const pageSize = parseInt(searchParams.get('pageSize') ?? '25', 10)
 
   try {
-    const result = await getAllProjects({ status: status ?? undefined, projectType: projectType ?? undefined, page, pageSize })
+    const result = await getAllProjects({ status: status ?? undefined, projectType: projectType ?? undefined, country: country ?? undefined, page, pageSize })
     const userRole = session.user.role
     const maskedRows = result.rows.map((r) => ({
       ...r,

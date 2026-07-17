@@ -21,6 +21,7 @@ type ProjectRow = {
   status: string
   projectType: string
   approvedBudget: string | null
+  spent: string | null
   country?: string | null
   currency?: string | null
   assignedEtudesChefId: string | null
@@ -90,7 +91,7 @@ const TABLE_HEADS = [
   { label: 'Type',         className: 'hidden xl:table-cell' },
   { label: 'Pays',         className: 'hidden sm:table-cell w-12 text-center' },
   { label: 'Phase',        className: 'w-28' },
-  { label: 'Budget',       className: 'hidden md:table-cell' },
+  { label: 'Budget utilisé', className: 'hidden md:table-cell' },
   { label: 'Livraison',    className: 'hidden xl:table-cell' },
   { label: 'Créé',         className: 'hidden xl:table-cell' },
 ]
@@ -104,6 +105,8 @@ export function ProjectsTable({ userRole }: Props) {
   const [total, setTotal]       = useState(0)
   const [pageSize, setPageSize] = useState(25)
   const [loading, setLoading]   = useState(true)
+  const [error, setError]       = useState<string | null>(null)
+  const [retryTick, setRetryTick] = useState(0)
 
   const currentStatus  = searchParams.get('status') ?? ''
   const currentType    = searchParams.get('projectType') ?? ''
@@ -112,6 +115,7 @@ export function ProjectsTable({ userRole }: Props) {
 
   useEffect(() => {
     setLoading(true)
+    setError(null)
     const params = new URLSearchParams()
     if (currentStatus)  params.set('status', currentStatus)
     if (currentType)    params.set('projectType', currentType)
@@ -119,10 +123,13 @@ export function ProjectsTable({ userRole }: Props) {
     params.set('page', String(page))
     params.set('pageSize', '25')
     fetch(`/api/projects?${params}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((data) => { setRows(data.rows ?? []); setTotal(data.total ?? 0); setPageSize(data.pageSize ?? 25); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [currentStatus, currentType, currentCountry, page])
+      .catch(() => { setError('Impossible de charger les projets. Réessayez.'); setLoading(false) })
+  }, [currentStatus, currentType, currentCountry, page, retryTick])
 
   function updateParam(key: string, value: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -198,6 +205,13 @@ export function ProjectsTable({ userRole }: Props) {
               </div>
             ))}
           </div>
+        ) : error ? (
+          <div className="px-4 py-10 text-center">
+            <p className="text-sm mb-3" style={{ color: 'var(--admin-red)' }}>{error}</p>
+            <Button variant="outline" size="sm" onClick={() => setRetryTick((t) => t + 1)}>
+              Réessayer
+            </Button>
+          </div>
         ) : rows.length === 0 ? (
           <EmptyState
             icon={FolderOpen}
@@ -264,9 +278,11 @@ export function ProjectsTable({ userRole }: Props) {
                     </TableCell>
                     <TableCell className="hidden md:table-cell py-2.5">
                       <div className="flex items-center gap-2">
-                        <BudgetBadge approved={row.approvedBudget} />
-                        {row.approvedBudget && row.currency && (
-                          <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>{row.currency}</span>
+                        <BudgetBadge approved={row.approvedBudget} spent={row.spent} />
+                        {row.approvedBudget && (
+                          <span className="text-[11px] tabular-nums whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
+                            {Number(row.spent ?? 0).toLocaleString('fr-FR')} / {Number(row.approvedBudget).toLocaleString('fr-FR')}{row.currency ? ` ${row.currency}` : ''}
+                          </span>
                         )}
                       </div>
                     </TableCell>

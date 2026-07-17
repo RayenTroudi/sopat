@@ -1,11 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { eq, and, isNull, sql } from 'drizzle-orm'
 import { db } from '@/db'
 import { extraExpenses, projects, purchaseOrders } from '@/db/schema'
-import { requireApiRole } from '@/lib/auth'
+import { requireMobileAuth, corsJson, corsPreflight } from '@/lib/mobile-auth'
 import { getNextExpenseReference } from '@/lib/db/achat'
 import { uploadImageToCloudinary } from '@/lib/cloudinary'
+
+export function OPTIONS() {
+  return corsPreflight()
+}
 
 // Création d'une dépense extra depuis l'app mobile (scan OCR).
 // La dépense entre dans le circuit existant : statut `pending`, validation
@@ -40,9 +44,9 @@ const createSchema = z.object({
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 export async function POST(req: NextRequest) {
-  const guard = await requireApiRole(['admin', 'direction', 'realisation_chef', 'etudes_chef'])
+  const guard = await requireMobileAuth(req, ['admin', 'realisation_chef', 'realisation_team'])
   if ('response' in guard) return guard.response
-  const { session } = guard
+  const { user } = guard
 
   // Deux formats acceptés :
   //  - multipart/form-data : champ `data` (JSON) + champ `image` (photo du justificatif)
@@ -53,20 +57,20 @@ export async function POST(req: NextRequest) {
   if (contentType.includes('multipart/form-data')) {
     const form = await req.formData().catch(() => null)
     if (!form) {
-      return NextResponse.json({ error: 'Formulaire invalide' }, { status: 400 })
+      return corsJson({ error: 'Formulaire invalide' }, { status: 400 })
     }
     try {
       body = JSON.parse(String(form.get('data') ?? 'null'))
     } catch {
-      return NextResponse.json({ error: 'Champ data invalide' }, { status: 400 })
+      return corsJson({ error: 'Champ data invalide' }, { status: 400 })
     }
     const file = form.get('image')
     if (file instanceof File && file.size > 0) {
       if (file.size > MAX_IMAGE_BYTES) {
-        return NextResponse.json({ error: 'Image trop volumineuse (max 10 Mo)' }, { status: 413 })
+        return corsJson({ error: 'Image trop volumineuse (max 10 Mo)' }, { status: 413 })
       }
       if (!file.type.startsWith('image/')) {
-        return NextResponse.json({ error: 'Le fichier doit être une image' }, { status: 415 })
+        return corsJson({ error: 'Le fichier doit être une image' }, { status: 415 })
       }
       imageFile = file
     }
@@ -76,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = createSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json(
+    return corsJson(
       { error: parsed.error.issues[0]?.message ?? 'Données invalides' },
       { status: 400 },
     )
@@ -90,7 +94,7 @@ export async function POST(req: NextRequest) {
       .where(and(eq(projects.id, data.projectId), isNull(projects.deletedAt)))
       .limit(1)
     if (!project) {
-      return NextResponse.json({ error: 'Projet introuvable' }, { status: 404 })
+      return corsJson({ error: 'Projet introuvable' }, { status: 404 })
     }
   }
 
@@ -104,7 +108,7 @@ export async function POST(req: NextRequest) {
       receiptImageUrl = uploaded.secureUrl
     } catch (err) {
       console.error('[mobile/expenses] cloudinary upload failed:', err)
-      return NextResponse.json(
+      return corsJson(
         { error: 'Échec de l’enregistrement de la photo. Réessayez.' },
         { status: 502 },
       )
@@ -127,7 +131,7 @@ export async function POST(req: NextRequest) {
       ocrRawText: data.ocrRawText,
       ocrSuggested: data.ocrSuggested,
       receiptImageUrl,
-      createdBy: session.user.userId,
+      createdBy: user.userId,
     })
     .returning({ id: extraExpenses.id, reference: extraExpenses.reference })
 
@@ -137,6 +141,7 @@ export async function POST(req: NextRequest) {
   let budget: {
     approvedBudget: number | null
     spent: number
+    pendingTotal: number
     percentSpent: number | null
   } | null = null
 
@@ -153,26 +158,29 @@ export async function POST(req: NextRequest) {
       .where(eq(purchaseOrders.projectId, data.projectId))
 
     const [exRow] = await db
-      .select({ total: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric), 0)::text` })
+      .select({
+        approved: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric) filter (where ${extraExpenses.status} = 'approved'), 0)::text`,
+        pending: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric) filter (where ${extraExpenses.status} = 'pending'), 0)::text`,
+      })
       .from(extraExpenses)
       .where(
         and(
           eq(extraExpenses.projectId, data.projectId),
-          eq(extraExpenses.status, 'approved'),
           isNull(extraExpenses.deletedAt),
         ),
       )
 
     const approved = proj?.approvedBudget ? parseFloat(proj.approvedBudget) : null
-    const spent = parseFloat(poRow?.total ?? '0') + parseFloat(exRow?.total ?? '0')
+    const spent = parseFloat(poRow?.total ?? '0') + parseFloat(exRow?.approved ?? '0')
     budget = {
       approvedBudget: approved,
       spent,
+      pendingTotal: parseFloat(exRow?.pending ?? '0'),
       percentSpent: approved && approved > 0 ? Math.round((spent / approved) * 1000) / 10 : null,
     }
   }
 
-  return NextResponse.json(
+  return corsJson(
     {
       success: true,
       id: row.id,

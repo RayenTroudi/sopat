@@ -125,7 +125,7 @@ export default async function ProjectDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <BudgetBadge approved={project.approvedBudget} />
+            <BudgetBadge approved={project.approvedBudget} spent={String(achats.budget.spent)} />
             {isAdmin && <DeleteProjectButton projectId={id} projectName={project.name} />}
           </div>
         </div>

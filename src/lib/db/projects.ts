@@ -6,6 +6,8 @@ import {
   projectActivityLog,
   cloudinaryAssets,
   clients,
+  purchaseOrders,
+  extraExpenses,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 import { attachDmsCode } from '../dms/attach'
@@ -160,6 +162,28 @@ async function _getAllProjects(filters?: {
   if (filters?.projectType) conditions.push(eq(projects.projectType, filters.projectType))
   if (filters?.country) conditions.push(eq(projects.country, filters.country))
 
+  // Consommation budgétaire par projet (BC + dépenses extra approuvées —
+  // même règle que les alertes budget). Sous-requêtes groupées jointes en
+  // une seule requête : pas de N+1.
+  const poSpent = db
+    .select({
+      projectId: purchaseOrders.projectId,
+      total: sql<string>`coalesce(sum(${purchaseOrders.totalCost}::numeric), 0)::text`.as('po_total'),
+    })
+    .from(purchaseOrders)
+    .groupBy(purchaseOrders.projectId)
+    .as('po_spent')
+
+  const exSpent = db
+    .select({
+      projectId: extraExpenses.projectId,
+      total: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric), 0)::text`.as('ex_total'),
+    })
+    .from(extraExpenses)
+    .where(and(eq(extraExpenses.status, 'approved'), isNull(extraExpenses.deletedAt)))
+    .groupBy(extraExpenses.projectId)
+    .as('ex_spent')
+
   const [rows, [{ total }]] = await Promise.all([
     db.select({
         id: projects.id,
@@ -190,9 +214,13 @@ async function _getAllProjects(filters?: {
         clientId: projects.clientId,
         clientDisplayName: clients.displayName,
         dmsDocumentCode: projects.dmsDocumentCode,
+        poTotal: poSpent.total,
+        exTotal: exSpent.total,
       })
       .from(projects)
       .leftJoin(clients, eq(projects.clientId, clients.id))
+      .leftJoin(poSpent, eq(poSpent.projectId, projects.id))
+      .leftJoin(exSpent, eq(exSpent.projectId, projects.id))
       .where(and(...conditions))
       .orderBy(desc(projects.createdAt))
       .limit(pageSize)
@@ -202,7 +230,15 @@ async function _getAllProjects(filters?: {
       .where(and(...conditions)),
   ])
 
-  return { rows, total: Number(total), page, pageSize }
+  return {
+    rows: rows.map(({ poTotal, exTotal, ...row }) => ({
+      ...row,
+      spent: String(parseFloat(poTotal ?? '0') + parseFloat(exTotal ?? '0')),
+    })),
+    total: Number(total),
+    page,
+    pageSize,
+  }
 }
 
 export const getAllProjects = unstable_cache(

@@ -3,7 +3,7 @@
 import { db } from '@/db'
 import { deliveryNotes, extraExpenses, type DeliveryNoteItem } from '@/db/schema'
 import { auth } from '@/lib/auth'
-import { revalidatePath } from 'next/cache'
+import { revalidatePath, revalidateTag } from 'next/cache'
 import { eq, and, isNull } from 'drizzle-orm'
 import { getNextDeliveryNoteReference, getNextExpenseReference } from '@/lib/db/achat'
 import { checkBudgetThresholdAndNotify } from '@/lib/notifications'
@@ -122,6 +122,9 @@ export async function decideExtraExpense(
   }
 
   revalidatePath('/admin/achat/extra-expenses')
+  if (updated?.projectId) revalidatePath(`/admin/projects/${updated.projectId}`)
+  // La consommation budget a changé → invalider la liste projets en cache
+  revalidateTag('projects-list', 'default')
   return { success: true }
 }
 
@@ -165,6 +168,7 @@ export async function updateExtraExpense(
   // Le montant modifié d'une dépense approuvée change la consommation budget.
   if (updated.status === 'approved' && updated.projectId) {
     await checkBudgetThresholdAndNotify(updated.projectId, session.user.userId)
+    revalidateTag('projects-list', 'default')
   }
 
   revalidatePath('/admin/achat/extra-expenses')
@@ -183,5 +187,6 @@ export async function deleteExtraExpense(id: string) {
     .set({ deletedAt: new Date() })
     .where(eq(extraExpenses.id, id))
   revalidatePath('/admin/achat/extra-expenses')
+  revalidateTag('projects-list', 'default')
   return { success: true }
 }
