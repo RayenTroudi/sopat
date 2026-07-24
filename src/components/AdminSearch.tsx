@@ -105,7 +105,7 @@ export function AdminSearch() {
         onChange={(e) => handleChange(e.target.value)}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
-        placeholder="Rechercher un code ISO… (ex. FOR-MI-05)"
+        placeholder="Rechercher un code… (ex. FOR-MI-05, EVT-2025)"
         className="w-full text-sm outline-none bg-transparent"
         style={{
           height:       '34px',
@@ -127,7 +127,7 @@ export function AdminSearch() {
         >
           {results.length === 0 ? (
             <p className="px-4 py-3 text-xs" style={{ color: 'rgba(0,0,0,0.4)' }}>
-              {loading ? 'Recherche…' : `Aucun code ISO ne commence par « ${query.trim()} »`}
+              {loading ? 'Recherche…' : `Aucun code ne commence par « ${query.trim()} »`}
             </p>
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
