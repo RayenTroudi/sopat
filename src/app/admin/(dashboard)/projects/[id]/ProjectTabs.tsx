@@ -8,7 +8,7 @@ import { EtudesTab } from '@/components/projects/EtudesTab'
 import { RealisationTab } from '@/components/realisation/RealisationTab'
 import { EntretienTab } from '@/components/entretien/EntretienTab'
 import { BudgetSummaryBanner } from '@/components/budget/OfficialBudgetCard'
-import { AchatsTab, type AchatExpense } from '@/components/achat/AchatsTab'
+import { AchatsTab, type AchatExpense, type AchatBudget } from '@/components/achat/AchatsTab'
 import type { UploadedAsset } from '@/components/upload/CloudinaryUploader'
 import { ZonesTab } from '@/components/projects/ZonesTab'
 import type { TeamMemberRow } from '@/lib/db/realisation'
@@ -80,13 +80,7 @@ type Props = {
   projectName?: string
   initialPlantList: PlantListItemRow[]
   achatExpenses: AchatExpense[]
-  achatBudget: {
-    approvedBudget: number | null
-    poTotal: number
-    expensesTotal: number
-    spent: number
-    percentSpent: number | null
-  }
+  achatBudget: AchatBudget
 }
 
 const BASE_TABS = [

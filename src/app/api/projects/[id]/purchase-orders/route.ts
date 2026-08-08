@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { assertProjectAccess, logActivity } from '@/lib/db/projects'
 import { getPurchaseOrders, createPurchaseOrder } from '@/lib/db/realisation'
+import { syncBudgetConsumption } from '@/lib/budget-consumption'
 import { z } from 'zod'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -71,6 +72,9 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     action:    'realisation.purchase_created',
     newState:  { orderId: order.id, item: d.itemDescription, totalCost: order.totalCost },
   })
+
+  // Un BC compte immédiatement dans la consommation budgétaire.
+  await syncBudgetConsumption(id, session.user.userId)
 
   return NextResponse.json(order, { status: 201 })
 }

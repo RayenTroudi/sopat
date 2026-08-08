@@ -35,12 +35,15 @@ export type AchatExpense = {
   creatorName: string | null
 }
 
-type Budget = {
+/** Consommation budgétaire du projet, telle que calculée par getProjectAchats. */
+export type AchatBudget = {
   approvedBudget: number | null
   poTotal: number
   expensesTotal: number
+  pendingTotal: number
   spent: number
   percentSpent: number | null
+  percentPending: number | null
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -61,7 +64,7 @@ export function AchatsTab({
   canEdit,
 }: {
   expenses: AchatExpense[]
-  budget: Budget
+  budget: AchatBudget
   currency: string
   canEdit: boolean
 }) {
@@ -97,8 +100,8 @@ export function AchatsTab({
   )
 }
 
-function BudgetUsageCard({ budget, currency }: { budget: Budget; currency: string }) {
-  const { approvedBudget, poTotal, expensesTotal, spent, percentSpent } = budget
+function BudgetUsageCard({ budget, currency }: { budget: AchatBudget; currency: string }) {
+  const { approvedBudget, poTotal, expensesTotal, pendingTotal, spent, percentSpent, percentPending } = budget
 
   if (approvedBudget === null) {
     return (
@@ -117,6 +120,13 @@ function BudgetUsageCard({ budget, currency }: { budget: Budget; currency: strin
   const ratio = Math.min(pct / 100, 1)
   const color = pct >= 100 ? 'var(--admin-red)' : pct >= 90 ? 'var(--admin-amber)' : 'var(--admin-emerald)'
 
+  // Segment « en attente » posé après le consommé, sans jamais déborder les
+  // 100 % de la barre : il signale ce que le budget deviendrait si la
+  // direction approuvait tout.
+  const pendingPct = percentPending ?? 0
+  const pendingRatio = Math.max(0, Math.min(pendingPct / 100, 1 - ratio))
+  const projectedPct = Math.round((pct + pendingPct) * 10) / 10
+
   return (
     <div
       className="rounded-xl border p-5 space-y-3"
@@ -134,13 +144,29 @@ function BudgetUsageCard({ budget, currency }: { budget: Budget; currency: strin
         <p className="text-2xl font-bold tabular-nums" style={{ color }}>{pct}%</p>
       </div>
 
-      <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'var(--admin-bg)' }}>
-        <div className="h-full rounded-full transition-all" style={{ width: `${ratio * 100}%`, background: color }} />
+      <div className="h-2.5 rounded-full overflow-hidden flex" style={{ background: 'var(--admin-bg)' }}>
+        <div className="h-full transition-all" style={{ width: `${ratio * 100}%`, background: color }} />
+        {pendingRatio > 0 && (
+          <div
+            className="h-full transition-all"
+            style={{ width: `${pendingRatio * 100}%`, background: 'var(--admin-amber)', opacity: 0.35 }}
+            title={`En attente de validation : ${FMT.format(Math.round(pendingTotal))} ${currency}`}
+          />
+        )}
       </div>
 
-      <div className="flex gap-4 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+      <div className="flex gap-4 text-xs flex-wrap" style={{ color: 'var(--admin-text-muted)' }}>
         <span>Bons de commande : <strong style={{ color: 'var(--admin-text)' }}>{FMT.format(Math.round(poTotal))} {currency}</strong></span>
         <span>Dépenses approuvées : <strong style={{ color: 'var(--admin-text)' }}>{FMT.format(Math.round(expensesTotal))} {currency}</strong></span>
+        {pendingTotal > 0 && (
+          <span>
+            En attente de validation :{' '}
+            <strong style={{ color: 'var(--admin-amber)' }}>
+              +{FMT.format(Math.round(pendingTotal))} {currency}
+            </strong>
+            {percentPending !== null && ` → ${projectedPct}%`}
+          </span>
+        )}
       </div>
     </div>
   )

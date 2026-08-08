@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { eq, and, isNull, sql } from 'drizzle-orm'
 import { db } from '@/db'
@@ -179,6 +180,11 @@ export async function POST(req: NextRequest) {
       percentSpent: approved && approved > 0 ? Math.round((spent / approved) * 1000) / 10 : null,
     }
   }
+
+  // La dépense reste `pending` — elle ne bouge pas la consommation, mais elle
+  // doit apparaître tout de suite dans l'onglet Achats du projet (liste +
+  // total « en attente »).
+  if (data.projectId) revalidatePath(`/admin/projects/${data.projectId}`)
 
   return corsJson(
     {

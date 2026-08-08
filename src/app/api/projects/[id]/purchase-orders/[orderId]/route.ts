@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { assertProjectAccess, logActivity } from '@/lib/db/projects'
 import { getPurchaseOrderById, updatePurchaseOrder, deletePurchaseOrder } from '@/lib/db/realisation'
+import { syncBudgetConsumption } from '@/lib/budget-consumption'
 import { z } from 'zod'
 
 const updateSchema = z.object({
@@ -59,6 +60,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     metadata:  { orderId },
   })
 
+  // Modifier la quantité ou le prix recalcule total_cost, donc la consommation.
+  await syncBudgetConsumption(id, session.user.userId)
+
   return NextResponse.json(updated)
 }
 
@@ -88,6 +92,8 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
     action:    'realisation.purchase_deleted',
     metadata:  { orderId },
   })
+
+  await syncBudgetConsumption(id, session.user.userId)
 
   return NextResponse.json({ ok: true })
 }

@@ -119,9 +119,18 @@ export async function getProjectAchats(projectId: string) {
     .filter((r) => r.expense.status === 'approved')
     .reduce((s, r) => s + Number(r.expense.amount), 0)
 
+  // Les dépenses en attente n'entrent PAS dans la consommation (la direction
+  // peut encore les rejeter) mais elles sont affichées à part : sans cela une
+  // dépense tout juste scannée ne se voyait nulle part sur cette fiche.
+  const pendingExpensesTotal = rows
+    .filter((r) => r.expense.status === 'pending')
+    .reduce((s, r) => s + Number(r.expense.amount), 0)
+
   const poTotal = parseFloat(poRow?.total ?? '0')
   const approved = project?.approvedBudget ? parseFloat(project.approvedBudget) : null
   const spent = poTotal + approvedExpensesTotal
+  const pct = (value: number) =>
+    approved && approved > 0 ? Math.round((value / approved) * 1000) / 10 : null
 
   return {
     expenses: rows,
@@ -130,8 +139,10 @@ export async function getProjectAchats(projectId: string) {
       approvedBudget: approved,
       poTotal,
       expensesTotal: approvedExpensesTotal,
+      pendingTotal: pendingExpensesTotal,
       spent,
-      percentSpent: approved && approved > 0 ? Math.round((spent / approved) * 1000) / 10 : null,
+      percentSpent: pct(spent),
+      percentPending: pct(pendingExpensesTotal),
     },
   }
 }

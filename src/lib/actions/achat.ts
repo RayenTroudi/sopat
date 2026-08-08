@@ -3,10 +3,10 @@
 import { db } from '@/db'
 import { deliveryNotes, extraExpenses, type DeliveryNoteItem } from '@/db/schema'
 import { auth } from '@/lib/auth'
-import { revalidatePath, revalidateTag } from 'next/cache'
+import { revalidatePath } from 'next/cache'
 import { eq, and, isNull } from 'drizzle-orm'
 import { getNextDeliveryNoteReference, getNextExpenseReference } from '@/lib/db/achat'
-import { checkBudgetThresholdAndNotify } from '@/lib/notifications'
+import { syncBudgetConsumption } from '@/lib/budget-consumption'
 
 function canManageAchat(role: string) {
   return ['admin', 'direction', 'realisation_chef', 'etudes_chef'].includes(role)
@@ -91,6 +91,9 @@ export async function createExtraExpense(data: {
   })
 
   revalidatePath('/admin/achat/extra-expenses')
+  // En attente : pas encore dans la consommation, mais visible dans le total
+  // « en attente » de l'onglet Achats du projet.
+  if (data.projectId) revalidatePath(`/admin/projects/${data.projectId}`)
   return { success: true }
 }
 
@@ -117,14 +120,10 @@ export async function decideExtraExpense(
     .where(eq(extraExpenses.id, id))
     .returning({ projectId: extraExpenses.projectId })
 
-  if (decision === 'approved' && updated?.projectId) {
-    await checkBudgetThresholdAndNotify(updated.projectId, session.user.userId)
-  }
-
   revalidatePath('/admin/achat/extra-expenses')
-  if (updated?.projectId) revalidatePath(`/admin/projects/${updated.projectId}`)
-  // La consommation budget a changé → invalider la liste projets en cache
-  revalidateTag('projects-list', 'default')
+  // Approuver AJOUTE à la consommation ; rejeter une dépense déjà approuvée la
+  // RETIRE. Les deux sens doivent resynchroniser.
+  await syncBudgetConsumption(updated?.projectId, session.user.userId)
   return { success: true }
 }
 
@@ -165,14 +164,14 @@ export async function updateExtraExpense(
 
   if (!updated) return { success: false, error: 'Dépense introuvable' }
 
-  // Le montant modifié d'une dépense approuvée change la consommation budget.
-  if (updated.status === 'approved' && updated.projectId) {
-    await checkBudgetThresholdAndNotify(updated.projectId, session.user.userId)
-    revalidateTag('projects-list', 'default')
-  }
-
   revalidatePath('/admin/achat/extra-expenses')
   if (updated.projectId) revalidatePath(`/admin/projects/${updated.projectId}`)
+
+  // Seul le montant d'une dépense approuvée entre dans la consommation ; une
+  // dépense en attente n'y compte pas encore.
+  if (updated.status === 'approved') {
+    await syncBudgetConsumption(updated.projectId, session.user.userId)
+  }
   return { success: true }
 }
 
@@ -182,11 +181,22 @@ export async function deleteExtraExpense(id: string) {
   if (!canManageAchat(session.user.role))
     return { success: false, error: 'Accès non autorisé' }
 
-  await db
+  const [deleted] = await db
     .update(extraExpenses)
     .set({ deletedAt: new Date() })
-    .where(eq(extraExpenses.id, id))
+    .where(and(eq(extraExpenses.id, id), isNull(extraExpenses.deletedAt)))
+    .returning({ projectId: extraExpenses.projectId, status: extraExpenses.status })
+
   revalidatePath('/admin/achat/extra-expenses')
-  revalidateTag('projects-list', 'default')
+  // Supprimer une dépense approuvée retire son montant de la consommation ;
+  // une dépense en attente n'y comptait pas, mais elle disparaît du total
+  // « en attente » affiché sur la fiche projet.
+  if (deleted?.projectId) {
+    if (deleted.status === 'approved') {
+      await syncBudgetConsumption(deleted.projectId, session.user.userId)
+    } else {
+      revalidatePath(`/admin/projects/${deleted.projectId}`)
+    }
+  }
   return { success: true }
 }

@@ -12,7 +12,6 @@ import {
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 import { attachDmsCode } from '../dms/attach'
-import { checkBudgetThresholdAndNotify } from '../notifications'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -184,8 +183,9 @@ export async function createPurchaseOrder(input: PurchaseOrderInput) {
     return { ...order, dmsDocumentCode: dmsCode }
   })
 
-  await checkBudgetThresholdAndNotify(input.projectId, input.createdBy)
-
+  // La consommation budgétaire est resynchronisée par l'appelant via
+  // syncBudgetConsumption() — comme pour la modification et la suppression,
+  // qui ne peuvent pas le faire ici (elles n'ont pas l'acteur sous la main).
   return result
 }
 

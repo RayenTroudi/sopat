@@ -127,6 +127,23 @@ export async function checkBudgetThresholdAndNotify(projectId: string, actorId: 
     const settings = await getNotificationSettings()
     const href = `/admin/projects/${projectId}`
 
+    // Réarmement : une correction à la baisse (BC supprimé, montant revu,
+    // dépense rejetée) doit rendre l'alerte à nouveau déclenchable. Sans cela
+    // le verrou posé au premier franchissement restait posé pour toujours et
+    // un futur re-dépassement passait silencieusement.
+    const rearm: Partial<Record<'budgetAlert90NotifiedAt' | 'budgetAlertOverNotifiedAt', null>> = {}
+    if (percentSpent < 100 && project.budgetAlertOverNotifiedAt) {
+      rearm.budgetAlertOverNotifiedAt = null
+      project.budgetAlertOverNotifiedAt = null
+    }
+    if (percentSpent < 90 && project.budgetAlert90NotifiedAt) {
+      rearm.budgetAlert90NotifiedAt = null
+      project.budgetAlert90NotifiedAt = null
+    }
+    if (Object.keys(rearm).length) {
+      await db.update(projects).set(rearm).where(eq(projects.id, projectId))
+    }
+
     if (percentSpent >= 100 && !project.budgetAlertOverNotifiedAt) {
       await notifyByRoles({
         type: 'budget_alert',
