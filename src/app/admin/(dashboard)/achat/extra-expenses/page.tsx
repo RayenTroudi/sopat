@@ -5,6 +5,7 @@ import Link from 'next/link'
 import ExportExcelButton from '@/components/ExportExcelButton'
 import ExpenseDecisionButtons from './ExpenseDecisionButtons'
 import ExpenseScanDetails from './ExpenseScanDetails'
+import ExpenseEditDialog from './ExpenseEditDialog'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Extra dépenses | SOPAT Admin' }
@@ -93,7 +94,7 @@ export default async function ExtraExpensesPage({ searchParams }: { searchParams
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border)', background: 'var(--admin-bg)' }}>
-                {['Réf.', 'Date', 'Projet', 'Catégorie', 'Description', 'Scan', 'Montant', 'Statut', 'Demandeur', canDecide ? 'Validation' : ''].map((h) => (
+                {['Réf.', 'Date', 'Projet', 'Catégorie', 'Description', 'Scan', 'Montant', 'Statut', 'Demandeur', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>{h}</th>
                 ))}
               </tr>
@@ -141,9 +142,23 @@ export default async function ExtraExpensesPage({ searchParams }: { searchParams
                   </td>
                   <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>{creatorName ?? '—'}</td>
                   <td className="px-4 py-3">
-                    {canDecide && expense.status === 'pending' && (
-                      <ExpenseDecisionButtons expenseId={expense.id} />
-                    )}
+                    {/* Modification ouverte aux mêmes rôles que la page ; la
+                        validation reste réservée à la direction. */}
+                    <div className="flex items-center gap-1.5">
+                      <ExpenseEditDialog
+                        expenseId={expense.id}
+                        reference={expense.reference}
+                        status={expense.status}
+                        expenseDate={expense.expenseDate}
+                        category={expense.category}
+                        description={expense.description}
+                        amount={expense.amount}
+                        currency={expense.currency}
+                      />
+                      {canDecide && expense.status === 'pending' && (
+                        <ExpenseDecisionButtons expenseId={expense.id} />
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
