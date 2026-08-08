@@ -39,9 +39,10 @@ export default function ExpenseScanDetails({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group flex items-center gap-1.5 rounded-lg border p-0.5 pr-2 transition-colors hover:bg-[var(--admin-bg)]"
+        className="flex items-center rounded-lg border p-0.5 transition-colors hover:bg-[var(--admin-bg)]"
         style={{ borderColor: 'var(--admin-border)' }}
         title="Voir le scan et les données extraites"
+        aria-label={`Voir le scan de la dépense ${reference}`}
       >
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -55,9 +56,6 @@ export default function ExpenseScanDetails({
             📄
           </span>
         )}
-        <span className="text-[11px] font-medium" style={{ color: 'var(--admin-accent)' }}>
-          Scan
-        </span>
       </button>
 
       {open && (
