@@ -1,6 +1,7 @@
 import { db } from '../../../db/index'
 import { users } from '../../../db/schema'
-import { eq, and, isNull, asc, ilike, or } from 'drizzle-orm'
+import { eq, and, isNull, asc, ilike, or, ne } from 'drizzle-orm'
+import { SYSTEM_USER_ID } from '@/lib/system-user'
 import { hash } from 'bcryptjs'
 import type { UserRole } from '@/lib/auth-utils'
 
@@ -35,6 +36,8 @@ export async function listUsers(opts?: { search?: string; role?: string }): Prom
     .where(
       and(
         isNull(users.deletedAt),
+        // Le compte de service des tâches de fond n'est pas un membre d'équipe.
+        ne(users.id, SYSTEM_USER_ID),
         opts?.search
           ? or(ilike(users.name, `%${opts.search}%`), ilike(users.email, `%${opts.search}%`))
           : undefined,

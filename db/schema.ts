@@ -2041,6 +2041,36 @@ export const dmsAuditLog = pgTable('dms_audit_log', {
   foreignKey({ columns: [t.actorId], foreignColumns: [users.id] }),
 ])
 
+// ─── Generic record audit trail ───────────────────────────────────────────────
+
+/**
+ * Traçabilité ISO 9001 des enregistrements qui ne rentrent ni dans
+ * project_activity_log (project_id NOT NULL, or une dépense peut n'avoir aucun
+ * projet) ni dans dms_audit_log (lié aux documents).
+ *
+ * Polymorphe (entityType + entityId) pour servir aussi aux bons de commande,
+ * bons de livraison, fournisseurs et contrats. Pas de clé étrangère sur
+ * entityId : conserver une trace au-delà de son enregistrement est voulu.
+ */
+export const recordAuditLog = pgTable('record_audit_log', {
+  id:                uuid('id').primaryKey().defaultRandom(),
+  entityType:        varchar('entity_type', { length: 50 }).notNull(),
+  entityId:          uuid('entity_id').notNull(),
+  action:            varchar('action', { length: 50 }).notNull(),
+  actorId:           uuid('actor_id').notNull(),
+  actorName:         varchar('actor_name', { length: 255 }).notNull(),
+  actorRoleSnapshot: userRoleEnum('actor_role_snapshot').notNull(),
+  previousState:     jsonb('previous_state'),
+  newState:          jsonb('new_state'),
+  metadata:          jsonb('metadata'),
+  occurredAt:        timestamp('occurred_at').notNull().defaultNow(),
+}, (t) => [
+  index('record_audit_entity_idx').on(t.entityType, t.entityId),
+  index('record_audit_actor_idx').on(t.actorId),
+  index('record_audit_occurred_idx').on(t.occurredAt),
+  foreignKey({ columns: [t.actorId], foreignColumns: [users.id] }),
+])
+
 export const dmsPermissions = pgTable('dms_permissions', {
   id:           uuid('id').primaryKey().defaultRandom(),
   documentId:   uuid('document_id'),

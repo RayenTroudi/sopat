@@ -337,7 +337,9 @@ function ExpenseEditForm({ expense, onDone }: { expense: AchatExpense; onDone: (
         : undefined
       const res = await updateExtraExpense(expense.id, {
         expenseDate,
-        category: category || undefined,
+        // null (et non undefined) pour qu'un champ vidé efface réellement la
+        // catégorie au lieu d'être ignoré par Drizzle.
+        category: category.trim() === '' ? null : category.trim(),
         description,
         amount,
         ocrSuggested,

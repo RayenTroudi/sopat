@@ -12,6 +12,7 @@ import { db } from '../../../db/index'
 import { emailQueue, maintenanceVisits, projects, users } from '../../../db/schema'
 import { and, eq, sql } from 'drizzle-orm'
 import { sendEmail } from '@/lib/email'
+import { SYSTEM_USER_ID } from '@/lib/system-user'
 
 const WINDOW_MS = 25 * 60 * 60 * 1000  // 24h + 1h buffer
 
@@ -81,6 +82,6 @@ export async function maybeSendMaintenanceReminder(visitId: string): Promise<voi
     recipientId:       visit.teamMemberId,
     relatedEntityType: 'maintenance_visit',
     relatedEntityId:   visitId,
-    createdBy:         'system',
+    createdBy:         SYSTEM_USER_ID,
   })
 }

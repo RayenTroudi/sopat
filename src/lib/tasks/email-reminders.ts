@@ -19,11 +19,12 @@ import {
   users,
   systemSettings,
 } from '../../../db/schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, isNull } from 'drizzle-orm'
 import { sendEmail } from '@/lib/email'
 import { signValidationToken } from '@/lib/jwt'
 import { runRseReminderSweep } from '@/lib/tasks/rse-reminders'
 import { runSmqAlertsDigest } from '@/lib/tasks/smq-alerts'
+import { SYSTEM_USER_ID } from '@/lib/system-user'
 
 const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sopat.vercel.app'
 const SWEEP_INTERVAL = 30 * 60 * 1000   // 30 minutes between sweeps
@@ -103,7 +104,7 @@ export async function runEmailReminderSweep(): Promise<void> {
     const meta = (email.metadata ?? {}) as Record<string, unknown>
 
     if (sentMs < h72 && !meta.escalationSent) {
-      await sendAdminEscalation(email, email.createdBy ?? 'system')
+      await sendAdminEscalation(email, email.createdBy ?? SYSTEM_USER_ID)
       await db.update(emailQueue)
         .set({ metadata: { ...meta, escalationSent: true } })
         .where(eq(emailQueue.id, email.id))
@@ -154,7 +155,7 @@ async function send48hReminder(email: typeof emailQueue.$inferSelect) {
     recipientId:       recipient.id,
     relatedEntityType: 'budget_prediction',
     relatedEntityId:   prediction.id,
-    createdBy:         'system',
+    createdBy:         SYSTEM_USER_ID,
   })
 }
 
@@ -173,7 +174,7 @@ async function sendAdminEscalation(email: typeof emailQueue.$inferSelect, create
   const adminUsers = await db
     .select({ id: users.id, name: users.name, email: users.email })
     .from(users)
-    .where(eq(users.role, 'admin'))
+    .where(and(eq(users.role, 'admin'), eq(users.isActive, true), isNull(users.deletedAt)))
 
   await Promise.all(
     adminUsers.map((admin) =>

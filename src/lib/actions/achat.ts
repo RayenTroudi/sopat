@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { eq, and, isNull } from 'drizzle-orm'
 import { getNextDeliveryNoteReference, getNextExpenseReference } from '@/lib/db/achat'
 import { syncBudgetConsumption } from '@/lib/budget-consumption'
+import { recordAudit, diffFields } from '@/lib/audit'
 
 function canManageAchat(role: string) {
   return ['admin', 'direction', 'realisation_chef', 'etudes_chef'].includes(role)
@@ -78,16 +79,35 @@ export async function createExtraExpense(data: {
     return { success: false, error: 'Accès non autorisé' }
 
   const reference = await getNextExpenseReference()
-  await db.insert(extraExpenses).values({
-    reference,
-    projectId: data.projectId || null,
-    expenseDate: data.expenseDate,
-    category: data.category,
-    description: data.description,
-    amount: data.amount,
-    currency: data.currency || 'TND',
-    justification: data.justification,
-    createdBy: session.user.userId,
+  await db.transaction(async (tx) => {
+    const [created] = await tx.insert(extraExpenses).values({
+      reference,
+      projectId: data.projectId || null,
+      expenseDate: data.expenseDate,
+      category: data.category,
+      description: data.description,
+      amount: data.amount,
+      currency: data.currency || 'TND',
+      justification: data.justification,
+      createdBy: session.user.userId,
+    }).returning({ id: extraExpenses.id })
+
+    await recordAudit(tx, {
+      entityType: 'extra_expense',
+      entityId: created.id,
+      action: 'created',
+      actor: session.user,
+      newState: {
+        reference,
+        projectId: data.projectId || null,
+        expenseDate: data.expenseDate,
+        category: data.category ?? null,
+        description: data.description,
+        amount: data.amount,
+        currency: data.currency || 'TND',
+        status: 'pending',
+      },
+    })
   })
 
   revalidatePath('/admin/achat/extra-expenses')
@@ -108,17 +128,42 @@ export async function decideExtraExpense(
   if (!['admin', 'direction'].includes(session.user.role))
     return { success: false, error: 'Validation réservée à la direction' }
 
-  const [updated] = await db
-    .update(extraExpenses)
-    .set({
-      status: decision,
-      approvedBy: session.user.userId,
-      approvedAt: new Date(),
-      rejectReason: decision === 'rejected' ? rejectReason : null,
-      updatedAt: new Date(),
+  const updated = await db.transaction(async (tx) => {
+    const [before] = await tx
+      .select({ status: extraExpenses.status, amount: extraExpenses.amount })
+      .from(extraExpenses)
+      .where(eq(extraExpenses.id, id))
+      .limit(1)
+    if (!before) return null
+
+    const [row] = await tx
+      .update(extraExpenses)
+      .set({
+        status: decision,
+        approvedBy: session.user.userId,
+        approvedAt: new Date(),
+        rejectReason: decision === 'rejected' ? rejectReason : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(extraExpenses.id, id))
+      .returning({ projectId: extraExpenses.projectId })
+
+    await recordAudit(tx, {
+      entityType: 'extra_expense',
+      entityId: id,
+      action: decision === 'approved' ? 'approved' : 'rejected',
+      actor: session.user,
+      previousState: { status: before.status },
+      newState: { status: decision, ...(decision === 'rejected' ? { rejectReason: rejectReason ?? null } : {}) },
+      // Le montant validé est le chiffre qui entre (ou sort) de la
+      // consommation budgétaire : le figer ici évite de devoir le reconstituer.
+      metadata: { amount: before.amount },
     })
-    .where(eq(extraExpenses.id, id))
-    .returning({ projectId: extraExpenses.projectId })
+
+    return row
+  })
+
+  if (!updated) return { success: false, error: 'Dépense introuvable' }
 
   revalidatePath('/admin/achat/extra-expenses')
   // Approuver AJOUTE à la consommation ; rejeter une dépense déjà approuvée la
@@ -131,7 +176,10 @@ export async function updateExtraExpense(
   id: string,
   data: {
     expenseDate?: string
-    category?: string
+    // `undefined` = champ non soumis (inchangé) ; `null` = catégorie effacée.
+    // Sans cette distinction, Drizzle ignorait la valeur et une catégorie ne
+    // pouvait pas être retirée.
+    category?: string | null
     description?: string
     amount?: string
     ocrSuggested?: Record<string, unknown> | null
@@ -149,18 +197,58 @@ export async function updateExtraExpense(
   if (data.description !== undefined && data.description.trim() === '')
     return { success: false, error: 'Description requise' }
 
-  const [updated] = await db
-    .update(extraExpenses)
-    .set({
-      expenseDate:  data.expenseDate,
-      category:     data.category,
-      description:  data.description,
-      amount:       data.amount,
-      ocrSuggested: data.ocrSuggested,
-      updatedAt:    new Date(),
+  const updated = await db.transaction(async (tx) => {
+    // L'état AVANT sert à ne journaliser que ce qui change réellement.
+    const [before] = await tx
+      .select({
+        reference:   extraExpenses.reference,
+        expenseDate: extraExpenses.expenseDate,
+        category:    extraExpenses.category,
+        description: extraExpenses.description,
+        amount:      extraExpenses.amount,
+        status:      extraExpenses.status,
+      })
+      .from(extraExpenses)
+      .where(and(eq(extraExpenses.id, id), isNull(extraExpenses.deletedAt)))
+      .limit(1)
+    if (!before) return null
+
+    const [row] = await tx
+      .update(extraExpenses)
+      .set({
+        expenseDate:  data.expenseDate,
+        category:     data.category,
+        description:  data.description,
+        amount:       data.amount,
+        ocrSuggested: data.ocrSuggested,
+        updatedAt:    new Date(),
+      })
+      .where(and(eq(extraExpenses.id, id), isNull(extraExpenses.deletedAt)))
+      .returning({ projectId: extraExpenses.projectId, status: extraExpenses.status })
+
+    const changed = diffFields(before, {
+      expenseDate: data.expenseDate,
+      category:    data.category,
+      description: data.description,
+      amount:      data.amount,
     })
-    .where(and(eq(extraExpenses.id, id), isNull(extraExpenses.deletedAt)))
-    .returning({ projectId: extraExpenses.projectId, status: extraExpenses.status })
+    // Un enregistrement soumis sans modification ne salit pas le journal.
+    if (changed) {
+      await recordAudit(tx, {
+        entityType: 'extra_expense',
+        entityId: id,
+        action: 'updated',
+        actor: session.user,
+        previousState: changed.previous,
+        newState: changed.next,
+        // Modifier une dépense déjà approuvée déplace la consommation
+        // budgétaire : le statut au moment du fait rend la trace lisible.
+        metadata: { reference: before.reference, statusAtChange: before.status },
+      })
+    }
+
+    return row
+  })
 
   if (!updated) return { success: false, error: 'Dépense introuvable' }
 
@@ -181,11 +269,33 @@ export async function deleteExtraExpense(id: string) {
   if (!canManageAchat(session.user.role))
     return { success: false, error: 'Accès non autorisé' }
 
-  const [deleted] = await db
-    .update(extraExpenses)
-    .set({ deletedAt: new Date() })
-    .where(and(eq(extraExpenses.id, id), isNull(extraExpenses.deletedAt)))
-    .returning({ projectId: extraExpenses.projectId, status: extraExpenses.status })
+  const deleted = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(extraExpenses)
+      .set({ deletedAt: new Date() })
+      .where(and(eq(extraExpenses.id, id), isNull(extraExpenses.deletedAt)))
+      .returning({
+        projectId: extraExpenses.projectId,
+        status:    extraExpenses.status,
+        reference: extraExpenses.reference,
+        amount:    extraExpenses.amount,
+      })
+    if (!row) return null
+
+    // Suppression logique : l'enregistrement reste en base, la trace dit qui
+    // l'a retiré et quel montant sortait alors de la consommation.
+    await recordAudit(tx, {
+      entityType: 'extra_expense',
+      entityId: id,
+      action: 'deleted',
+      actor: session.user,
+      previousState: { deletedAt: null, status: row.status, amount: row.amount },
+      newState: { deletedAt: new Date().toISOString() },
+      metadata: { reference: row.reference },
+    })
+
+    return row
+  })
 
   revalidatePath('/admin/achat/extra-expenses')
   // Supprimer une dépense approuvée retire son montant de la consommation ;

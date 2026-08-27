@@ -11,6 +11,7 @@ import { users, systemSettings } from '../../../db/schema'
 import { eq, inArray } from 'drizzle-orm'
 import { sendEmail } from '@/lib/email'
 import { getDeadlineAlerts } from '@/lib/db/alerts'
+import { SYSTEM_USER_ID } from '@/lib/system-user'
 
 const SETTINGS_KEY = 'last_smq_alerts_digest'
 const DIGEST_INTERVAL = 24 * 60 * 60 * 1000 // 24 h
@@ -78,7 +79,7 @@ export async function runSmqAlertsDigest(): Promise<void> {
         },
         recipientId: r.id,
         relatedEntityType: 'smq_alerts_digest',
-        createdBy: 'system',
+        createdBy: SYSTEM_USER_ID,
       }).catch((e) => console.error('[smq digest]', r.email, e))
     )
   )

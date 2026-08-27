@@ -14,6 +14,7 @@ import {
   budgetPredictions,
 } from '../../db/schema'
 import { eq, desc, and, isNull } from 'drizzle-orm'
+import { SYSTEM_USER_ID } from '@/lib/system-user'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sopat.vercel.app'
 
@@ -368,7 +369,7 @@ export async function triggerRseExpiryWarningEmail({
       recipientId: referentId,
       relatedEntityType: 'rse_partnership',
       relatedEntityId: partnershipId,
-      createdBy: 'system',
+      createdBy: SYSTEM_USER_ID,
     })
   } catch (err) {
     console.error('[triggerRseExpiryWarningEmail] failed:', err)
@@ -414,7 +415,7 @@ export async function triggerRseCommitmentOverdueEmail({
       recipientId: referentId,
       relatedEntityType: 'rse_commitment',
       relatedEntityId: commitmentId,
-      createdBy: 'system',
+      createdBy: SYSTEM_USER_ID,
     })
   } catch (err) {
     console.error('[triggerRseCommitmentOverdueEmail] failed:', err)

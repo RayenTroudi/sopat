@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { Search, Loader2 } from 'lucide-react'
 import { DMS_SEARCH_ENTITY_LABELS, type DmsSearchResult } from '@/lib/dms/search'
 
-// Recherche globale par code ISO (LIS-MI-01) — tape le début d'un code
-// (ex. "FOR-MI") et redirige vers l'entité (projet, client, NC, etc.) au clic.
+// Recherche globale par code ISO / référence — tape n'importe quel fragment de
+// code (ex. "MI-05", "mi05", "evt 2025"), la ponctuation et la casse sont
+// ignorées, et redirige vers l'entité (projet, client, NC, etc.) au clic.
+// À défaut de code correspondant, les libellés des entités sont aussi inspectés.
 
 export function AdminSearch() {
   const router = useRouter()
@@ -105,7 +107,7 @@ export function AdminSearch() {
         onChange={(e) => handleChange(e.target.value)}
         onFocus={() => setOpen(true)}
         onKeyDown={handleKeyDown}
-        placeholder="Rechercher un code… (ex. FOR-MI-05, EVT-2025)"
+        placeholder="Rechercher un code… (ex. MI-05, EVT-2025, Jardin)"
         className="w-full text-sm outline-none bg-transparent"
         style={{
           height:       '34px',
@@ -127,7 +129,7 @@ export function AdminSearch() {
         >
           {results.length === 0 ? (
             <p className="px-4 py-3 text-xs" style={{ color: 'rgba(0,0,0,0.4)' }}>
-              {loading ? 'Recherche…' : `Aucun code ne commence par « ${query.trim()} »`}
+              {loading ? 'Recherche…' : `Aucun résultat pour « ${query.trim()} »`}
             </p>
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">

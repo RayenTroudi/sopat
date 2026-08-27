@@ -46,6 +46,7 @@ export default function Nav() {
               alt="SOPAT"
               width={120}
               height={81}
+              priority
               style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
             />
           </a>

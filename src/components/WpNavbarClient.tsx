@@ -37,6 +37,7 @@ export default function WpNavbarClient({ links }: { links: NavLink[] }) {
               alt="SOPAT"
               width={120}
               height={81}
+              priority
               style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
             />
           </Link>

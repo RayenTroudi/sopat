@@ -53,7 +53,9 @@ export default function ExpenseEditDialog({
     startTransition(async () => {
       const res = await updateExtraExpense(expenseId, {
         expenseDate: date,
-        category: cat.trim() || undefined,
+        // null (et non undefined) pour qu'un champ vidé efface réellement la
+        // catégorie au lieu d'être ignoré.
+        category: cat.trim() === '' ? null : cat.trim(),
         description: desc,
         amount: amt,
       })
