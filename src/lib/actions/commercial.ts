@@ -75,9 +75,29 @@ export async function updateOffer(
   if (!canManageOffers(session.user.role))
     return { success: false, error: 'Accès non autorisé' }
 
+  // Champs listés explicitement : `...data` écrirait toute colonne présente dans
+  // la charge utile — une server action est appelable directement par le client,
+  // donc la signature TypeScript n'est pas une barrière. reference, createdBy,
+  // createdAt et deletedAt restent hors d'atteinte.
   await db
     .update(commercialOffers)
-    .set({ ...data, updatedAt: new Date() })
+    .set({
+        ...(data.clientName !== undefined && { clientName: data.clientName }),
+          ...(data.projectTitle !== undefined && { projectTitle: data.projectTitle }),
+        ...(data.projectType !== undefined && { projectType: data.projectType }),
+        ...(data.description !== undefined && { description: data.description }),
+        ...(data.amount !== undefined && { amount: data.amount }),
+        ...(data.currency !== undefined && { currency: data.currency }),
+        ...(data.sentDate !== undefined && { sentDate: data.sentDate }),
+        ...(data.validityDate !== undefined && { validityDate: data.validityDate }),
+        ...(data.status !== undefined && { status: data.status }),
+        ...(data.decisionDate !== undefined && { decisionDate: data.decisionDate }),
+        ...(data.lostReason !== undefined && { lostReason: data.lostReason }),
+        ...(data.projectId !== undefined && { projectId: data.projectId }),
+        ...(data.responsible !== undefined && { responsible: data.responsible }),
+        ...(data.notes !== undefined && { notes: data.notes }),
+      updatedAt: new Date(),
+    })
     .where(eq(commercialOffers.id, id))
   revalidatePath('/admin/commercial/offers')
   revalidatePath(`/admin/commercial/offers/${id}`)

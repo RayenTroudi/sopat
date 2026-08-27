@@ -17,7 +17,27 @@ export async function upsertPortfolioSettings(
   const current = await getPortfolioSettings()
   const [row] = await db
     .update(portfolioSettings)
-    .set({ ...patch, updatedBy, updatedAt: new Date() })
+    // Champs explicites : la route transmet `req.json()` brut, sans validation,
+    // donc `...patch` laisserait écrire id, isSingleton ou updatedBy.
+    .set({
+      ...(patch.companyTagline !== undefined && { companyTagline: patch.companyTagline }),
+      ...(patch.ceoName !== undefined && { ceoName: patch.ceoName }),
+      ...(patch.ceoTitle !== undefined && { ceoTitle: patch.ceoTitle }),
+      ...(patch.ceoPhotoCloudinaryId !== undefined && { ceoPhotoCloudinaryId: patch.ceoPhotoCloudinaryId }),
+      ...(patch.companyAddress !== undefined && { companyAddress: patch.companyAddress }),
+      ...(patch.email !== undefined && { email: patch.email }),
+      ...(patch.website !== undefined && { website: patch.website }),
+      ...(patch.facebookUrl !== undefined && { facebookUrl: patch.facebookUrl }),
+      ...(patch.instagramHandle !== undefined && { instagramHandle: patch.instagramHandle }),
+      ...(patch.isoCertNumber !== undefined && { isoCertNumber: patch.isoCertNumber }),
+      ...(patch.isoCertExpiry !== undefined && { isoCertExpiry: patch.isoCertExpiry }),
+      ...(patch.rseLabelLevel !== undefined && { rseLabelLevel: patch.rseLabelLevel }),
+      ...(patch.rseLabelExpiry !== undefined && { rseLabelExpiry: patch.rseLabelExpiry }),
+      ...(patch.coverBackgroundColor !== undefined && { coverBackgroundColor: patch.coverBackgroundColor }),
+      ...(patch.accentColor !== undefined && { accentColor: patch.accentColor }),
+      updatedBy,
+      updatedAt: new Date(),
+    })
     .where(eq(portfolioSettings.id, current.id))
     .returning()
   return row

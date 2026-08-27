@@ -45,7 +45,8 @@ const NC_SOURCE_LABELS: Record<string, string> = {
 }
 const DEPT_LABELS: Record<string, string> = {
   AC: 'AC – Achats', CO: 'CO – Commercial', ET: 'ET – Études',
-  MI: 'MI – Management', RE1: 'RE1 – Réalisation 1',
+  MI: 'MI – Management', MI1: 'MI1 – Management Intégré 1', MI2: 'MI2 – Management Intégré 2',
+  RE1: 'RE1 – Réalisation 1',
   RE2: 'RE2 – Réalisation 2', RH: 'RH – Ressources Humaines',
 }
 const PROCESS_LABELS: Record<string, string> = {
@@ -118,6 +119,7 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
   const [filterStatus, setFilterStatus]   = useState('')
   const [filterDept, setFilterDept]       = useState('')
   const [filterSource, setFilterSource]   = useState('')
+  const [filterProcess, setFilterProcess] = useState('')
   const [search, setSearch]               = useState('')
   const [loading, setLoading]             = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<NcListItem | null>(null)
@@ -150,6 +152,7 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
     if (filterStatus) params.set('status',   filterStatus)
     if (filterDept)   params.set('dept',     filterDept)
     if (filterSource) params.set('ncSource', filterSource)
+    if (filterProcess) params.set('process', filterProcess)
     if (search)       params.set('search',   search)
     const res = await fetch(`/api/nc?${params}`)
     if (res.ok) {
@@ -330,6 +333,17 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
           </SelectContent>
         </Select>
 
+        {/* Phase projet — les processus support (AC, CO, MI, RH) n'ont pas
+            d'équivalent et restent donc hors de ce filtre. */}
+        <Select value={filterProcess === '' ? '__all__' : filterProcess}
+          onValueChange={(v) => { setFilterProcess(v === '__all__' ? '' : v); setTimeout(() => void loadNcs(), 0) }}>
+          <SelectTrigger className="text-sm h-9 w-full lg:w-auto" style={selectStyle}><SelectValue /></SelectTrigger>
+          <SelectContent style={selectStyle}>
+            <SelectItem value="__all__">Tous processus</SelectItem>
+            {Object.entries(PROCESS_LABELS).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
         <div className="relative sm:col-span-2 lg:flex-1 lg:min-w-[160px]">
           <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: 'var(--admin-text-muted)' }} />
           <input value={search} onChange={(e) => setSearch(e.target.value)}
@@ -423,6 +437,13 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
                               <span>{nc.reference}</span>
                             </div>
                             <div className="flex items-center gap-1">
+                              {nc.recordOrigin === 'imported' && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded"
+                                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                                  title="Fiche reprise du registre historique — antérieure au flux qualité de la plateforme">
+                                  Historique
+                                </span>
+                              )}
                               {nc.ncMonth && (
                                 <span className="text-[10px] px-1.5 py-0.5 rounded"
                                   style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}>

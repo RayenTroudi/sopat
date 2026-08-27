@@ -129,7 +129,23 @@ export async function upsertMonthlyPlan(projectId: string, moisAnnee: string, da
   const existing = await getMonthlyPlan(projectId, moisAnnee)
   if (existing) {
     const [row] = await db.update(maintenanceMonthlyPlans)
-      .set({ ...data, tasks: (data.tasks ?? existing.tasks) as never, updatedAt: new Date() })
+      .set({
+        ...(data.scheduleId !== undefined && { scheduleId: data.scheduleId }),
+        ...(data.nombreInterventions !== undefined && { nombreInterventions: data.nombreInterventions }),
+        ...(data.fournitures !== undefined && { fournitures: data.fournitures }),
+        ...(data.intervenants !== undefined && { intervenants: data.intervenants }),
+        ...(data.clientIntervenants !== undefined && { clientIntervenants: data.clientIntervenants }),
+        ...(data.clientObservations !== undefined && { clientObservations: data.clientObservations }),
+        ...(data.clientBesoins !== undefined && { clientBesoins: data.clientBesoins }),
+        ...(data.clientName !== undefined && { clientName: data.clientName }),
+        ...(data.pmObservations !== undefined && { pmObservations: data.pmObservations }),
+        ...(data.pmName !== undefined && { pmName: data.pmName }),
+        ...(data.pmSignedDate !== undefined && { pmSignedDate: data.pmSignedDate }),
+        ...(data.clientSignedDate !== undefined && { clientSignedDate: data.clientSignedDate }),
+        ...(data.isFinalized !== undefined && { isFinalized: data.isFinalized }),
+        tasks: (data.tasks ?? existing.tasks) as never,
+        updatedAt: new Date(),
+      })
       .where(eq(maintenanceMonthlyPlans.id, existing.id))
       .returning()
     return row
@@ -188,7 +204,20 @@ export async function upsertAnnualPlan(projectId: string, annee: number, data: {
 
   if (existing) {
     const [row] = await db.update(maintenanceAnnualPlans)
-      .set({ ...data, monthlyData: data.monthlyData as never, updatedAt: new Date() })
+      .set({
+        ...(data.scheduleId !== undefined && { scheduleId: data.scheduleId }),
+        ...(data.updatedDate !== undefined && { updatedDate: data.updatedDate }),
+        ...(data.taciteReconduction !== undefined && { taciteReconduction: data.taciteReconduction }),
+        ...(data.majorationTaux !== undefined && { majorationTaux: data.majorationTaux }),
+        ...(data.totalInterventionsContractuelles !== undefined && { totalInterventionsContractuelles: data.totalInterventionsContractuelles }),
+        ...(data.totalInterventionsPrevues !== undefined && { totalInterventionsPrevues: data.totalInterventionsPrevues }),
+        ...(data.totalInterventionsRealisees !== undefined && { totalInterventionsRealisees: data.totalInterventionsRealisees }),
+        ...(data.montantContrat !== undefined && { montantContrat: data.montantContrat }),
+        ...(data.montantPrevu !== undefined && { montantPrevu: data.montantPrevu }),
+        ...(data.montantFacture !== undefined && { montantFacture: data.montantFacture }),
+        monthlyData: data.monthlyData as never,
+        updatedAt: new Date(),
+      })
       .where(eq(maintenanceAnnualPlans.id, existing.id))
       .returning()
     return row
@@ -196,7 +225,16 @@ export async function upsertAnnualPlan(projectId: string, annee: number, data: {
   const [row] = await db.insert(maintenanceAnnualPlans).values({
     projectId,
     annee,
-    ...data,
+    ...(data.scheduleId !== undefined && { scheduleId: data.scheduleId }),
+    ...(data.updatedDate !== undefined && { updatedDate: data.updatedDate }),
+    ...(data.taciteReconduction !== undefined && { taciteReconduction: data.taciteReconduction }),
+    ...(data.majorationTaux !== undefined && { majorationTaux: data.majorationTaux }),
+    ...(data.totalInterventionsContractuelles !== undefined && { totalInterventionsContractuelles: data.totalInterventionsContractuelles }),
+    ...(data.totalInterventionsPrevues !== undefined && { totalInterventionsPrevues: data.totalInterventionsPrevues }),
+    ...(data.totalInterventionsRealisees !== undefined && { totalInterventionsRealisees: data.totalInterventionsRealisees }),
+    ...(data.montantContrat !== undefined && { montantContrat: data.montantContrat }),
+    ...(data.montantPrevu !== undefined && { montantPrevu: data.montantPrevu }),
+    ...(data.montantFacture !== undefined && { montantFacture: data.montantFacture }),
     monthlyData: (data.monthlyData ?? Array.from({ length: 12 }, (_, i) => ({ month: i + 1, frequence: '', jours: '', nbrePrevu: 0, nbreRealise: 0 }))) as never,
     createdBy: userId,
   }).returning()

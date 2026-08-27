@@ -21,11 +21,11 @@ const updateSchema = z.object({
   afterPhotoAssetId:  z.string().uuid().optional(),
   // Field edits
   description:                z.string().min(5).optional(),
-  ncType:                     z.string().optional().nullable(),
-  ncSource:                   z.string().optional().nullable(),
-  dept:                       z.string().optional().nullable(),
-  ownerType:                  z.string().optional().nullable(),
-  processAffected:            z.string().optional().nullable(),
+  ncType:                     z.enum(['technique', 'documentaire', 'reclamation_client', 'audit', 'systeme'] as const).optional().nullable(),
+  ncSource:                   z.enum(['interne', 'audit', 'reclamation_client', 'reclamation_pi'] as const).optional().nullable(),
+  dept:                       z.enum(['AC', 'CO', 'ET', 'MI', 'MI1', 'MI2', 'RE1', 'RE2', 'RH'] as const).optional().nullable(),
+  ownerType:                  z.enum(['interne', 'externe'] as const).optional().nullable(),
+  processAffected:            z.enum(['etudes', 'realisation', 'entretien'] as const).optional().nullable(),
   auditorName:                z.string().optional().nullable(),
   detectorName:               z.string().optional().nullable(),
   detectorEmail:              z.string().optional().nullable(),
@@ -37,12 +37,18 @@ const updateSchema = z.object({
   correctionResponsible:      z.string().optional().nullable(),
   correctionDeadlinePlanned:  z.string().datetime().optional().nullable(),
   correctionDeadlineActual:   z.string().datetime().optional().nullable(),
+  correctionDeadlinePlannedText: z.string().max(200).optional().nullable(),
+  correctionDeadlineActualText:  z.string().max(200).optional().nullable(),
+  correctionProgress:         z.number().min(0).max(1).optional().nullable(),
   correctionStatus:           z.string().optional().nullable(),
   evalDatePlanned:            z.string().datetime().optional().nullable(),
   evalDateActual:             z.string().datetime().optional().nullable(),
   clientResponse:             z.string().optional().nullable(),
+  clientResponseRef:          z.string().max(200).optional().nullable(),
   isRisk:                     z.boolean().optional().nullable(),
   isOpportunity:              z.boolean().optional().nullable(),
+  riskDesignation:            z.string().optional().nullable(),
+  opportunityDesignation:     z.string().optional().nullable(),
   needsSecondCapa:            z.boolean().optional().nullable(),
   assignedTo:                 z.string().uuid().optional().nullable(),
   deadline:                   z.string().datetime().optional().nullable(),
@@ -92,11 +98,13 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     )
   }
 
-  // Closing / verifying requires all CAPA prerequisites
+  // Closing / verifying requires all CAPA prerequisites. Records imported from
+  // the historical register are exempted inside the check itself (see
+  // checkNcClosePrerequisites) — the rule stays blocking for every new NC.
   if (newStatus === 'closed' || newStatus === 'verified') {
-    const check = await checkNcClosePrerequisites(id, session.user.userId)
+    const check = await checkNcClosePrerequisites(id, session.user.userId, newStatus)
     if (!check.ok) {
-      return NextResponse.json({ error: check.reason }, { status: 422 })
+      return NextResponse.json({ error: check.reason, historical: check.historical }, { status: 422 })
     }
   }
 
@@ -112,8 +120,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   const fieldEditKeys = ['description','ncType','ncSource','dept','ownerType','processAffected',
     'auditorName','detectorName','detectorEmail','referenceDoc','impact','immediateCorrection',
     'derogationAuth','rebut','correctionResponsible','correctionDeadlinePlanned',
-    'correctionDeadlineActual','correctionStatus','evalDatePlanned','evalDateActual',
-    'clientResponse','isRisk','isOpportunity','needsSecondCapa','assignedTo','deadline'] as const
+    'correctionDeadlineActual','correctionDeadlinePlannedText','correctionDeadlineActualText',
+    'correctionProgress','correctionStatus','evalDatePlanned','evalDateActual',
+    'clientResponse','clientResponseRef','isRisk','isOpportunity','riskDesignation',
+    'opportunityDesignation','needsSecondCapa','assignedTo','deadline'] as const
   const hasFieldEdit = fieldEditKeys.some(k => d[k] !== undefined)
 
   if (hasFieldEdit) {
@@ -139,16 +149,22 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       ...(d.correctionResponsible   !== undefined && { correctionResponsible: d.correctionResponsible }),
       ...(d.correctionDeadlinePlanned !== undefined && { correctionDeadlinePlanned: d.correctionDeadlinePlanned ? new Date(d.correctionDeadlinePlanned) : null }),
       ...(d.correctionDeadlineActual  !== undefined && { correctionDeadlineActual:  d.correctionDeadlineActual  ? new Date(d.correctionDeadlineActual)  : null }),
+      ...(d.correctionDeadlinePlannedText !== undefined && { correctionDeadlinePlannedText: d.correctionDeadlinePlannedText }),
+      ...(d.correctionDeadlineActualText  !== undefined && { correctionDeadlineActualText: d.correctionDeadlineActualText }),
+      ...(d.correctionProgress      !== undefined && { correctionProgress: d.correctionProgress }),
       ...(d.correctionStatus        !== undefined && { correctionStatus: d.correctionStatus }),
       ...(d.evalDatePlanned         !== undefined && { evalDatePlanned: d.evalDatePlanned ? new Date(d.evalDatePlanned) : null }),
       ...(d.evalDateActual          !== undefined && { evalDateActual:  d.evalDateActual  ? new Date(d.evalDateActual)  : null }),
       ...(d.clientResponse          !== undefined && { clientResponse: d.clientResponse }),
+      ...(d.clientResponseRef       !== undefined && { clientResponseRef: d.clientResponseRef }),
       ...(d.isRisk                  !== undefined && { isRisk: d.isRisk }),
       ...(d.isOpportunity           !== undefined && { isOpportunity: d.isOpportunity }),
+      ...(d.riskDesignation         !== undefined && { riskDesignation: d.riskDesignation }),
+      ...(d.opportunityDesignation  !== undefined && { opportunityDesignation: d.opportunityDesignation }),
       ...(d.needsSecondCapa         !== undefined && { needsSecondCapa: d.needsSecondCapa }),
       ...(d.assignedTo              !== undefined && { assignedTo: d.assignedTo }),
       ...(d.deadline                !== undefined && { deadline: d.deadline ? new Date(d.deadline) : null }),
-    })
+    }, session.user)
   }
 
   if (newStatus !== undefined || d.rootCause !== undefined) {
@@ -156,7 +172,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       id,
       (newStatus ?? nc.status) as NcStatus,
       session.user.userId,
-      { rootCause: d.rootCause ?? undefined }
+      { rootCause: d.rootCause ?? undefined, actor: session.user }
     )
   }
 
@@ -172,7 +188,7 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams) {
   }
 
   const { id } = await params
-  const ok = await softDeleteNc(id, session.user.userId)
+  const ok = await softDeleteNc(id, session.user.userId, session.user)
   if (!ok) return NextResponse.json({ error: 'NC introuvable' }, { status: 404 })
   return NextResponse.json({ ok: true })
 }

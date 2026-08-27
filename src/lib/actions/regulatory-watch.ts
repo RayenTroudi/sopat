@@ -43,8 +43,22 @@ export async function updateRegulatoryEntry(id: string, data: {
 }) {
   const session = await auth()
   if (!session) return { success: false, error: 'Unauthorized' }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await db.update(regulatoryWatch).set({ ...data as any, updatedAt: new Date() }).where(eq(regulatoryWatch.id, id))
+  // Champs explicites : `...data as any` écrivait toute colonne fournie, le cast
+  // neutralisant jusqu'au contrôle de type. reference/createdBy/deletedAt protégés.
+  const STATUSES = ['applicable', 'non_applicable', 'en_veille'] as const
+  if (data.status !== undefined && !STATUSES.includes(data.status as typeof STATUSES[number])) {
+    return { success: false, error: 'Statut invalide' }
+  }
+  await db
+    .update(regulatoryWatch)
+    .set({
+      ...(data.title            !== undefined && { title: data.title }),
+      ...(data.status           !== undefined && { status: data.status as typeof STATUSES[number] }),
+      ...(data.complianceNotes  !== undefined && { complianceNotes: data.complianceNotes }),
+      ...(data.nextReviewDate   !== undefined && { nextReviewDate: data.nextReviewDate }),
+      updatedAt: new Date(),
+    })
+    .where(eq(regulatoryWatch.id, id))
   revalidatePath('/admin/regulatory-watch')
   return { success: true }
 }

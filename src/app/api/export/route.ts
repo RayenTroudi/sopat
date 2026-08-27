@@ -9,7 +9,7 @@ import { getManagementReviews } from '@/lib/db/management-reviews'
 import { getMeetings } from '@/lib/db/meetings'
 import { getDocumentReviews, DOC_REVIEW_STATUS_LABELS } from '@/lib/db/document-reviews'
 import { getOrganizationalKnowledge, KNOWLEDGE_STATUS_LABELS } from '@/lib/db/organizational-knowledge'
-import { listNcs, listAudits, type NcStatus, type AuditStatus } from '@/lib/db/iso'
+import { listNcsForRegisterExport, listAudits, type NcStatus, type AuditStatus } from '@/lib/db/iso'
 import { getRisksOpportunities } from '@/lib/db/risks-opportunities'
 import { getStakeholders } from '@/lib/db/stakeholders'
 import { listSuppliers } from '@/lib/db/suppliers'
@@ -354,48 +354,136 @@ const REGISTERS: Record<string, RegisterDef> = {
 
 // ─── Registres historiques ────────────────────────────────────────────────────
 
+const NC_TYPE_FR: Record<string, string> = {
+  technique: 'NC Technique', documentaire: 'NC Documentaire',
+  reclamation_client: 'Réclamation Client', audit: 'Audit', systeme: 'NC Système',
+}
+const NC_SOURCE_FR: Record<string, string> = {
+  interne: 'Interne', audit: 'Audit',
+  reclamation_client: 'Réclamation Client', reclamation_pi: 'Réclamation PI',
+}
+const NC_STATUS_FR: Record<string, string> = {
+  open: 'Ouvert', in_progress: 'En cours', closed: 'Clôturé', verified: 'Vérifié',
+}
+
+/**
+ * A date, or the planning expression the register recorded instead
+ * ("S3 Juin 2025", "Réunion du groupe"). Rendered as text because the column
+ * holds both kinds of value.
+ */
+const dateOrText = (d: Date | null, text: string | null) =>
+  d ? new Date(d).toLocaleDateString('fr-FR') : (text ?? '')
+const yesNo = (b: boolean | null) => (b ? 'Oui' : '')
+
 REGISTERS['nc'] = {
   roles: ['admin', 'direction'],
   title: 'Registre des NC, PNC et réclamations (FOR-MI-05)',
   department: 'Management Qualité & Environnement',
   filename: 'registre-nc',
   async build(sp) {
-    const { rows } = await listNcs({
+    const yearParam = sp.get('year')
+    const rows = await listNcsForRegisterExport({
       status: (sp.get('status') as NcStatus | null) ?? undefined,
-      page: 1,
-      pageSize: 10000,
+      year: yearParam ? Number(yearParam) : undefined,
     })
+
     return [{
-      name: 'NC',
+      name: 'FOR-MI-05',
       columns: [
+        { header: 'N° Fiche', key: 'ficheNum', format: 'number' },
         { header: 'Référence', key: 'reference' },
-        { header: 'Type', key: 'ncType' },
-        { header: 'Source', key: 'ncSource' },
-        { header: 'Département', key: 'dept' },
-        { header: 'Processus', key: 'processAffected' },
-        { header: 'Description', key: 'description', width: 50 },
-        { header: 'Détectée le', key: 'detectedAt', format: 'date' },
-        { header: 'Échéance', key: 'deadline', format: 'date' },
-        { header: 'Avancement (%)', key: 'correctionProgress', format: 'number' },
+        { header: 'Type de NC', key: 'ncType' },
+        { header: 'Source de NC', key: 'ncSource' },
+        { header: 'Détecteur', key: 'detector' },
+        { header: 'Coordonnées', key: 'detectorEmail' },
+        { header: 'Processus rattaché', key: 'dept' },
+        { header: 'Document de référence', key: 'referenceDoc' },
+        { header: 'Mois', key: 'ncMonth' },
+        { header: 'Date', key: 'detectedAt', format: 'date' },
+        { header: 'Identification de la NC', key: 'description', width: 60 },
+        { header: 'Impact de la non-conformité', key: 'impact', width: 40 },
+        { header: 'Autorisation de dérogation', key: 'derogationAuth' },
+        { header: 'Rebut', key: 'rebut' },
+        { header: 'Correction — Action(s)', key: 'correctionAction', width: 50 },
+        { header: 'Correction — Responsable(s)', key: 'correctionResponsible' },
+        { header: 'Correction — Date prévue', key: 'correctionPlanned' },
+        { header: 'Correction — Date réalisée', key: 'correctionActual' },
+        { header: "Correction — État d'avancement", key: 'correctionProgress' },
+        { header: 'Analyse des causes', key: 'rootCause', width: 50 },
+        { header: 'Actions correctives — Action(s)', key: 'capaAction', width: 50 },
+        { header: 'Actions correctives — Responsable(s)', key: 'capaResponsible' },
+        { header: 'Actions correctives — Date prévue', key: 'capaPlanned' },
+        { header: 'Actions correctives — Date réalisée', key: 'capaActual' },
+        { header: "Actions correctives — État d'avancement", key: 'capaProgress' },
+        { header: "Date d'évaluation prévue", key: 'evalPlanned' },
+        { header: "Date d'évaluation réalisée", key: 'evalActual' },
+        { header: 'Réponse Client / PI — Date(s)', key: 'clientResponse' },
+        { header: 'Réponse Client / PI — Référence', key: 'clientResponseRef' },
+        { header: 'Désignation R/O — Risque', key: 'risk' },
+        { header: 'Désignation R/O — Opportunité', key: 'opportunity' },
+        { header: "Nécessité d'une 2e AC", key: 'needsSecondCapa' },
+        { header: 'Date de clôture', key: 'closedAt', format: 'date' },
         { header: 'Statut', key: 'status' },
         { header: 'Projet', key: 'projectName' },
-        { header: 'Assignée à', key: 'assignedToName' },
+        { header: 'Code DMS', key: 'dmsDocumentCode' },
       ],
-      rows: rows.map((nc) => ({
-        reference: nc.reference,
-        ncType: nc.ncType,
-        ncSource: nc.ncSource,
-        dept: nc.dept,
-        processAffected: nc.processAffected,
-        description: nc.description,
-        detectedAt: nc.detectedAt,
-        deadline: nc.deadline,
-        correctionProgress: nc.correctionProgress,
-        status: nc.status,
-        projectName: nc.projectName,
-        assignedToName: nc.assignedToName,
-      })),
-      summary: [{ label: 'Total NC', value: rows.length }],
+      rows: rows.map((nc) => {
+        // The paper register has one Actions correctives block per fiche;
+        // additional CAPAs are joined so nothing is dropped from the export.
+        const capaAction = nc.capa.map((c) => c.actionDescription).filter(Boolean).join('\n')
+        const capaResponsible = nc.capa.map((c) => c.responsibleName).filter(Boolean).join(', ')
+        const capaProgress = nc.capa.map((c) => c.progressStatus).filter(Boolean).join(', ')
+        const first = nc.capa[0]
+        return {
+          ficheNum: nc.ncFicheNum,
+          reference: nc.reference,
+          ncType: nc.ncType ? (NC_TYPE_FR[nc.ncType] ?? nc.ncType) : '',
+          ncSource: nc.ncSource ? (NC_SOURCE_FR[nc.ncSource] ?? nc.ncSource) : '',
+          detector: nc.detectorName ?? nc.detectedByName ?? '',
+          detectorEmail: nc.detectorEmail ?? '',
+          dept: nc.dept ?? '',
+          referenceDoc: nc.referenceDoc ?? '',
+          ncMonth: nc.ncMonth ?? '',
+          detectedAt: nc.detectedAt,
+          description: nc.description,
+          impact: nc.impact ?? '',
+          derogationAuth: yesNo(nc.derogationAuth),
+          rebut: yesNo(nc.rebut),
+          correctionAction: nc.immediateCorrection ?? '',
+          correctionResponsible: nc.correctionResponsible ?? '',
+          correctionPlanned: dateOrText(nc.correctionDeadlinePlanned, nc.correctionDeadlinePlannedText),
+          correctionActual: dateOrText(nc.correctionDeadlineActual, nc.correctionDeadlineActualText),
+          correctionProgress: nc.correctionProgress != null ? `${Math.round(nc.correctionProgress * 100)}%` : '',
+          rootCause: nc.rootCause ?? '',
+          capaAction,
+          capaResponsible,
+          capaPlanned: first ? dateOrText(first.deadlinePlanned, first.deadlinePlannedText) : '',
+          capaActual: first ? dateOrText(first.deadlineActual, first.deadlineActualText) : '',
+          capaProgress,
+          evalPlanned: nc.evalDatePlanned
+            ? new Date(nc.evalDatePlanned).toLocaleDateString('fr-FR')
+            : (first ? dateOrText(first.evalDatePlanned, first.evalDatePlannedText) : ''),
+          evalActual: nc.evalDateActual
+            ? new Date(nc.evalDateActual).toLocaleDateString('fr-FR')
+            : (first ? dateOrText(first.evalDateActual, first.evalDateActualText) : ''),
+          clientResponse: nc.clientResponse ?? '',
+          clientResponseRef: nc.clientResponseRef ?? '',
+          risk: nc.isRisk ? (nc.riskDesignation ?? 'Oui') : '',
+          opportunity: nc.isOpportunity ? (nc.opportunityDesignation ?? 'Oui') : '',
+          needsSecondCapa: yesNo(nc.needsSecondCapa),
+          closedAt: nc.closedAt,
+          status: NC_STATUS_FR[nc.status] ?? nc.status,
+          projectName: nc.projectName ?? '',
+          dmsDocumentCode: nc.dmsDocumentCode ?? '',
+        }
+      }),
+      summary: [
+        { label: 'Total des écarts', value: rows.length },
+        { label: 'NC Système', value: rows.filter((n) => n.ncType === 'systeme').length },
+        { label: 'NC Technique', value: rows.filter((n) => n.ncType === 'technique').length },
+        { label: 'Clôturées', value: rows.filter((n) => n.status === 'closed' || n.status === 'verified').length },
+        { label: 'Ouvertes', value: rows.filter((n) => n.status === 'open' || n.status === 'in_progress').length },
+      ],
     }]
   },
 }

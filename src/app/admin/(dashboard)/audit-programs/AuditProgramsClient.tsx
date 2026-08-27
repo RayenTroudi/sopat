@@ -596,8 +596,10 @@ function AuditProgramCard({ row, canEdit, expanded, onToggle, onPatch }: {
     await fetch(`/api/audit-programs/${row.id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        // `id` is round-tripped so the server can carry each finding's NC link
+        // across the delete-and-reinsert it performs.
         items: newItems.map((i) => ({
-          agendaStep: i.agendaStep, clauseRef: i.clauseRef,
+          id: i.id, agendaStep: i.agendaStep, clauseRef: i.clauseRef,
           interlocuteurs: i.interlocuteurs, response: i.response,
           conformity: i.conformity, evidence: i.evidence, sortOrder: i.sortOrder,
         })),
@@ -694,6 +696,7 @@ function AuditProgramCard({ row, canEdit, expanded, onToggle, onPatch }: {
                 <div className="space-y-1.5">
                   {items.map((item) => (
                     <AgendaItemRow key={item.id} item={item} canEdit={canEdit}
+                      programId={row.id}
                       onSave={(patch) => void saveItem(item, patch)} />
                   ))}
                 </div>
@@ -760,15 +763,39 @@ function AuditProgramCard({ row, canEdit, expanded, onToggle, onPatch }: {
 
 // ─── Agenda Item Row ──────────────────────────────────────────────────────────
 
-function AgendaItemRow({ item, canEdit, onSave }: {
+function AgendaItemRow({ item, canEdit, onSave, programId }: {
   item: AuditProgramItemRow; canEdit: boolean
   onSave: (patch: Partial<AuditProgramItemRow>) => void
+  programId: string
 }) {
   const [open, setOpen]         = useState(false)
   const [conformity, setConformity] = useState(item.conformity ?? '')
   const [response, setResponse] = useState(item.response ?? '')
   const [evidence, setEvidence] = useState(item.evidence ?? '')
+  const [ncId, setNcId]         = useState(item.ncId)
+  const [ncRef, setNcRef]       = useState(item.ncReference)
+  const [ncBusy, setNcBusy]     = useState(false)
+  const [ncError, setNcError]   = useState('')
   const conf = CONFORMITY_LABELS[conformity]
+
+  async function raiseNc() {
+    setNcBusy(true)
+    setNcError('')
+    const res = await fetch(`/api/audit-programs/${programId}/items/${item.id}/nc`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    })
+    const data = await res.json() as { ncId?: string; reference?: string; error?: string }
+    if (!res.ok) {
+      // 409 means the finding already raised one — adopt it rather than error out.
+      if (res.status === 409 && data.ncId) { setNcId(data.ncId); setNcRef(null) }
+      else setNcError(data.error ?? 'Erreur')
+      setNcBusy(false)
+      return
+    }
+    setNcId(data.ncId ?? null)
+    setNcRef(data.reference ?? null)
+    setNcBusy(false)
+  }
 
   return (
     <div className="rounded-xl border overflow-hidden transition-colors"
@@ -784,6 +811,12 @@ function AgendaItemRow({ item, canEdit, onSave }: {
           <span className="text-[10px] px-1.5 py-0.5 rounded-lg hidden sm:inline"
             style={{ background: 'var(--admin-bg)', color: 'var(--admin-text-muted)', border: '1px solid var(--admin-border)' }}>
             {item.interlocuteurs}
+          </span>
+        )}
+        {ncId && (
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-lg shrink-0 hidden sm:inline"
+            style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
+            {ncRef ?? 'NC liée'}
           </span>
         )}
         <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
@@ -839,11 +872,39 @@ function AgendaItemRow({ item, canEdit, onSave }: {
                   className="w-full px-3 py-2 rounded-xl border text-sm"
                   style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }} />
               </div>
+
+              {/* Un constat non conforme ouvre une NC traçable jusqu'à sa clôture. */}
+              {(conformity === 'NC' || ncId) && (
+                <div className="pt-2 border-t" style={{ borderColor: 'var(--admin-border)' }}>
+                  {ncId ? (
+                    <a href={`/admin/nc/${ncId}`}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium hover:underline"
+                      style={{ color: 'var(--admin-red)' }}>
+                      Non-conformité liée {ncRef ? `— ${ncRef}` : ''} →
+                    </a>
+                  ) : (
+                    <button onClick={() => void raiseNc()} disabled={ncBusy}
+                      className="text-xs px-3 py-1.5 rounded-lg border font-medium disabled:opacity-60"
+                      style={{ borderColor: 'var(--admin-red)', color: 'var(--admin-red)', background: 'var(--admin-surface)' }}>
+                      {ncBusy ? 'Création…' : 'Créer une non-conformité'}
+                    </button>
+                  )}
+                  {ncError && (
+                    <p className="text-xs mt-1.5" style={{ color: 'var(--admin-red)' }}>{ncError}</p>
+                  )}
+                </div>
+              )}
             </>
           ) : (
             <>
               {item.response && <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{item.response}</p>}
               {item.evidence && <p className="text-xs mt-1" style={{ color: 'var(--admin-text-muted)' }}>Preuves : {item.evidence}</p>}
+              {ncId && (
+                <a href={`/admin/nc/${ncId}`} className="inline-block text-xs mt-1.5 hover:underline"
+                  style={{ color: 'var(--admin-red)' }}>
+                  Non-conformité liée {ncRef ? `— ${ncRef}` : ''} →
+                </a>
+              )}
             </>
           )}
         </div>

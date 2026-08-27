@@ -4,6 +4,7 @@ import {
   getAuditProgramById,
   updateAuditProgram,
   upsertAuditProgramItems,
+  checkAuditProgramScheduleChange,
   type AuditProgramStatus,
 } from '@/lib/db/iso'
 import { z } from 'zod'
@@ -68,6 +69,16 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
   const toDate = (v: string | null | undefined) =>
     v === undefined ? undefined : v === null ? null : new Date(v)
+
+  // The reference embeds the programme's year and is immutable, so the scheduled
+  // date may not move across a year boundary. Checked before anything is written.
+  const scheduleCheck = await checkAuditProgramScheduleChange(id, toDate(d.scheduledDate))
+  if (!scheduleCheck.ok) {
+    return NextResponse.json(
+      { error: scheduleCheck.reason },
+      { status: scheduleCheck.reason === 'Programme introuvable' ? 404 : 422 },
+    )
+  }
 
   await updateAuditProgram(id, {
     title:               d.title,

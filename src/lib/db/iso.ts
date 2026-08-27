@@ -9,9 +9,12 @@ import {
   cloudinaryAssets,
   users,
   projects,
+  recordAuditLog,
 } from '../../../db/schema'
-import { eq, and, isNull, desc, asc, sql, ilike, or } from 'drizzle-orm'
+import { eq, and, isNull, desc, asc, sql, ilike, or, inArray, type SQL } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
+import { recordAudit, type AuditActor } from '../audit-record'
+import { diffFields } from '../audit-diff'
 import { attachDmsCode } from '../dms/attach'
 import { obsoleteDmsDocument } from '../dms/obsolete'
 
@@ -20,8 +23,9 @@ import { obsoleteDmsDocument } from '../dms/obsolete'
 export type NcStatus = 'open' | 'in_progress' | 'closed' | 'verified'
 export type NcProcess = 'etudes' | 'realisation' | 'entretien'
 export type NcSource = 'interne' | 'audit' | 'reclamation_client' | 'reclamation_pi'
-export type NcDept = 'AC' | 'CO' | 'ET' | 'MI' | 'RE1' | 'RE2' | 'RH'
+export type NcDept = 'AC' | 'CO' | 'ET' | 'MI' | 'MI1' | 'MI2' | 'RE1' | 'RE2' | 'RH'
 export type CapaStatus = 'open' | 'in_progress' | 'closed'
+export type RecordOrigin = 'platform' | 'imported'
 export type DocumentStatus = 'draft' | 'active' | 'obsolete'
 export type DocumentCategory = 'procedure' | 'instruction' | 'formulaire' | 'enregistrement' | 'autre'
 export type AuditStatus = 'scheduled' | 'in_progress' | 'completed'
@@ -29,23 +33,108 @@ export type AuditProgramStatus = 'planifie' | 'en_cours' | 'realise' | 'reporte'
 
 // ─── NC reference generator ───────────────────────────────────────────────────
 
-export async function generateNcReference(): Promise<string> {
-  const year = new Date().getFullYear()
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(nonConformances)
-    .where(sql`extract(year from created_at) = ${year}`)
-  const seq = Number(count) + 1
+/** Matches a platform reference and captures its year / number. */
+const NC_REFERENCE_PATTERN = '^NC-[0-9]{4}-[0-9]+$'
+
+/**
+ * Allocates the next number in the NC-YYYY-NNN sequence for `year`, atomically.
+ *
+ * A single INSERT … ON CONFLICT DO UPDATE does the work: the conflicting path
+ * takes a row-level lock on the year's counter, so two concurrent callers are
+ * serialised and can never receive the same number. The previous implementation
+ * used SELECT count(*) + 1, which raced (both readers saw the same count and
+ * collided on the unique reference constraint) and miscounted (it included the
+ * imported FOR-MI-05 register rows, which are not part of this sequence).
+ *
+ * The seed used when a year has no counter yet is the highest number already
+ * present in an NC-YYYY-NNN reference for that year, plus one. Soft-deleted rows
+ * are included on purpose: a deleted NC keeps its number so it is never reissued.
+ * Existing gaps are left as gaps — the counter never backfills.
+ */
+async function allocateNcReferenceNumber(year: number): Promise<number> {
+  const seedPattern = `^NC-${year}-([0-9]+)$`
+  const result = await db.execute<{ last_number: number }>(sql`
+    INSERT INTO nc_reference_sequences (year, last_number)
+    VALUES (
+      ${year},
+      COALESCE((
+        SELECT max(substring(reference from ${seedPattern})::int)
+        FROM non_conformances
+        WHERE reference ~ ${NC_REFERENCE_PATTERN}
+      ), 0) + 1
+    )
+    ON CONFLICT (year) DO UPDATE
+      SET last_number = nc_reference_sequences.last_number + 1,
+          updated_at  = now()
+    RETURNING last_number
+  `)
+  return Number(result.rows[0].last_number)
+}
+
+/**
+ * Next platform NC reference, e.g. "NC-2026-005".
+ *
+ * `year` is injectable so the sequence can be exercised across a year boundary
+ * in tests; production callers use the current year.
+ */
+export async function generateNcReference(year = new Date().getFullYear()): Promise<string> {
+  const seq = await allocateNcReferenceNumber(year)
   return `NC-${year}-${String(seq).padStart(3, '0')}`
 }
 
-export async function generateAuditReference(): Promise<string> {
-  const year = new Date().getFullYear()
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(auditLogs)
-    .where(sql`extract(year from created_at) = ${year}`)
-  const seq = Number(count) + 1
+/**
+ * Allocates the next number for `scope` / `year`, atomically.
+ *
+ * Shared by the audit generators below. `seedSql` supplies the starting point
+ * the first time a scope/year is used: the highest number already present in a
+ * valid reference, parsed from the reference itself rather than counted, so
+ * existing gaps stay gaps and unrelated rows never consume numbers.
+ *
+ * The conflicting path takes a row-level lock on the counter, so concurrent
+ * callers are serialised and can never receive the same number. Because the
+ * counter only moves forward and is never recomputed from the table, deleting a
+ * record — hard or soft — cannot make its number available again.
+ */
+async function allocateReferenceNumber(
+  scope: string,
+  year: number,
+  seedSql: SQL,
+): Promise<number> {
+  const result = await db.execute<{ last_number: number }>(sql`
+    INSERT INTO reference_sequences (scope, year, last_number)
+    VALUES (${scope}, ${year}, COALESCE((${seedSql}), 0) + 1)
+    ON CONFLICT (scope, year) DO UPDATE
+      SET last_number = reference_sequences.last_number + 1,
+          updated_at  = now()
+    RETURNING last_number
+  `)
+  return Number(result.rows[0].last_number)
+}
+
+/**
+ * Next internal-audit reference, e.g. "AUD-2026-001".
+ *
+ * The year is the **registration year** — the year the audit record is created
+ * in the system — and is deliberately independent of `auditDate`, which records
+ * when the audit is performed. An audit registered in December 2026 for a
+ * January 2027 visit is correctly AUD-2026-NNN; that is not a defect, and
+ * `auditDate` is immutable after creation so the two cannot drift.
+ *
+ * Note the difference from generateAuditProgramReference below, which numbers by
+ * the **planned year** because audit_programs stores a `year` column that must
+ * agree with its reference. audit_logs has no such column, so there is nothing
+ * for the reference to disagree with. Please do not "align" the two.
+ *
+ * `year` is injectable so rollover can be exercised in tests.
+ */
+export async function generateAuditReference(year = new Date().getFullYear()): Promise<string> {
+  const seq = await allocateReferenceNumber(
+    'audit',
+    year,
+    sql`SELECT max(substring(reference from ${`^AUD-${year}-([0-9]+)$`})::int)
+        FROM audit_logs
+        WHERE reference ~ ${'^AUD-[0-9]{4}-[0-9]+$'}`,
+  )
   return `AUD-${year}-${String(seq).padStart(3, '0')}`
 }
 
@@ -66,9 +155,12 @@ export type NcListItem = {
   deadline: Date | null
   correctionDeadlinePlanned: Date | null
   correctionDeadlineActual: Date | null
+  correctionDeadlinePlannedText: string | null
+  correctionDeadlineActualText: string | null
   correctionProgress: number | null
   isRisk: boolean | null
   isOpportunity: boolean | null
+  recordOrigin: string
   projectId: string | null
   projectName: string | null
   detectedByName: string | null
@@ -111,9 +203,12 @@ export async function listNcs(filters?: {
       deadline:                  nonConformances.deadline,
       correctionDeadlinePlanned: nonConformances.correctionDeadlinePlanned,
       correctionDeadlineActual:  nonConformances.correctionDeadlineActual,
+      correctionDeadlinePlannedText: nonConformances.correctionDeadlinePlannedText,
+      correctionDeadlineActualText:  nonConformances.correctionDeadlineActualText,
       correctionProgress:        nonConformances.correctionProgress,
       isRisk:                    nonConformances.isRisk,
       isOpportunity:             nonConformances.isOpportunity,
+      recordOrigin:              nonConformances.recordOrigin,
       projectId:                 nonConformances.projectId,
       projectName:               projects.name,
       detectedByName:            detUser.name,
@@ -141,10 +236,22 @@ export async function listNcs(filters?: {
     .limit(pageSize)
     .offset(offset)
 
+  // The count must apply exactly the same predicate as the page query, or
+  // filtering by dept / source / project / search reports a wrong page count.
   const [{ total }] = await db
     .select({ total: sql<number>`count(*)` })
     .from(nonConformances)
-    .where(and(isNull(nonConformances.deletedAt), filters?.status ? eq(nonConformances.status, filters.status) : undefined))
+    .where(
+      and(
+        isNull(nonConformances.deletedAt),
+        filters?.status    ? eq(nonConformances.status,          filters.status)    : undefined,
+        filters?.process   ? eq(nonConformances.processAffected, filters.process as NcProcess) : undefined,
+        filters?.dept      ? eq(nonConformances.dept,            filters.dept as NcDept)       : undefined,
+        filters?.ncSource  ? eq(nonConformances.ncSource,        filters.ncSource as NcSource) : undefined,
+        filters?.projectId ? eq(nonConformances.projectId,       filters.projectId) : undefined,
+        filters?.search    ? ilike(nonConformances.description,  `%${filters.search}%`) : undefined,
+      )
+    )
 
   return { rows: rows as NcListItem[], total: Number(total) }
 }
@@ -171,6 +278,8 @@ export type NcDetail = {
   correctionResponsible: string | null
   correctionDeadlinePlanned: Date | null
   correctionDeadlineActual: Date | null
+  correctionDeadlinePlannedText: string | null
+  correctionDeadlineActualText: string | null
   correctionProgress: number | null
   correctionStatus: string | null
   evalDatePlanned: Date | null
@@ -179,7 +288,12 @@ export type NcDetail = {
   clientResponseRef: string | null
   isRisk: boolean | null
   isOpportunity: boolean | null
+  riskDesignation: string | null
+  opportunityDesignation: string | null
   needsSecondCapa: boolean | null
+  recordOrigin: string
+  importedFrom: string | null
+  importedAt: Date | null
   detectedAt: Date
   detectedById: string
   detectedByName: string | null
@@ -195,6 +309,8 @@ export type NcDetail = {
   projectName: string | null
   beforePhotoAssetId: string | null
   afterPhotoAssetId: string | null
+  beforePhotoUrl: string | null
+  afterPhotoUrl: string | null
   createdAt: Date
   dmsDocumentCode: string | null
   capa: CapaDetail[]
@@ -203,15 +319,20 @@ export type NcDetail = {
 export type CapaDetail = {
   id: string
   actionDescription: string
-  responsibleId: string
+  responsibleId: string | null
   responsibleName: string | null
   deadline: Date | null
   deadlinePlanned: Date | null
   deadlineActual: Date | null
+  deadlinePlannedText: string | null
+  deadlineActualText: string | null
   evalDatePlanned: Date | null
   evalDateActual: Date | null
+  evalDatePlannedText: string | null
+  evalDateActualText: string | null
   progressStatus: string | null
   status: string
+  recordOrigin: string
   effectivenessVerified: boolean
   verifiedAt: Date | null
   verifiedById: string | null
@@ -252,6 +373,8 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       correctionResponsible:     nonConformances.correctionResponsible,
       correctionDeadlinePlanned: nonConformances.correctionDeadlinePlanned,
       correctionDeadlineActual:  nonConformances.correctionDeadlineActual,
+      correctionDeadlinePlannedText: nonConformances.correctionDeadlinePlannedText,
+      correctionDeadlineActualText:  nonConformances.correctionDeadlineActualText,
       correctionProgress:        nonConformances.correctionProgress,
       correctionStatus:          nonConformances.correctionStatus,
       evalDatePlanned:           nonConformances.evalDatePlanned,
@@ -260,7 +383,12 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       clientResponseRef:         nonConformances.clientResponseRef,
       isRisk:                    nonConformances.isRisk,
       isOpportunity:             nonConformances.isOpportunity,
+      riskDesignation:           nonConformances.riskDesignation,
+      opportunityDesignation:    nonConformances.opportunityDesignation,
       needsSecondCapa:           nonConformances.needsSecondCapa,
+      recordOrigin:              nonConformances.recordOrigin,
+      importedFrom:              nonConformances.importedFrom,
+      importedAt:                nonConformances.importedAt,
       detectedAt:                nonConformances.detectedAt,
       detectedById:              nonConformances.detectedBy,
       detectedByName:            detUser.name,
@@ -276,6 +404,10 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       projectName:               projects.name,
       beforePhotoAssetId:        nonConformances.beforePhotoAssetId,
       afterPhotoAssetId:         nonConformances.afterPhotoAssetId,
+      // Resolved here so the detail page can render the uploaded photos; the
+      // asset id alone is not enough to display anything.
+      beforePhotoUrl:            sql<string | null>`bph.secure_url`,
+      afterPhotoUrl:             sql<string | null>`aph.secure_url`,
       createdAt:                 nonConformances.createdAt,
       dmsDocumentCode:           nonConformances.dmsDocumentCode,
     })
@@ -284,6 +416,8 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
     .leftJoin(detUser,  eq(detUser.id,  nonConformances.detectedBy))
     .leftJoin(asgnUser, eq(asgnUser.id, nonConformances.assignedTo))
     .leftJoin(clsUser,  eq(clsUser.id,  nonConformances.closedBy))
+    .leftJoin(sql`cloudinary_assets bph`, sql`bph.id = ${nonConformances.beforePhotoAssetId}`)
+    .leftJoin(sql`cloudinary_assets aph`, sql`aph.id = ${nonConformances.afterPhotoAssetId}`)
     .where(and(eq(nonConformances.id, id), isNull(nonConformances.deletedAt)))
     .limit(1)
 
@@ -294,14 +428,21 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       id:                    correctiveActions.id,
       actionDescription:     correctiveActions.actionDescription,
       responsibleId:         correctiveActions.responsibleId,
-      responsibleName:       sql<string | null>`resp.name`,
+      // The register names a role ("RMI", "DG", "Equipe réalisation") that often
+      // has no account, so the explicit free-text value wins over the joined user.
+      responsibleName:       sql<string | null>`coalesce(${correctiveActions.responsibleName}, resp.name)`,
       deadline:              correctiveActions.deadline,
       deadlinePlanned:       correctiveActions.deadlinePlanned,
       deadlineActual:        correctiveActions.deadlineActual,
+      deadlinePlannedText:   correctiveActions.deadlinePlannedText,
+      deadlineActualText:    correctiveActions.deadlineActualText,
       evalDatePlanned:       correctiveActions.evalDatePlanned,
       evalDateActual:        correctiveActions.evalDateActual,
+      evalDatePlannedText:   correctiveActions.evalDatePlannedText,
+      evalDateActualText:    correctiveActions.evalDateActualText,
       progressStatus:        correctiveActions.progressStatus,
       status:                correctiveActions.status,
+      recordOrigin:          correctiveActions.recordOrigin,
       effectivenessVerified: correctiveActions.effectivenessVerified,
       verifiedAt:            correctiveActions.verifiedAt,
       verifiedById:          correctiveActions.verifiedBy,
@@ -346,6 +487,8 @@ export async function createNc(input: {
   correctionResponsible?:     string
   correctionDeadlinePlanned?: Date
   correctionDeadlineActual?:  Date
+  correctionDeadlinePlannedText?: string
+  correctionDeadlineActualText?:  string
   correctionProgress?:        number
   correctionStatus?:          string
   evalDatePlanned?:           Date
@@ -354,13 +497,19 @@ export async function createNc(input: {
   clientResponseRef?:         string
   isRisk?:                    boolean
   isOpportunity?:             boolean
+  riskDesignation?:           string
+  opportunityDesignation?:    string
   needsSecondCapa?:           boolean
+  /** FOR-MI-05 "Date" column; defaults to now() when the NC is raised in-app. */
+  detectedAt?:                Date
   assignedTo?:                string
   deadline?:                  Date
   beforePhotoAssetId?:        string
   afterPhotoAssetId?:         string
   detectedBy:                 string
   createdBy:                  string
+  /** ISO 9001 traceability — omitted only by data-migration scripts. */
+  actor?:                     AuditActor
 }) {
   return db.transaction(async (tx) => {
     const [nc] = await tx
@@ -388,6 +537,8 @@ export async function createNc(input: {
         correctionResponsible:      input.correctionResponsible,
         correctionDeadlinePlanned:  input.correctionDeadlinePlanned,
         correctionDeadlineActual:   input.correctionDeadlineActual,
+        correctionDeadlinePlannedText: input.correctionDeadlinePlannedText ?? null,
+        correctionDeadlineActualText:  input.correctionDeadlineActualText ?? null,
         correctionProgress:         input.correctionProgress ?? null,
         correctionStatus:           input.correctionStatus,
         evalDatePlanned:            input.evalDatePlanned,
@@ -396,7 +547,10 @@ export async function createNc(input: {
         clientResponseRef:          input.clientResponseRef ?? null,
         isRisk:                     input.isRisk ?? false,
         isOpportunity:              input.isOpportunity ?? false,
+        riskDesignation:            input.riskDesignation ?? null,
+        opportunityDesignation:     input.opportunityDesignation ?? null,
         needsSecondCapa:            input.needsSecondCapa ?? false,
+        ...(input.detectedAt ? { detectedAt: input.detectedAt } : {}),
         assignedTo:                 input.assignedTo || null,
         deadline:                   input.deadline,
         beforePhotoAssetId:         input.beforePhotoAssetId || null,
@@ -423,6 +577,23 @@ export async function createNc(input: {
       .set({ dmsDocumentCode: dmsCode })
       .where(eq(nonConformances.id, nc.id))
 
+    if (input.actor) {
+      await recordAudit(tx, {
+        entityType: 'non_conformance',
+        entityId:   nc.id,
+        action:     'created',
+        actor:      input.actor,
+        newState: {
+          reference: nc.reference, ncFicheNum: nc.ncFicheNum, ncMonth: nc.ncMonth,
+          ncType: nc.ncType, ncSource: nc.ncSource, dept: nc.dept,
+          description: nc.description, impact: nc.impact,
+          detectedAt: nc.detectedAt, status: nc.status,
+          isRisk: nc.isRisk, isOpportunity: nc.isOpportunity,
+        },
+        metadata: { dmsDocumentCode: dmsCode },
+      })
+    }
+
     return { ...nc, dmsDocumentCode: dmsCode }
   })
 }
@@ -431,19 +602,66 @@ export async function updateNcStatus(
   id: string,
   status: NcStatus,
   actorId: string,
-  opts?: { rootCause?: string; closedAt?: Date }
+  opts?: { rootCause?: string; closedAt?: Date; actor?: AuditActor }
 ) {
   const now = new Date()
-  await db
-    .update(nonConformances)
-    .set({
-      status,
-      rootCause:  opts?.rootCause,
-      closedAt:   status === 'closed' || status === 'verified' ? (opts?.closedAt ?? now) : null,
-      closedBy:   status === 'closed' || status === 'verified' ? actorId : null,
-      updatedAt:  now,
+  const [current] = await db
+    .select({
+      status: nonConformances.status,
+      closedAt: nonConformances.closedAt,
+      rootCause: nonConformances.rootCause,
     })
+    .from(nonConformances)
     .where(eq(nonConformances.id, id))
+    .limit(1)
+
+  const isClosing = status === 'closed' || status === 'verified'
+  const wasClosed = current?.status === 'closed' || current?.status === 'verified'
+  // Preserve the original closure record: re-saving an already-closed NC (e.g.
+  // editing its root cause, or moving closed → verified) must not re-stamp
+  // closedAt/closedBy with today's date and the current editor. ISO 9001
+  // traceability requires the first closure to survive later edits.
+  const keepExistingClosure = isClosing && wasClosed && current?.closedAt != null
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(nonConformances)
+      .set({
+        status,
+        rootCause: opts?.rootCause,
+        ...(isClosing
+          ? keepExistingClosure
+            ? (opts?.closedAt ? { closedAt: opts.closedAt } : {})
+            : { closedAt: opts?.closedAt ?? now, closedBy: actorId }
+          : { closedAt: null, closedBy: null }),
+        updatedAt: now,
+      })
+      .where(eq(nonConformances.id, id))
+
+    if (!opts?.actor) return
+    const changed = diffFields(
+      { status: current?.status ?? null, rootCause: current?.rootCause ?? null },
+      { status, ...(opts.rootCause !== undefined && { rootCause: opts.rootCause }) },
+    )
+    if (!changed) return
+    // A status transition is a quality decision, so it is named as such rather
+    // than folded into a generic "updated" entry.
+    const action =
+      status === current?.status ? 'updated'
+      : status === 'verified'    ? 'verified'
+      : isClosing                ? 'closed'
+      : wasClosed                ? 'reopened'
+      : 'status_changed'
+    await recordAudit(tx, {
+      entityType: 'non_conformance',
+      entityId:   id,
+      action,
+      actor:      opts.actor,
+      previousState: changed.previous,
+      newState:      changed.next,
+      metadata: { closurePreserved: keepExistingClosure },
+    })
+  })
 }
 
 export async function updateNcFields(
@@ -466,18 +684,29 @@ export async function updateNcFields(
     correctionResponsible?:     string | null
     correctionDeadlinePlanned?: Date | null
     correctionDeadlineActual?:  Date | null
+    correctionDeadlinePlannedText?: string | null
+    correctionDeadlineActualText?:  string | null
+    correctionProgress?:        number | null
     correctionStatus?:          string | null
     evalDatePlanned?:           Date | null
     evalDateActual?:            Date | null
     clientResponse?:            string | null
     isRisk?:                    boolean | null
     isOpportunity?:             boolean | null
+    riskDesignation?:           string | null
+    opportunityDesignation?:    string | null
     needsSecondCapa?:           boolean | null
     assignedTo?:                string | null
     deadline?:                  Date | null
     rootCause?:                 string | null
-  }
+  },
+  /** ISO 9001 traceability — omitted only by data-migration scripts. */
+  actor?: AuditActor,
 ) {
+  const [before] = actor
+    ? await db.select().from(nonConformances).where(eq(nonConformances.id, id)).limit(1)
+    : [null]
+
   await db
     .update(nonConformances)
     .set({
@@ -498,12 +727,17 @@ export async function updateNcFields(
       ...(fields.correctionResponsible   !== undefined && { correctionResponsible: fields.correctionResponsible }),
       ...(fields.correctionDeadlinePlanned !== undefined && { correctionDeadlinePlanned: fields.correctionDeadlinePlanned }),
       ...(fields.correctionDeadlineActual  !== undefined && { correctionDeadlineActual: fields.correctionDeadlineActual }),
+      ...(fields.correctionDeadlinePlannedText !== undefined && { correctionDeadlinePlannedText: fields.correctionDeadlinePlannedText }),
+      ...(fields.correctionDeadlineActualText  !== undefined && { correctionDeadlineActualText: fields.correctionDeadlineActualText }),
+      ...(fields.correctionProgress        !== undefined && { correctionProgress: fields.correctionProgress }),
       ...(fields.correctionStatus        !== undefined && { correctionStatus: fields.correctionStatus }),
       ...(fields.evalDatePlanned         !== undefined && { evalDatePlanned: fields.evalDatePlanned }),
       ...(fields.evalDateActual          !== undefined && { evalDateActual: fields.evalDateActual }),
       ...(fields.clientResponse          !== undefined && { clientResponse: fields.clientResponse }),
       ...(fields.isRisk                  !== undefined && { isRisk: fields.isRisk }),
       ...(fields.isOpportunity           !== undefined && { isOpportunity: fields.isOpportunity }),
+      ...(fields.riskDesignation         !== undefined && { riskDesignation: fields.riskDesignation }),
+      ...(fields.opportunityDesignation  !== undefined && { opportunityDesignation: fields.opportunityDesignation }),
       ...(fields.needsSecondCapa         !== undefined && { needsSecondCapa: fields.needsSecondCapa }),
       ...(fields.assignedTo              !== undefined && { assignedTo: fields.assignedTo }),
       ...(fields.deadline                !== undefined && { deadline: fields.deadline }),
@@ -511,29 +745,76 @@ export async function updateNcFields(
       updatedAt: new Date(),
     })
     .where(eq(nonConformances.id, id))
+
+  if (!actor || !before) return
+  // Only the fields that actually moved are journalled, so an unchanged
+  // re-submit does not bury real edits in noise.
+  const changed = diffFields(before as Record<string, unknown>, fields as Record<string, unknown>)
+  if (!changed) return
+  await recordAudit(db, {
+    entityType: 'non_conformance',
+    entityId:   id,
+    action:     'updated',
+    actor,
+    previousState: changed.previous,
+    newState:      changed.next,
+    metadata: { reference: before.reference, statusAtChange: before.status },
+  })
 }
 
-export async function softDeleteNc(id: string, actorId: string): Promise<boolean> {
+export async function softDeleteNc(id: string, actorId: string, actor?: AuditActor): Promise<boolean> {
   const result = await db
     .update(nonConformances)
     .set({ deletedAt: new Date() })
     .where(and(eq(nonConformances.id, id), isNull(nonConformances.deletedAt)))
-    .returning({ id: nonConformances.id, dmsDocumentCode: nonConformances.dmsDocumentCode })
+    .returning({
+      id: nonConformances.id,
+      reference: nonConformances.reference,
+      status: nonConformances.status,
+      dmsDocumentCode: nonConformances.dmsDocumentCode,
+    })
   if (result.length === 0) return false
   const code = result[0].dmsDocumentCode
   if (code) await obsoleteDmsDocument(db, code, actorId)
+  if (actor) {
+    await recordAudit(db, {
+      entityType: 'non_conformance',
+      entityId:   id,
+      action:     'deleted',
+      actor,
+      previousState: { reference: result[0].reference, status: result[0].status, deletedAt: null },
+      newState:      { deletedAt: new Date().toISOString() },
+      metadata: { dmsDocumentCode: code },
+    })
+  }
   return true
 }
 
-export async function softDeleteCapa(id: string, ncId: string, actorId: string): Promise<boolean> {
+export async function softDeleteCapa(
+  id: string, ncId: string, actorId: string, actor?: AuditActor,
+): Promise<boolean> {
   const result = await db
     .update(correctiveActions)
     .set({ status: 'closed' })
     .where(and(eq(correctiveActions.id, id), eq(correctiveActions.ncId, ncId)))
-    .returning({ id: correctiveActions.id, dmsDocumentCode: correctiveActions.dmsDocumentCode })
+    .returning({
+      id: correctiveActions.id,
+      status: correctiveActions.status,
+      dmsDocumentCode: correctiveActions.dmsDocumentCode,
+    })
   if (result.length === 0) return false
   const code = result[0].dmsDocumentCode
   if (code) await obsoleteDmsDocument(db, code, actorId)
+  if (actor) {
+    await recordAudit(db, {
+      entityType: 'corrective_action',
+      entityId:   id,
+      action:     'deleted',
+      actor,
+      newState:   { status: 'closed' },
+      metadata:   { ncId, dmsDocumentCode: code },
+    })
+  }
   return true
 }
 
@@ -568,16 +849,23 @@ export async function updateNcPhotos(
 export async function createCapa(input: {
   ncId:              string
   actionDescription: string
-  responsibleId:     string
+  /** Optional: the register often names a role with no platform account. */
+  responsibleId?:    string | null
   responsibleName?:  string
   deadlinePlanned?:  Date
   deadlineActual?:   Date
+  deadlinePlannedText?: string
+  deadlineActualText?:  string
   deadline?:         Date
   evalDatePlanned?:  Date
   evalDateActual?:   Date
+  evalDatePlannedText?: string
+  evalDateActualText?:  string
   progressStatus?:   string
   notes?:            string
   createdBy:         string
+  /** ISO 9001 traceability — omitted only by data-migration scripts. */
+  actor?:            AuditActor
 }) {
   return db.transaction(async (tx) => {
     const [capa] = await tx
@@ -585,13 +873,17 @@ export async function createCapa(input: {
       .values({
         ncId:              input.ncId,
         actionDescription: input.actionDescription,
-        responsibleId:     input.responsibleId,
+        responsibleId:     input.responsibleId ?? null,
         responsibleName:   input.responsibleName,
         deadlinePlanned:   input.deadlinePlanned,
         deadlineActual:    input.deadlineActual,
+        deadlinePlannedText: input.deadlinePlannedText,
+        deadlineActualText:  input.deadlineActualText,
         deadline:          input.deadlinePlanned ?? input.deadline,
         evalDatePlanned:   input.evalDatePlanned,
         evalDateActual:    input.evalDateActual,
+        evalDatePlannedText: input.evalDatePlannedText,
+        evalDateActualText:  input.evalDateActualText,
         progressStatus:    input.progressStatus,
         notes:             input.notes,
         status:            'open',
@@ -615,6 +907,22 @@ export async function createCapa(input: {
       .set({ dmsDocumentCode: dmsCode })
       .where(eq(correctiveActions.id, capa.id))
 
+    if (input.actor) {
+      await recordAudit(tx, {
+        entityType: 'corrective_action',
+        entityId:   capa.id,
+        action:     'created',
+        actor:      input.actor,
+        newState: {
+          ncId: capa.ncId, actionDescription: capa.actionDescription,
+          responsibleId: capa.responsibleId, responsibleName: capa.responsibleName,
+          deadlinePlanned: capa.deadlinePlanned, deadlinePlannedText: capa.deadlinePlannedText,
+          progressStatus: capa.progressStatus, status: capa.status,
+        },
+        metadata: { ncId: capa.ncId, dmsDocumentCode: dmsCode },
+      })
+    }
+
     return { ...capa, dmsDocumentCode: dmsCode }
   })
 }
@@ -623,11 +931,16 @@ export async function updateCapa(
   capaId: string,
   input: {
     actionDescription?: string
-    responsibleName?:   string
+    responsibleId?:     string | null
+    responsibleName?:   string | null
     deadlinePlanned?:   Date | null
     deadlineActual?:    Date | null
+    deadlinePlannedText?: string | null
+    deadlineActualText?:  string | null
     evalDatePlanned?:   Date | null
     evalDateActual?:    Date | null
+    evalDatePlannedText?: string | null
+    evalDateActualText?:  string | null
     progressStatus?:    string | null
     status?:            CapaStatus
     evidenceAssetId?:   string
@@ -635,18 +948,29 @@ export async function updateCapa(
     verifiedBy?:        string
     closedAt?:          Date
     notes?:             string
-  }
+  },
+  /** ISO 9001 traceability — omitted only by data-migration scripts. */
+  actor?: AuditActor,
 ) {
   const now = new Date()
+  const [before] = actor
+    ? await db.select().from(correctiveActions).where(eq(correctiveActions.id, capaId)).limit(1)
+    : [null]
+
   const [updated] = await db
     .update(correctiveActions)
     .set({
       ...(input.actionDescription !== undefined && { actionDescription: input.actionDescription }),
+      ...(input.responsibleId     !== undefined && { responsibleId: input.responsibleId }),
       ...(input.responsibleName   !== undefined && { responsibleName: input.responsibleName }),
       ...(input.deadlinePlanned   !== undefined && { deadlinePlanned: input.deadlinePlanned, deadline: input.deadlinePlanned }),
       ...(input.deadlineActual    !== undefined && { deadlineActual: input.deadlineActual }),
+      ...(input.deadlinePlannedText !== undefined && { deadlinePlannedText: input.deadlinePlannedText }),
+      ...(input.deadlineActualText  !== undefined && { deadlineActualText: input.deadlineActualText }),
       ...(input.evalDatePlanned   !== undefined && { evalDatePlanned: input.evalDatePlanned }),
       ...(input.evalDateActual    !== undefined && { evalDateActual: input.evalDateActual }),
+      ...(input.evalDatePlannedText !== undefined && { evalDatePlannedText: input.evalDatePlannedText }),
+      ...(input.evalDateActualText  !== undefined && { evalDateActualText: input.evalDateActualText }),
       ...(input.progressStatus    !== undefined && { progressStatus: input.progressStatus }),
       ...(input.status            !== undefined && { status: input.status }),
       ...(input.evidenceAssetId   !== undefined && { evidenceAssetId: input.evidenceAssetId }),
@@ -658,13 +982,158 @@ export async function updateCapa(
     })
     .where(eq(correctiveActions.id, capaId))
     .returning()
+
+  if (actor && before) {
+    const changed = diffFields(before as Record<string, unknown>, input as Record<string, unknown>)
+    if (changed) {
+      // Effectiveness verification is the ISO-critical transition, so it is
+      // named rather than reported as a generic update.
+      const action = input.effectivenessVerified && !before.effectivenessVerified
+        ? 'verified'
+        : input.status === 'closed' && before.status !== 'closed'
+          ? 'closed'
+          : 'updated'
+      await recordAudit(db, {
+        entityType: 'corrective_action',
+        entityId:   capaId,
+        action,
+        actor,
+        previousState: changed.previous,
+        newState:      changed.next,
+        metadata: { ncId: before.ncId },
+      })
+    }
+  }
+
   return updated
 }
 
-/** Check closure prerequisites for an NC (ISO independence rule). */
-export async function checkNcClosePrerequisites(ncId: string, actorId: string) {
+export type NcRegisterRow = NcDetail
+
+/**
+ * Every FOR-MI-05 column for the whole register, ordered by N° Fiche as the
+ * paper form is. Used by the Excel export so the ISO record can be regenerated
+ * from the platform rather than only summarised.
+ */
+export async function listNcsForRegisterExport(filters?: {
+  status?: NcStatus
+  year?: number
+}): Promise<NcRegisterRow[]> {
+  const ids = await db
+    .select({ id: nonConformances.id })
+    .from(nonConformances)
+    .where(
+      and(
+        isNull(nonConformances.deletedAt),
+        filters?.status ? eq(nonConformances.status, filters.status) : undefined,
+        filters?.year
+          ? sql`extract(year from ${nonConformances.detectedAt}) = ${filters.year}`
+          : undefined,
+      )
+    )
+    .orderBy(
+      sql`${nonConformances.ncFicheNum} nulls last`,
+      asc(nonConformances.detectedAt)
+    )
+
+  const rows: NcRegisterRow[] = []
+  for (const { id } of ids) {
+    const nc = await getNcById(id)
+    if (nc) rows.push(nc)
+  }
+  return rows
+}
+
+/** Full ISO trail for one NC: its own entries plus those of its CAPAs. */
+export async function getNcAuditTrail(ncId: string) {
+  const capaIds = await db
+    .select({ id: correctiveActions.id })
+    .from(correctiveActions)
+    .where(eq(correctiveActions.ncId, ncId))
+
+  const ids = capaIds.map((c) => c.id)
+  const rows = await db
+    .select({
+      id:            recordAuditLog.id,
+      entityType:    recordAuditLog.entityType,
+      entityId:      recordAuditLog.entityId,
+      action:        recordAuditLog.action,
+      actorName:     recordAuditLog.actorName,
+      actorRole:     recordAuditLog.actorRoleSnapshot,
+      previousState: recordAuditLog.previousState,
+      newState:      recordAuditLog.newState,
+      occurredAt:    recordAuditLog.occurredAt,
+    })
+    .from(recordAuditLog)
+    .where(
+      or(
+        and(eq(recordAuditLog.entityType, 'non_conformance'), eq(recordAuditLog.entityId, ncId)),
+        ids.length
+          ? and(
+              eq(recordAuditLog.entityType, 'corrective_action'),
+              inArray(recordAuditLog.entityId, ids),
+            )
+          : undefined,
+      )
+    )
+    .orderBy(desc(recordAuditLog.occurredAt))
+
+  return rows
+}
+
+export type NcClosureCheck = {
+  ok: boolean
+  reason: string | null
+  /** True when the record was exempted because it predates the platform workflow. */
+  historical: boolean
+}
+
+/**
+ * Closure prerequisites for an NC.
+ *
+ * Records raised in the platform must satisfy the full ISO 9001 chain before
+ * they can be closed or verified: a corrective action, documented evidence, an
+ * effectiveness verification, and a verifier independent of the detector. That
+ * requirement is deliberately blocking and is NOT relaxed here.
+ *
+ * Records imported from the historical Excel register are the single exception.
+ * They predate the workflow, so the evidence and effectiveness fields were never
+ * captured at source. The alternative to exempting them would be to fabricate
+ * evidence or an effectiveness verification that never took place, which would
+ * corrupt the quality record far more seriously than the missing data does. The
+ * exemption is keyed on `recordOrigin`, which the public API cannot set.
+ */
+export async function checkNcClosePrerequisites(
+  ncId: string,
+  actorId: string,
+  targetStatus: 'closed' | 'verified' = 'closed',
+): Promise<NcClosureCheck> {
+  void actorId // independence is evaluated per-CAPA below, not against the caller
   const nc = await getNcById(ncId)
-  if (!nc) return { ok: false, reason: 'NC introuvable' }
+  if (!nc) return { ok: false, reason: 'NC introuvable', historical: false }
+
+  if (nc.recordOrigin === 'imported') {
+    // 'closed' restates a fact already recorded in the source register, so it is
+    // allowed without evidence. 'verified' is a present-tense claim that the
+    // corrective action was checked for effectiveness — asserting that on a
+    // record where no verification ever happened would fabricate the very thing
+    // ISO 9001 asks us to evidence, so it still requires a real verification.
+    if (targetStatus === 'closed') {
+      return { ok: true, reason: null, historical: true }
+    }
+    const verifiedInPlatform = nc.capa.some((c) => c.effectivenessVerified)
+    if (verifiedInPlatform) {
+      return { ok: true, reason: null, historical: true }
+    }
+    return {
+      ok: false,
+      historical: true,
+      reason:
+        'Fiche historique importée : aucune vérification d\'efficacité n\'existe dans le registre d\'origine. ' +
+        'Enregistrez une vérification d\'efficacité réelle avant de marquer la fiche comme vérifiée, ' +
+        'ou conservez-la au statut « Clôturé » tel qu\'il figure au registre.',
+    }
+  }
 
   const hasCapa = nc.capa.length > 0
   const hasEvidence = nc.capa.some((c) => c.evidenceAssetId !== null)
@@ -674,12 +1143,12 @@ export async function checkNcClosePrerequisites(ncId: string, actorId: string) {
     (c) => !c.verifiedById || c.verifiedById !== nc.detectedById
   )
 
-  if (!hasCapa)           return { ok: false, reason: 'Aucune action corrective n\'a été créée' }
-  if (!hasEvidence)       return { ok: false, reason: 'Aucune preuve d\'action corrective n\'a été téléchargée' }
-  if (!hasVerification)   return { ok: false, reason: 'L\'efficacité de l\'action corrective n\'a pas été vérifiée' }
-  if (!verifierIsIndependent) return { ok: false, reason: 'Le vérificateur doit être différent du détecteur de la NC (indépendance ISO 9001)' }
+  if (!hasCapa)           return { ok: false, reason: 'Aucune action corrective n\'a été créée', historical: false }
+  if (!hasEvidence)       return { ok: false, reason: 'Aucune preuve d\'action corrective n\'a été téléchargée', historical: false }
+  if (!hasVerification)   return { ok: false, reason: 'L\'efficacité de l\'action corrective n\'a pas été vérifiée', historical: false }
+  if (!verifierIsIndependent) return { ok: false, reason: 'Le vérificateur doit être différent du détecteur de la NC (indépendance ISO 9001)', historical: false }
 
-  return { ok: true, reason: null }
+  return { ok: true, reason: null, historical: false }
 }
 
 // ─── Documents ────────────────────────────────────────────────────────────────
@@ -948,6 +1417,23 @@ export async function createAudit(input: {
   })
 }
 
+/**
+ * Updates the editable fields of an internal audit.
+ *
+ * Editable: findings, scope, status, and completedAt (the latter only as part of
+ * closing the audit — see below).
+ *
+ * Everything else on audit_logs is immutable or system-managed and is therefore
+ * absent from the UPDATE by construction: `reference` is an issued identifier,
+ * `auditDate` is fixed at creation by design, `auditorId` / `processAudited`
+ * define what the record *is*, `dmsDocumentCode` is owned by the DMS, and
+ * `id` / `createdAt` / `createdBy` are provenance.
+ *
+ * Fields are listed explicitly rather than spread from `input`: `...input` would
+ * write any column a caller happened to include, so the data layer would depend
+ * on every caller being well-behaved. The API route is careful today, but a
+ * future server action or script need not be.
+ */
 export async function updateAudit(
   id: string,
   input: {
@@ -961,9 +1447,14 @@ export async function updateAudit(
   const [updated] = await db
     .update(auditLogs)
     .set({
-      ...input,
-      completedAt: input.status === 'completed' ? (input.completedAt ?? now) : undefined,
-      updatedAt:   now,
+      ...(input.findings !== undefined && { findings: input.findings }),
+      ...(input.scope    !== undefined && { scope: input.scope }),
+      ...(input.status   !== undefined && { status: input.status }),
+      // Unchanged from the previous implementation: completedAt is stamped only
+      // when the audit is being closed. A completedAt supplied without
+      // status='completed' was already ignored and still is.
+      ...(input.status === 'completed' && { completedAt: input.completedAt ?? now }),
+      updatedAt: now,
     })
     .where(eq(auditLogs.id, id))
     .returning()
@@ -1087,16 +1578,36 @@ export type AuditProgramItemRow = {
   response: string | null
   conformity: string | null      // C / NC / NA / PA
   evidence: string | null
+  /** NC raised from this finding, when one has been. */
+  ncId: string | null
+  ncReference: string | null
   sortOrder: number
 }
 
-export async function generateAuditProgramReference(dept: string): Promise<string> {
-  const year = new Date().getFullYear()
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(auditPrograms)
-    .where(sql`extract(year from created_at) = ${year} AND dept = ${dept}::nc_dept`)
-  const seq = Number(count) + 1
+/**
+ * Next audit-programme reference, e.g. "AUD-AC-2026-02".
+ *
+ * Numbered per department and per year, preserving the existing format and
+ * two-digit width. Each department keeps its own counter, so AC and RE1 never
+ * consume each other's numbers.
+ *
+ * The year here is the **planned year** (from scheduledDate), unlike
+ * generateAuditReference above which uses the registration year. The difference
+ * is intentional: audit_programs persists a `year` column alongside the
+ * reference, so the two must agree, and checkAuditProgramScheduleChange enforces
+ * that on update.
+ */
+export async function generateAuditProgramReference(
+  dept: string,
+  year = new Date().getFullYear(),
+): Promise<string> {
+  const seq = await allocateReferenceNumber(
+    `audit_program:${dept}`,
+    year,
+    sql`SELECT max(substring(reference from ${`^AUD-${dept}-${year}-([0-9]+)$`})::int)
+        FROM audit_programs
+        WHERE reference ~ ${'^AUD-[A-Z0-9]+-[0-9]{4}-[0-9]+$'}`,
+  )
   return `AUD-${dept}-${year}-${String(seq).padStart(2, '0')}`
 }
 
@@ -1189,9 +1700,12 @@ export async function getAuditProgramById(id: string): Promise<(AuditProgramRow 
       response:       auditProgramItems.response,
       conformity:     auditProgramItems.conformity,
       evidence:       auditProgramItems.evidence,
+      ncId:           auditProgramItems.ncId,
+      ncReference:    sql<string | null>`nc_origin.reference`,
       sortOrder:      auditProgramItems.sortOrder,
     })
     .from(auditProgramItems)
+    .leftJoin(sql`non_conformances nc_origin`, sql`nc_origin.id = ${auditProgramItems.ncId}`)
     .where(eq(auditProgramItems.auditProgramId, id))
     .orderBy(asc(auditProgramItems.sortOrder))
 
@@ -1219,8 +1733,11 @@ export async function createAuditProgram(input: {
   createdBy:           string
 }) {
   return db.transaction(async (tx) => {
-    const reference = await generateAuditProgramReference(input.dept)
+    // One year for both the stored column and the reference. Computed first so
+    // a programme created in December but scheduled for January is numbered in
+    // the year it belongs to, rather than the year it happened to be entered.
     const year = input.scheduledDate ? input.scheduledDate.getFullYear() : new Date().getFullYear()
+    const reference = await generateAuditProgramReference(input.dept, year)
 
     const [program] = await tx
       .insert(auditPrograms)
@@ -1265,6 +1782,63 @@ export async function createAuditProgram(input: {
   })
 }
 
+export type AuditProgramScheduleCheck = {
+  ok: boolean
+  reason: string | null
+}
+
+/**
+ * Guards the audit-programme year invariant on update.
+ *
+ * A programme's reference embeds the year it was issued for (AUD-DEPT-YYYY-NN)
+ * and references are immutable once issued, so moving the scheduled date across
+ * a calendar-year boundary would leave the stored `year` and the reference
+ * disagreeing. Rescheduling within the same year is unaffected.
+ *
+ * Records that are *already* inconsistent — a legacy row whose scheduled year
+ * never matched its `year` column — are deliberately let through rather than
+ * repaired or frozen: silently rewriting historical data is worse than leaving
+ * it as recorded, and blocking every edit would trap the row with no way out
+ * (`year` is not editable through the API).
+ */
+export async function checkAuditProgramScheduleChange(
+  id: string,
+  newScheduledDate: Date | null | undefined,
+): Promise<AuditProgramScheduleCheck> {
+  // Not part of this update, or the date is being cleared: nothing to check.
+  if (newScheduledDate === undefined || newScheduledDate === null) {
+    return { ok: true, reason: null }
+  }
+
+  const [existing] = await db
+    .select({
+      year: auditPrograms.year,
+      reference: auditPrograms.reference,
+      scheduledDate: auditPrograms.scheduledDate,
+    })
+    .from(auditPrograms)
+    .where(eq(auditPrograms.id, id))
+    .limit(1)
+
+  if (!existing) return { ok: false, reason: 'Programme introuvable' }
+
+  const alreadyInconsistent =
+    existing.scheduledDate !== null &&
+    existing.scheduledDate.getFullYear() !== existing.year
+  if (alreadyInconsistent) return { ok: true, reason: null }
+
+  const newYear = newScheduledDate.getFullYear()
+  if (newYear === existing.year) return { ok: true, reason: null }
+
+  return {
+    ok: false,
+    reason:
+      `La date planifiée ne peut pas changer d'année : la référence ${existing.reference} ` +
+      `est déjà attribuée à l'année ${existing.year} et une référence émise est immuable. ` +
+      `Replanifiez à l'intérieur de ${existing.year}, ou créez un nouveau programme pour ${newYear}.`,
+  }
+}
+
 export async function updateAuditProgram(id: string, input: {
   title?:              string | null
   auditorName?:        string | null
@@ -1283,9 +1857,31 @@ export async function updateAuditProgram(id: string, input: {
   reportAssetId?:      string | null
   notes?:              string | null
 }) {
+  // Fields are picked explicitly rather than spread: `...input` would let any
+  // caller write columns absent from the signature — `year` and `reference`
+  // among them — which is exactly the year/reference divergence this module
+  // guards against elsewhere.
   const [updated] = await db
     .update(auditPrograms)
-    .set({ ...input, updatedAt: new Date() })
+    .set({
+      ...(input.title              !== undefined && { title: input.title }),
+      ...(input.auditorName        !== undefined && { auditorName: input.auditorName }),
+      ...(input.auditeeResponsible !== undefined && { auditeeResponsible: input.auditeeResponsible }),
+      ...(input.scheduledDate      !== undefined && { scheduledDate: input.scheduledDate }),
+      ...(input.scheduledStartTime !== undefined && { scheduledStartTime: input.scheduledStartTime }),
+      ...(input.scheduledEndTime   !== undefined && { scheduledEndTime: input.scheduledEndTime }),
+      ...(input.actualDate         !== undefined && { actualDate: input.actualDate }),
+      ...(input.auditorSignedAt    !== undefined && { auditorSignedAt: input.auditorSignedAt }),
+      ...(input.status             !== undefined && { status: input.status }),
+      ...(input.scope              !== undefined && { scope: input.scope }),
+      ...(input.objectives         !== undefined && { objectives: input.objectives }),
+      ...(input.criteria           !== undefined && { criteria: input.criteria }),
+      ...(input.referenceDocuments !== undefined && { referenceDocuments: input.referenceDocuments }),
+      ...(input.findings           !== undefined && { findings: input.findings }),
+      ...(input.reportAssetId      !== undefined && { reportAssetId: input.reportAssetId }),
+      ...(input.notes              !== undefined && { notes: input.notes }),
+      updatedAt: new Date(),
+    })
     .where(eq(auditPrograms.id, id))
     .returning()
   return updated
@@ -1294,6 +1890,8 @@ export async function updateAuditProgram(id: string, input: {
 export async function upsertAuditProgramItems(
   auditProgramId: string,
   items: Array<{
+    /** Existing row id, round-tripped by the client so its NC link survives. */
+    id?:             string
     agendaStep:      string
     clauseRef?:      string
     interlocuteurs?: string
@@ -1304,6 +1902,16 @@ export async function upsertAuditProgramItems(
   }>,
   createdBy: string
 ) {
+  // This function replaces the whole item set, so a finding's link to the NC it
+  // raised would be destroyed on every save. The link is read from the database
+  // by row id and carried forward — never taken from the payload, so a caller
+  // cannot attach an arbitrary NC to a finding through this path.
+  const existing = await db
+    .select({ id: auditProgramItems.id, ncId: auditProgramItems.ncId })
+    .from(auditProgramItems)
+    .where(eq(auditProgramItems.auditProgramId, auditProgramId))
+  const ncByItemId = new Map(existing.filter((e) => e.ncId).map((e) => [e.id, e.ncId]))
+
   await db.delete(auditProgramItems).where(eq(auditProgramItems.auditProgramId, auditProgramId))
 
   if (items.length === 0) return []
@@ -1319,6 +1927,7 @@ export async function upsertAuditProgramItems(
         response:       item.response,
         conformity:     item.conformity,
         evidence:       item.evidence,
+        ncId:           item.id ? ncByItemId.get(item.id) ?? null : null,
         sortOrder:      item.sortOrder ?? i,
         createdBy,
       }))
@@ -1326,4 +1935,134 @@ export async function upsertAuditProgramItems(
     .returning()
 
   return rows
+}
+
+// ─── Audit finding → NC traceability ─────────────────────────────────────────
+
+export type AuditFindingOrigin = {
+  itemId:        string
+  agendaStep:    string
+  clauseRef:     string | null
+  conformity:    string | null
+  evidence:      string | null
+  response:      string | null
+  programId:     string
+  programRef:    string
+  programDept:   string
+  programYear:   number
+}
+
+/**
+ * The audit finding an NC was raised from, or null when it has another origin.
+ *
+ * Navigation is a reverse lookup rather than a second column on the NC: one
+ * pointer means the two records cannot drift out of agreement, and the finding's
+ * clause reference stays readable from the NC without being copied.
+ */
+export async function getNcOriginFinding(ncId: string): Promise<AuditFindingOrigin | null> {
+  const [row] = await db
+    .select({
+      itemId:      auditProgramItems.id,
+      agendaStep:  auditProgramItems.agendaStep,
+      clauseRef:   auditProgramItems.clauseRef,
+      conformity:  auditProgramItems.conformity,
+      evidence:    auditProgramItems.evidence,
+      response:    auditProgramItems.response,
+      programId:   auditPrograms.id,
+      programRef:  auditPrograms.reference,
+      programDept: auditPrograms.dept,
+      programYear: auditPrograms.year,
+    })
+    .from(auditProgramItems)
+    .innerJoin(auditPrograms, eq(auditPrograms.id, auditProgramItems.auditProgramId))
+    .where(eq(auditProgramItems.ncId, ncId))
+    .limit(1)
+  return (row as AuditFindingOrigin | undefined) ?? null
+}
+
+export type FindingNcResult =
+  | { ok: true; ncId: string; reference: string }
+  | { ok: false; reason: string; existingNcId?: string }
+
+/**
+ * Raises a non-conformity from an audit finding and links the two.
+ *
+ * The NC is created through createNc, so reference generation, the DMS code and
+ * the audit trail behave exactly as they do for any other NC — and so the
+ * closure rules (evidence + effectiveness verification) apply unchanged.
+ *
+ * A finding may raise only one NC: the link is single-valued and this function
+ * refuses when it is already set, returning the existing NC rather than a second.
+ */
+export async function createNcFromAuditFinding(input: {
+  itemId:      string
+  description?: string
+  ncType?:     string
+  assignedTo?: string
+  detectedBy:  string
+  createdBy:   string
+  actor?:      AuditActor
+}): Promise<FindingNcResult> {
+  const [finding] = await db
+    .select({
+      id:         auditProgramItems.id,
+      ncId:       auditProgramItems.ncId,
+      agendaStep: auditProgramItems.agendaStep,
+      clauseRef:  auditProgramItems.clauseRef,
+      response:   auditProgramItems.response,
+      conformity: auditProgramItems.conformity,
+      programRef: auditPrograms.reference,
+      dept:       auditPrograms.dept,
+      auditor:    auditPrograms.auditorName,
+      scheduled:  auditPrograms.scheduledDate,
+    })
+    .from(auditProgramItems)
+    .innerJoin(auditPrograms, eq(auditPrograms.id, auditProgramItems.auditProgramId))
+    .where(eq(auditProgramItems.id, input.itemId))
+    .limit(1)
+
+  if (!finding) return { ok: false, reason: 'Constat introuvable' }
+  if (finding.ncId) {
+    return {
+      ok: false,
+      reason: 'Une non-conformité a déjà été créée à partir de ce constat.',
+      existingNcId: finding.ncId,
+    }
+  }
+
+  const description = (input.description ?? '').trim() || [
+    finding.agendaStep,
+    finding.response,
+  ].filter(Boolean).join(' — ')
+
+  if (description.length < 10) {
+    return { ok: false, reason: 'Description trop courte pour ouvrir une non-conformité' }
+  }
+
+  const reference = await generateNcReference()
+  const nc = await createNc({
+    reference,
+    description,
+    // The clause reference stays on the finding and is reachable through the
+    // link; it is echoed here so the NC register reads correctly on its own.
+    referenceDoc:    finding.clauseRef ?? undefined,
+    dept:            finding.dept,
+    ncSource:        'audit',
+    ncType:          input.ncType ?? 'systeme',
+    ownerType:       'interne',
+    auditorName:     finding.auditor ?? undefined,
+    detectorName:    finding.auditor ?? undefined,
+    detectedAt:      finding.scheduled ?? undefined,
+    assignedTo:      input.assignedTo,
+    detectedBy:      input.detectedBy,
+    createdBy:       input.createdBy,
+    actor:           input.actor,
+  })
+
+  await db
+    .update(auditProgramItems)
+    .set({ ncId: nc.id, updatedAt: new Date() })
+    .where(eq(auditProgramItems.id, input.itemId))
+
+  return { ok: true, ncId: nc.id, reference }
 }

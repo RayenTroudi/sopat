@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { TrendingDown, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { NcDetail, CapaDetail } from '@/lib/db/iso'
+import type { NcDetail, CapaDetail, AuditFindingOrigin } from '@/lib/db/iso'
 import { CloudinaryUploader } from '@/components/upload/CloudinaryUploader'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -28,9 +28,19 @@ const NC_SOURCE_LABELS: Record<string, string> = {
   interne: 'Interne', audit: 'Audit',
   reclamation_client: 'Réclamation Client', reclamation_pi: 'Réclamation PI',
 }
+const OWNER_TYPE_LABELS: Record<string, string> = {
+  interne: 'Interne', externe: 'Externe',
+}
 const DEPT_LABELS: Record<string, string> = {
   AC: 'AC – Achats', CO: 'CO – Commercial', ET: 'ET – Études',
-  MI: 'MI – Management', RE1: 'RE1 – Réalisation 1', RE2: 'RE2 – Réalisation 2', RH: 'RH – RH',
+  MI: 'MI – Management', MI1: 'MI1 – Management Intégré 1', MI2: 'MI2 – Management Intégré 2',
+  RE1: 'RE1 – Réalisation 1', RE2: 'RE2 – Réalisation 2', RH: 'RH – RH',
+}
+
+/** A date, or the planning expression the register used in its place. */
+function fmtOr(d: Date | string | null, text: string | null) {
+  if (d) return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+  return text ?? '—'
 }
 
 function fmt(d: Date | string | null) {
@@ -40,14 +50,99 @@ function fmt(d: Date | string | null) {
 
 type User = { id: string; name: string; email: string; role: string }
 
+type AuditEntry = {
+  id:            string
+  entityType:    string
+  entityId:      string
+  action:        string
+  actorName:     string
+  actorRole:     string
+  previousState: unknown
+  newState:      unknown
+  occurredAt:    Date
+}
+
 type Props = {
   nc:              NcDetail
   users:           User[]
   currentUserId:   string
   currentUserName: string
+  isAdmin:         boolean
+  auditTrail:      AuditEntry[]
+  originFinding:   AuditFindingOrigin | null
 }
 
-export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUserName }: Props) {
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  created: 'Création', updated: 'Modification', deleted: 'Suppression',
+  imported: 'Reprise du registre historique', reclassified: 'Reclassement',
+  status_changed: 'Changement de statut', closed: 'Clôture',
+  reopened: 'Réouverture', verified: 'Vérification',
+  approved: 'Approbation', rejected: 'Rejet',
+}
+const AUDIT_ENTITY_LABELS: Record<string, string> = {
+  non_conformance: 'NC', corrective_action: 'Action corrective',
+}
+
+/** yyyy-mm-dd for <input type="date">, or '' when unset. */
+function dateInput(d: Date | string | null | undefined) {
+  if (!d) return ''
+  return new Date(d).toISOString().slice(0, 10)
+}
+
+/** '' -> null so a cleared field actually clears in the database. */
+const orNull = (v: string) => (v.trim() === '' ? null : v.trim())
+const dateOrNull = (v: string) => (v === '' ? null : new Date(v).toISOString())
+
+type EditState = {
+  description: string; impact: string; ncType: string; ncSource: string
+  dept: string; ownerType: string; auditorName: string; detectorName: string
+  detectorEmail: string; referenceDoc: string
+  immediateCorrection: string; derogationAuth: boolean; rebut: boolean
+  correctionResponsible: string
+  correctionDeadlinePlanned: string; correctionDeadlinePlannedText: string
+  correctionDeadlineActual: string;  correctionDeadlineActualText: string
+  correctionProgress: string
+  evalDatePlanned: string; evalDateActual: string
+  clientResponse: string; clientResponseRef: string
+  isRisk: boolean; isOpportunity: boolean
+  riskDesignation: string; opportunityDesignation: string
+  needsSecondCapa: boolean
+}
+
+function editStateFrom(nc: NcDetail): EditState {
+  return {
+    description:  nc.description ?? '',
+    impact:       nc.impact ?? '',
+    ncType:       nc.ncType ?? '',
+    ncSource:     nc.ncSource ?? '',
+    dept:         nc.dept ?? '',
+    ownerType:    nc.ownerType ?? '',
+    auditorName:  nc.auditorName ?? '',
+    detectorName: nc.detectorName ?? '',
+    detectorEmail: nc.detectorEmail ?? '',
+    referenceDoc:  nc.referenceDoc ?? '',
+    immediateCorrection: nc.immediateCorrection ?? '',
+    derogationAuth: !!nc.derogationAuth,
+    rebut:          !!nc.rebut,
+    correctionResponsible: nc.correctionResponsible ?? '',
+    correctionDeadlinePlanned:     dateInput(nc.correctionDeadlinePlanned),
+    correctionDeadlinePlannedText: nc.correctionDeadlinePlannedText ?? '',
+    correctionDeadlineActual:      dateInput(nc.correctionDeadlineActual),
+    correctionDeadlineActualText:  nc.correctionDeadlineActualText ?? '',
+    correctionProgress: nc.correctionProgress != null ? String(Math.round(nc.correctionProgress * 100)) : '',
+    evalDatePlanned: dateInput(nc.evalDatePlanned),
+    evalDateActual:  dateInput(nc.evalDateActual),
+    clientResponse:    nc.clientResponse ?? '',
+    clientResponseRef: nc.clientResponseRef ?? '',
+    isRisk:        !!nc.isRisk,
+    isOpportunity: !!nc.isOpportunity,
+    riskDesignation:        nc.riskDesignation ?? '',
+    opportunityDesignation: nc.opportunityDesignation ?? '',
+    needsSecondCapa: !!nc.needsSecondCapa,
+  }
+}
+
+export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUserName, isAdmin, auditTrail, originFinding }: Props) {
   const [nc, setNc] = useState(initialNc)
   const [status, setStatus] = useState('')
   const [rootCause, setRootCause] = useState(nc.rootCause ?? '')
@@ -56,13 +151,81 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
 
   // CAPA form
   const [showCapaForm, setShowCapaForm] = useState(false)
-  const [capaForm, setCapaForm] = useState({ actionDescription: '', responsibleId: '', deadline: '', notes: '' })
+  const [capaForm, setCapaForm] = useState({
+    actionDescription: '', responsibleId: '', responsibleName: '',
+    deadline: '', deadlinePlannedText: '', progressStatus: '', notes: '',
+  })
   const [capaSubmitting, setCapaSubmitting] = useState(false)
   const [capaError, setCapaError] = useState('')
+
+  // Field editing (admin / direction only)
+  const [editing, setEditing]       = useState(false)
+  const [edit, setEdit]             = useState<EditState>(() => editStateFrom(initialNc))
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError]   = useState('')
 
   async function reload() {
     const res = await fetch(`/api/nc/${nc.id}`)
     if (res.ok) setNc(await res.json() as NcDetail)
+  }
+
+  function startEditing() {
+    setEdit(editStateFrom(nc))
+    setEditError('')
+    setEditing(true)
+  }
+
+  async function saveEdit() {
+    if (edit.description.trim().length < 5) {
+      setEditError('La description doit comporter au moins 5 caractères'); return
+    }
+    const pct = edit.correctionProgress.trim()
+    if (pct !== '' && (Number.isNaN(Number(pct)) || Number(pct) < 0 || Number(pct) > 100)) {
+      setEditError('L\u2019état d\u2019avancement doit être un pourcentage entre 0 et 100'); return
+    }
+    setEditSaving(true)
+    setEditError('')
+
+    const res = await fetch(`/api/nc/${nc.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description:   edit.description.trim(),
+        impact:        orNull(edit.impact),
+        ncType:        orNull(edit.ncType),
+        ncSource:      orNull(edit.ncSource),
+        dept:          orNull(edit.dept),
+        ownerType:     orNull(edit.ownerType),
+        auditorName:   orNull(edit.auditorName),
+        detectorName:  orNull(edit.detectorName),
+        detectorEmail: orNull(edit.detectorEmail),
+        referenceDoc:  orNull(edit.referenceDoc),
+        immediateCorrection:   orNull(edit.immediateCorrection),
+        derogationAuth:        edit.derogationAuth,
+        rebut:                 edit.rebut,
+        correctionResponsible: orNull(edit.correctionResponsible),
+        correctionDeadlinePlanned:     dateOrNull(edit.correctionDeadlinePlanned),
+        // A real date wins; the free-text field only holds planning expressions.
+        correctionDeadlinePlannedText: edit.correctionDeadlinePlanned ? null : orNull(edit.correctionDeadlinePlannedText),
+        correctionDeadlineActual:      dateOrNull(edit.correctionDeadlineActual),
+        correctionDeadlineActualText:  edit.correctionDeadlineActual ? null : orNull(edit.correctionDeadlineActualText),
+        correctionProgress: pct === '' ? null : Number(pct) / 100,
+        evalDatePlanned: dateOrNull(edit.evalDatePlanned),
+        evalDateActual:  dateOrNull(edit.evalDateActual),
+        clientResponse:    orNull(edit.clientResponse),
+        clientResponseRef: orNull(edit.clientResponseRef),
+        isRisk:        edit.isRisk,
+        isOpportunity: edit.isOpportunity,
+        riskDesignation:        edit.isRisk ? orNull(edit.riskDesignation) : null,
+        opportunityDesignation: edit.isOpportunity ? orNull(edit.opportunityDesignation) : null,
+        needsSecondCapa: edit.needsSecondCapa,
+      }),
+    })
+    const data = await res.json() as NcDetail & { error?: string }
+    if (!res.ok) { setEditError(data.error ?? 'Erreur'); setEditSaving(false); return }
+    setNc(data)
+    setEditing(false)
+    setEditSaving(false)
   }
 
   async function updateStatus() {
@@ -86,23 +249,30 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
       setCapaError('L\'action doit comporter au moins 10 caractères')
       return
     }
-    if (!capaForm.responsibleId) { setCapaError('Sélectionnez un responsable'); return }
+    // A platform account OR a free-text role ("RMI", "DG") is enough.
+    if (!capaForm.responsibleId && !capaForm.responsibleName.trim()) {
+      setCapaError('Indiquez un responsable : un compte ou un nom / rôle'); return
+    }
     setCapaSubmitting(true)
     setCapaError('')
     const res = await fetch(`/api/nc/${nc.id}/capa`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        actionDescription: capaForm.actionDescription,
-        responsibleId:     capaForm.responsibleId,
-        deadline:          capaForm.deadline ? new Date(capaForm.deadline).toISOString() : undefined,
-        notes:             capaForm.notes || undefined,
+        actionDescription:   capaForm.actionDescription,
+        responsibleId:       capaForm.responsibleId || undefined,
+        responsibleName:     capaForm.responsibleName.trim() || undefined,
+        deadlinePlanned:     capaForm.deadline ? new Date(capaForm.deadline).toISOString() : undefined,
+        deadlinePlannedText: capaForm.deadline ? undefined : (capaForm.deadlinePlannedText.trim() || undefined),
+        progressStatus:      capaForm.progressStatus.trim() || undefined,
+        notes:               capaForm.notes || undefined,
       }),
     })
     const data = await res.json() as { id?: string; error?: string }
     if (!res.ok) { setCapaError(data.error ?? 'Erreur'); setCapaSubmitting(false); return }
     setShowCapaForm(false)
-    setCapaForm({ actionDescription: '', responsibleId: '', deadline: '', notes: '' })
+    setCapaForm({ actionDescription: '', responsibleId: '', responsibleName: '',
+      deadline: '', deadlinePlannedText: '', progressStatus: '', notes: '' })
     await reload()
     setCapaSubmitting(false)
   }
@@ -166,8 +336,31 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
                   En retard
                 </span>
               )}
-              {nc.isRisk && <span className="flex items-center gap-0.5 text-xs" style={{ color: 'var(--admin-red)' }}><TrendingDown className="w-3.5 h-3.5" />Risque</span>}
-              {nc.isOpportunity && <span className="flex items-center gap-0.5 text-xs" style={{ color: 'var(--admin-emerald)' }}><TrendingUp className="w-3.5 h-3.5" />Opportunité</span>}
+              {nc.isRisk && (
+                <span className="flex items-center gap-0.5 text-xs" style={{ color: 'var(--admin-red)' }}>
+                  <TrendingDown className="w-3.5 h-3.5" />
+                  {nc.riskDesignation ? `Risque : ${nc.riskDesignation}` : 'Risque'}
+                </span>
+              )}
+              {nc.isOpportunity && (
+                <span className="flex items-center gap-0.5 text-xs" style={{ color: 'var(--admin-emerald)' }}>
+                  <TrendingUp className="w-3.5 h-3.5" />
+                  {nc.opportunityDesignation ? `Opportunité : ${nc.opportunityDesignation}` : 'Opportunité'}
+                </span>
+              )}
+              {nc.recordOrigin === 'imported' && (
+                <span className="text-xs px-2 py-0.5 rounded font-medium"
+                  style={{ background: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                  title={nc.importedFrom ?? 'Reprise du registre historique'}>
+                  Fiche historique (importée)
+                </span>
+              )}
+              {nc.needsSecondCapa && (
+                <span className="text-xs px-2 py-0.5 rounded font-medium"
+                  style={{ background: 'var(--admin-amber-dim)', color: 'var(--admin-amber)' }}>
+                  2ᵉ action corrective requise
+                </span>
+              )}
             </div>
             <p className="text-sm mt-1" style={{ color: 'var(--admin-text-muted)' }}>
               {nc.ncType ? NC_TYPE_LABELS[nc.ncType] : '—'}
@@ -181,12 +374,21 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
               {nc.detectorEmail ? ` (${nc.detectorEmail})` : ''}
             </p>
           </div>
+          {isAdmin && !editing && (
+            <button
+              onClick={startEditing}
+              className="shrink-0 text-xs px-3 py-1.5 rounded-lg border font-medium hover:opacity-80 transition-opacity"
+              style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+            >
+              Modifier la fiche
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-3 border-t" style={{ borderColor: 'var(--admin-border)' }}>
           <InfoCell label="Assigné à"     value={nc.assignedToName ?? '—'} />
-          <InfoCell label="Correction (prévu)" value={fmt(nc.correctionDeadlinePlanned)} highlight={!!isOverdue} />
-          <InfoCell label="Correction (réel)"  value={fmt(nc.correctionDeadlineActual)} />
+          <InfoCell label="Correction (prévu)" value={fmtOr(nc.correctionDeadlinePlanned, nc.correctionDeadlinePlannedText)} highlight={!!isOverdue} />
+          <InfoCell label="Correction (réel)"  value={fmtOr(nc.correctionDeadlineActual, nc.correctionDeadlineActualText)} />
           <InfoCell label="Clôturé le"    value={fmt(nc.closedAt)} />
         </div>
 
@@ -198,6 +400,212 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
           </div>
         )}
       </div>
+
+      {/* Origin: the audit finding that raised this NC */}
+      {originFinding && (
+        <Card title="Origine — constat d'audit">
+          <div className="space-y-2">
+            <p className="text-sm" style={{ color: 'var(--admin-text)' }}>{originFinding.agendaStep}</p>
+            {originFinding.response && (
+              <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--admin-text-muted)' }}>
+                {originFinding.response}
+              </p>
+            )}
+            <div className="flex gap-4 flex-wrap text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+              {originFinding.clauseRef && (
+                <span>Clause ISO : <span style={{ color: 'var(--admin-text)' }}>{originFinding.clauseRef}</span></span>
+              )}
+              {originFinding.evidence && (
+                <span>Preuves : <span style={{ color: 'var(--admin-text)' }}>{originFinding.evidence}</span></span>
+              )}
+              <span>Processus : <span style={{ color: 'var(--admin-text)' }}>{originFinding.programDept}</span></span>
+            </div>
+            <a href={`/admin/audit-programs?ref=${encodeURIComponent(originFinding.programRef)}`}
+              className="inline-block text-xs font-medium hover:underline"
+              style={{ color: 'var(--admin-accent)' }}>
+              Programme d&apos;audit {originFinding.programRef} ({originFinding.programYear}) →
+            </a>
+          </div>
+        </Card>
+      )}
+
+      {/* Historical provenance notice */}
+      {nc.recordOrigin === 'imported' && (
+        <div className="rounded-xl border p-4 text-sm"
+          style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)' }}>
+          <p className="font-medium mb-1" style={{ color: 'var(--admin-text)' }}>
+            Fiche reprise du registre historique
+          </p>
+          <p style={{ color: 'var(--admin-text-muted)' }}>
+            Cette fiche provient de {nc.importedFrom ?? 'l\u2019ancien registre Excel'} et est
+            antérieure au flux qualité de la plateforme. Le système d\u2019origine ne collectait
+            ni preuve d\u2019action corrective ni vérification d\u2019efficacité : ces champs sont
+            vides par construction, et aucune preuve n\u2019a été fabriquée lors de la reprise.
+            Son statut et sa date de clôture sont conservés tels qu\u2019ils figurent au registre.
+          </p>
+          <p className="mt-2" style={{ color: 'var(--admin-text-muted)' }}>
+            Les nouvelles non-conformités restent soumises au flux complet : preuve documentée
+            et vérification d\u2019efficacité obligatoires avant clôture.
+          </p>
+        </div>
+      )}
+
+      {/* Edit form (admin / direction) */}
+      {editing && (
+        <Card title="Modifier la fiche FOR-MI-05">
+          <div className="space-y-4">
+            <FormField label="Identification de la NC *">
+              <textarea
+                value={edit.description}
+                onChange={(e) => setEdit((f) => ({ ...f, description: e.target.value }))}
+                rows={4}
+                className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+              />
+            </FormField>
+            <FormField label="Impact de la non-conformité">
+              <textarea
+                value={edit.impact}
+                onChange={(e) => setEdit((f) => ({ ...f, impact: e.target.value }))}
+                rows={2}
+                className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+              />
+            </FormField>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <EditSelect label="Type de NC" value={edit.ncType} options={NC_TYPE_LABELS}
+                onChange={(v) => setEdit((f) => ({ ...f, ncType: v }))} />
+              <EditSelect label="Source de NC" value={edit.ncSource} options={NC_SOURCE_LABELS}
+                onChange={(v) => setEdit((f) => ({ ...f, ncSource: v }))} />
+              <EditSelect label="Processus rattaché" value={edit.dept} options={DEPT_LABELS}
+                onChange={(v) => setEdit((f) => ({ ...f, dept: v }))} />
+              <EditSelect label="Origine" value={edit.ownerType} options={OWNER_TYPE_LABELS}
+                onChange={(v) => setEdit((f) => ({ ...f, ownerType: v }))} />
+              <EditText label="Document de référence" value={edit.referenceDoc}
+                onChange={(v) => setEdit((f) => ({ ...f, referenceDoc: v }))} placeholder="NC N°12" />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <EditText label="Détecteur" value={edit.detectorName}
+                onChange={(v) => setEdit((f) => ({ ...f, detectorName: v }))} placeholder="MAM, TEM, Auditeur…" />
+              <EditText label="Coordonnées" value={edit.detectorEmail}
+                onChange={(v) => setEdit((f) => ({ ...f, detectorEmail: v }))} placeholder="email ou contact" />
+              <EditText label="Auditeur" value={edit.auditorName}
+                onChange={(v) => setEdit((f) => ({ ...f, auditorName: v }))} />
+            </div>
+
+            <SectionRule label="Correction" />
+            <FormField label="Action(s) de correction">
+              <textarea
+                value={edit.immediateCorrection}
+                onChange={(e) => setEdit((f) => ({ ...f, immediateCorrection: e.target.value }))}
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border text-sm resize-none"
+                style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+              />
+            </FormField>
+            <div className="flex gap-5 flex-wrap text-sm" style={{ color: 'var(--admin-text)' }}>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={edit.derogationAuth}
+                  onChange={(e) => setEdit((f) => ({ ...f, derogationAuth: e.target.checked }))} />
+                Autorisation de dérogation
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={edit.rebut}
+                  onChange={(e) => setEdit((f) => ({ ...f, rebut: e.target.checked }))} />
+                Rebut
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={edit.needsSecondCapa}
+                  onChange={(e) => setEdit((f) => ({ ...f, needsSecondCapa: e.target.checked }))} />
+                Nécessité d&apos;une 2ᵉ action corrective
+              </label>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <EditText label="Responsable(s)" value={edit.correctionResponsible}
+                onChange={(v) => setEdit((f) => ({ ...f, correctionResponsible: v }))} placeholder="RMI, DG…" />
+              <EditDate label="Date prévue" value={edit.correctionDeadlinePlanned}
+                onChange={(v) => setEdit((f) => ({ ...f, correctionDeadlinePlanned: v }))} />
+              <EditText label="…ou échéance en clair" value={edit.correctionDeadlinePlannedText}
+                disabled={!!edit.correctionDeadlinePlanned}
+                onChange={(v) => setEdit((f) => ({ ...f, correctionDeadlinePlannedText: v }))}
+                placeholder="S3 Juin 2025…" />
+              <EditDate label="Date réalisée" value={edit.correctionDeadlineActual}
+                onChange={(v) => setEdit((f) => ({ ...f, correctionDeadlineActual: v }))} />
+              <EditText label="…ou réalisation en clair" value={edit.correctionDeadlineActualText}
+                disabled={!!edit.correctionDeadlineActual}
+                onChange={(v) => setEdit((f) => ({ ...f, correctionDeadlineActualText: v }))} />
+              <EditText label="État d&apos;avancement (%)" value={edit.correctionProgress}
+                onChange={(v) => setEdit((f) => ({ ...f, correctionProgress: v }))} placeholder="0 – 100" />
+            </div>
+
+            <SectionRule label="Évaluation de l&apos;efficacité" />
+            <div className="grid grid-cols-2 gap-3">
+              <EditDate label="Date d&apos;évaluation prévue" value={edit.evalDatePlanned}
+                onChange={(v) => setEdit((f) => ({ ...f, evalDatePlanned: v }))} />
+              <EditDate label="Date d&apos;évaluation réalisée" value={edit.evalDateActual}
+                onChange={(v) => setEdit((f) => ({ ...f, evalDateActual: v }))} />
+            </div>
+
+            <SectionRule label="Réponse Client / PI" />
+            <div className="grid grid-cols-2 gap-3">
+              <EditText label="Date(s)" value={edit.clientResponse}
+                onChange={(v) => setEdit((f) => ({ ...f, clientResponse: v }))} />
+              <EditText label="Référence" value={edit.clientResponseRef}
+                onChange={(v) => setEdit((f) => ({ ...f, clientResponseRef: v }))} />
+            </div>
+
+            <SectionRule label="Désignation de R / O" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--admin-text)' }}>
+                  <input type="checkbox" checked={edit.isRisk}
+                    onChange={(e) => setEdit((f) => ({ ...f, isRisk: e.target.checked }))} />
+                  Risque
+                </label>
+                <EditText label="Désignation du risque" value={edit.riskDesignation}
+                  disabled={!edit.isRisk}
+                  onChange={(v) => setEdit((f) => ({ ...f, riskDesignation: v }))}
+                  placeholder="qualité du service, stratégique RH…" />
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--admin-text)' }}>
+                  <input type="checkbox" checked={edit.isOpportunity}
+                    onChange={(e) => setEdit((f) => ({ ...f, isOpportunity: e.target.checked }))} />
+                  Opportunité
+                </label>
+                <EditText label="Désignation de l&apos;opportunité" value={edit.opportunityDesignation}
+                  disabled={!edit.isOpportunity}
+                  onChange={(v) => setEdit((f) => ({ ...f, opportunityDesignation: v }))}
+                  placeholder="A améliorer, performance sociale…" />
+              </div>
+            </div>
+
+            {editError && (
+              <p className="text-xs" style={{ color: 'var(--admin-red)' }}>{editError}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => void saveEdit()}
+                disabled={editSaving}
+                className="text-sm px-4 py-2 rounded-lg font-medium text-white disabled:opacity-60"
+                style={{ background: 'var(--admin-accent)' }}
+              >
+                {editSaving ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+              <button
+                onClick={() => { setEditing(false); setEditError('') }}
+                disabled={editSaving}
+                className="text-sm px-4 py-2 rounded-lg border font-medium disabled:opacity-60"
+                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Identification */}
       <Card title="Identification de la NC">
@@ -237,8 +645,8 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">
-              <InfoCell label="Date prévue"  value={fmt(nc.correctionDeadlinePlanned)} />
-              <InfoCell label="Date réalisée" value={fmt(nc.correctionDeadlineActual)} />
+              <InfoCell label="Date prévue"  value={fmtOr(nc.correctionDeadlinePlanned, nc.correctionDeadlinePlannedText)} />
+              <InfoCell label="Date réalisée" value={fmtOr(nc.correctionDeadlineActual, nc.correctionDeadlineActualText)} />
             </div>
             {nc.correctionProgress !== null && nc.correctionProgress !== undefined && (
               <div className="space-y-1">
@@ -279,7 +687,7 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
           <div className="space-y-3">
             {nc.clientResponseRef && (
               <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
-                Désignation R/O : <span style={{ color: 'var(--admin-text)', fontWeight: 500 }}>{nc.clientResponseRef}</span>
+                Référence : <span style={{ color: 'var(--admin-text)', fontWeight: 500 }}>{nc.clientResponseRef}</span>
               </p>
             )}
             <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: nc.clientResponse ? 'var(--admin-text)' : 'var(--admin-text-muted)' }}>
@@ -289,13 +697,51 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
         </Card>
       )}
 
+      {/* ISO 9001 traceability */}
+      <Card title="Traçabilité (ISO 9001)">
+        {auditTrail.length === 0 ? (
+          <p className="text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+            Aucune trace enregistrée. Les fiches importées du registre Excel n&apos;ont pas
+            d&apos;historique antérieur à leur reprise dans la plateforme.
+          </p>
+        ) : (
+          <ol className="space-y-3">
+            {auditTrail.map((e) => (
+              <li key={e.id} className="text-xs flex gap-3">
+                <span className="shrink-0 tabular-nums" style={{ color: 'var(--admin-text-muted)' }}>
+                  {new Date(e.occurredAt).toLocaleString('fr-FR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
+                  })}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p style={{ color: 'var(--admin-text)' }}>
+                    <span className="font-medium">
+                      {AUDIT_ACTION_LABELS[e.action] ?? e.action}
+                    </span>
+                    {' · '}
+                    <span style={{ color: 'var(--admin-text-muted)' }}>
+                      {AUDIT_ENTITY_LABELS[e.entityType] ?? e.entityType}
+                    </span>
+                    {' · '}
+                    {e.actorName}
+                    <span style={{ color: 'var(--admin-text-muted)' }}> ({e.actorRole})</span>
+                  </p>
+                  <AuditDiff previous={e.previousState} next={e.newState} />
+                </div>
+              </li>
+            ))}
+          </ol>
+        )}
+      </Card>
+
       {/* Photos avant/après */}
       <Card title="Photos (avant / après)">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <p className="text-xs font-medium mb-2" style={{ color: 'var(--admin-text-muted)' }}>Photo avant</p>
-            {(nc as any).beforePhotoUrl ? (
-              <img src={(nc as any).beforePhotoUrl} alt="Avant" className="w-full rounded-lg object-cover max-h-48" />
+            {nc.beforePhotoUrl ? (
+              <img src={nc.beforePhotoUrl} alt="Avant" className="w-full rounded-lg object-cover max-h-48" />
             ) : (
               <CloudinaryUploader
                 projectId={nc.id}
@@ -315,8 +761,8 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
           </div>
           <div>
             <p className="text-xs font-medium mb-2" style={{ color: 'var(--admin-text-muted)' }}>Photo après</p>
-            {(nc as any).afterPhotoUrl ? (
-              <img src={(nc as any).afterPhotoUrl} alt="Après" className="w-full rounded-lg object-cover max-h-48" />
+            {nc.afterPhotoUrl ? (
+              <img src={nc.afterPhotoUrl} alt="Après" className="w-full rounded-lg object-cover max-h-48" />
             ) : (
               <CloudinaryUploader
                 projectId={nc.id}
@@ -422,7 +868,7 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
                 />
               </FormField>
               <div className="grid grid-cols-2 gap-3">
-                <FormField label="Responsable *">
+                <FormField label="Responsable (compte)">
                   <Select
                     value={capaForm.responsibleId === '' ? '__none__' : capaForm.responsibleId}
                     onValueChange={(v) => setCapaForm((f) => ({ ...f, responsibleId: v === '__none__' ? '' : v }))}
@@ -436,11 +882,39 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
                     </SelectContent>
                   </Select>
                 </FormField>
-                <FormField label="Délai">
+                <FormField label="…ou responsable (nom / rôle)">
+                  <input
+                    value={capaForm.responsibleName}
+                    onChange={(e) => setCapaForm((f) => ({ ...f, responsibleName: e.target.value }))}
+                    placeholder="RMI, DG, Equipe réalisation…"
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                  />
+                </FormField>
+                <FormField label="Délai prévu">
                   <input
                     type="date"
                     value={capaForm.deadline}
                     onChange={(e) => setCapaForm((f) => ({ ...f, deadline: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border text-sm"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                  />
+                </FormField>
+                <FormField label="…ou échéance en clair">
+                  <input
+                    value={capaForm.deadlinePlannedText}
+                    onChange={(e) => setCapaForm((f) => ({ ...f, deadlinePlannedText: e.target.value }))}
+                    disabled={!!capaForm.deadline}
+                    placeholder="S3 Juin 2025, Réunion du groupe…"
+                    className="w-full px-3 py-2 rounded-lg border text-sm disabled:opacity-50"
+                    style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
+                  />
+                </FormField>
+                <FormField label="État d&apos;avancement">
+                  <input
+                    value={capaForm.progressStatus}
+                    onChange={(e) => setCapaForm((f) => ({ ...f, progressStatus: e.target.value }))}
+                    placeholder="100%, en cours…"
                     className="w-full px-3 py-2 rounded-lg border text-sm"
                     style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)', color: 'var(--admin-text)' }}
                   />
@@ -509,18 +983,29 @@ function CapaCard({
 
       <div className="grid grid-cols-2 gap-2 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
         <span>Responsable : <span style={{ color: 'var(--admin-text)' }}>{capa.responsibleName ?? '—'}</span></span>
-        <span>Délai prévu : <span style={{ color: 'var(--admin-text)' }}>{capa.deadlinePlanned ? new Date(capa.deadlinePlanned).toLocaleDateString('fr-FR') : (capa.deadline ? new Date(capa.deadline).toLocaleDateString('fr-FR') : '—')}</span></span>
-        {capa.deadlineActual && (
-          <span>Réalisé le : <span style={{ color: 'var(--admin-emerald)' }}>{new Date(capa.deadlineActual).toLocaleDateString('fr-FR')}</span></span>
+        <span>Délai prévu : <span style={{ color: 'var(--admin-text)' }}>{
+          capa.deadlinePlanned ? new Date(capa.deadlinePlanned).toLocaleDateString('fr-FR')
+            : capa.deadlinePlannedText ? capa.deadlinePlannedText
+            : capa.deadline ? new Date(capa.deadline).toLocaleDateString('fr-FR')
+            : '—'
+        }</span></span>
+        {(capa.deadlineActual || capa.deadlineActualText) && (
+          <span>Réalisé le : <span style={{ color: 'var(--admin-emerald)' }}>{
+            capa.deadlineActual ? new Date(capa.deadlineActual).toLocaleDateString('fr-FR') : capa.deadlineActualText
+          }</span></span>
         )}
         {capa.progressStatus && (
           <span>Avancement : <span style={{ color: 'var(--admin-text)' }}>{capa.progressStatus}</span></span>
         )}
-        {capa.evalDatePlanned && (
-          <span>Éval. prévue : <span style={{ color: 'var(--admin-text)' }}>{new Date(capa.evalDatePlanned).toLocaleDateString('fr-FR')}</span></span>
+        {(capa.evalDatePlanned || capa.evalDatePlannedText) && (
+          <span>Éval. prévue : <span style={{ color: 'var(--admin-text)' }}>{
+            capa.evalDatePlanned ? new Date(capa.evalDatePlanned).toLocaleDateString('fr-FR') : capa.evalDatePlannedText
+          }</span></span>
         )}
-        {capa.evalDateActual && (
-          <span>Éval. réalisée : <span style={{ color: 'var(--admin-emerald)' }}>{new Date(capa.evalDateActual).toLocaleDateString('fr-FR')}</span></span>
+        {(capa.evalDateActual || capa.evalDateActualText) && (
+          <span>Éval. réalisée : <span style={{ color: 'var(--admin-emerald)' }}>{
+            capa.evalDateActual ? new Date(capa.evalDateActual).toLocaleDateString('fr-FR') : capa.evalDateActualText
+          }</span></span>
         )}
         {capa.effectivenessVerified && (
           <span className="col-span-2" style={{ color: 'var(--admin-emerald)' }}>
@@ -608,6 +1093,108 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
     <div className="space-y-1.5">
       <label className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{label}</label>
       {children}
+    </div>
+  )
+}
+
+// ─── Edit-form controls ───────────────────────────────────────────────────────
+
+const editInputClass = 'w-full px-3 py-2 rounded-lg border text-sm disabled:opacity-50'
+const editInputStyle = {
+  borderColor: 'var(--admin-border)',
+  background: 'var(--admin-bg)',
+  color: 'var(--admin-text)',
+}
+
+function EditText({ label, value, onChange, placeholder, disabled }: {
+  label: string; value: string; onChange: (v: string) => void
+  placeholder?: string; disabled?: boolean
+}) {
+  return (
+    <FormField label={label}>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        className={editInputClass}
+        style={editInputStyle}
+      />
+    </FormField>
+  )
+}
+
+function EditDate({ label, value, onChange }: {
+  label: string; value: string; onChange: (v: string) => void
+}) {
+  return (
+    <FormField label={label}>
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={editInputClass}
+        style={editInputStyle}
+      />
+    </FormField>
+  )
+}
+
+function EditSelect({ label, value, options, onChange }: {
+  label: string; value: string; options: Record<string, string>; onChange: (v: string) => void
+}) {
+  return (
+    <FormField label={label}>
+      <Select
+        value={value === '' ? '__none__' : value}
+        onValueChange={(v) => onChange(v === '__none__' ? '' : v)}
+      >
+        <SelectTrigger className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectValue placeholder="— Non défini —" />
+        </SelectTrigger>
+        <SelectContent className="bg-[#F4F8F5]" style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}>
+          <SelectItem value="__none__">— Non défini —</SelectItem>
+          {Object.entries(options).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </FormField>
+  )
+}
+
+/** Previous -> new value per changed field, as ISO 9001 requires. */
+function AuditDiff({ previous, next }: { previous: unknown; next: unknown }) {
+  const prev = (previous ?? {}) as Record<string, unknown>
+  const nxt  = (next ?? {}) as Record<string, unknown>
+  const keys = Object.keys(nxt)
+  if (keys.length === 0) return null
+
+  const show = (v: unknown) => {
+    if (v === null || v === undefined || v === '') return '—'
+    if (typeof v === 'boolean') return v ? 'Oui' : 'Non'
+    const str = String(v)
+    return str.length > 60 ? str.slice(0, 60) + '…' : str
+  }
+
+  return (
+    <ul className="mt-0.5 space-y-0.5">
+      {keys.map((k) => (
+        <li key={k} style={{ color: 'var(--admin-text-muted)' }}>
+          {k} : <span className="line-through">{show(prev[k])}</span>
+          {' → '}
+          <span style={{ color: 'var(--admin-text)' }}>{show(nxt[k])}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function SectionRule({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <span className="text-xs font-semibold uppercase tracking-wide shrink-0" style={{ color: 'var(--admin-text-muted)' }}>
+        {label}
+      </span>
+      <span className="h-px flex-1" style={{ background: 'var(--admin-border)' }} />
     </div>
   )
 }

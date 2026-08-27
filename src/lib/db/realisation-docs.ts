@@ -131,14 +131,31 @@ export async function upsertPvProvisoire(projectId: string, data: {
   const existing = await getPvProvisoire(projectId)
   if (existing) {
     const [row] = await db.update(pvReceptionProvisoire)
-      .set({ ...data, checklistItems: (data.checklistItems ?? existing.checklistItems) as never, signatories: (data.signatories ?? existing.signatories) as never, updatedAt: new Date() })
+      .set({
+        ...(data.date !== undefined && { date: data.date }),
+        ...(data.maitreOuvrage !== undefined && { maitreOuvrage: data.maitreOuvrage }),
+        ...(data.startDate !== undefined && { startDate: data.startDate }),
+        ...(data.endDate !== undefined && { endDate: data.endDate }),
+        ...(data.reserves !== undefined && { reserves: data.reserves }),
+        ...(data.hasReserves !== undefined && { hasReserves: data.hasReserves }),
+        ...(data.isFinalized !== undefined && { isFinalized: data.isFinalized }),
+        checklistItems: (data.checklistItems ?? existing.checklistItems) as never,
+        signatories: (data.signatories ?? existing.signatories) as never,
+        updatedAt: new Date(),
+      })
       .where(eq(pvReceptionProvisoire.projectId, projectId))
       .returning()
     return row
   }
   const [row] = await db.insert(pvReceptionProvisoire).values({
     projectId,
-    ...data,
+    ...(data.date !== undefined && { date: data.date }),
+    ...(data.maitreOuvrage !== undefined && { maitreOuvrage: data.maitreOuvrage }),
+    ...(data.startDate !== undefined && { startDate: data.startDate }),
+    ...(data.endDate !== undefined && { endDate: data.endDate }),
+    ...(data.reserves !== undefined && { reserves: data.reserves }),
+    ...(data.hasReserves !== undefined && { hasReserves: data.hasReserves }),
+    ...(data.isFinalized !== undefined && { isFinalized: data.isFinalized }),
     checklistItems: (data.checklistItems ?? []) as never,
     signatories: (data.signatories ?? []) as never,
     createdBy: userId,
@@ -175,14 +192,32 @@ export async function upsertPvDefinitive(projectId: string, data: {
   const existing = await getPvDefinitive(projectId)
   if (existing) {
     const [row] = await db.update(pvReceptionDefinitive)
-      .set({ ...data, signatories: (data.signatories ?? existing.signatories) as never, updatedAt: new Date() })
+      .set({
+        ...(data.date !== undefined && { date: data.date }),
+        ...(data.titulaireDuMarche !== undefined && { titulaireDuMarche: data.titulaireDuMarche }),
+        ...(data.dateApprobationMarche !== undefined && { dateApprobationMarche: data.dateApprobationMarche }),
+        ...(data.delaiExecution !== undefined && { delaiExecution: data.delaiExecution }),
+        ...(data.dateDebutTravaux !== undefined && { dateDebutTravaux: data.dateDebutTravaux }),
+        ...(data.dateFinTravaux !== undefined && { dateFinTravaux: data.dateFinTravaux }),
+        ...(data.attestationText !== undefined && { attestationText: data.attestationText }),
+        ...(data.isFinalized !== undefined && { isFinalized: data.isFinalized }),
+        signatories: (data.signatories ?? existing.signatories) as never,
+        updatedAt: new Date(),
+      })
       .where(eq(pvReceptionDefinitive.projectId, projectId))
       .returning()
     return row
   }
   const [row] = await db.insert(pvReceptionDefinitive).values({
     projectId,
-    ...data,
+    ...(data.date !== undefined && { date: data.date }),
+    ...(data.titulaireDuMarche !== undefined && { titulaireDuMarche: data.titulaireDuMarche }),
+    ...(data.dateApprobationMarche !== undefined && { dateApprobationMarche: data.dateApprobationMarche }),
+    ...(data.delaiExecution !== undefined && { delaiExecution: data.delaiExecution }),
+    ...(data.dateDebutTravaux !== undefined && { dateDebutTravaux: data.dateDebutTravaux }),
+    ...(data.dateFinTravaux !== undefined && { dateFinTravaux: data.dateFinTravaux }),
+    ...(data.attestationText !== undefined && { attestationText: data.attestationText }),
+    ...(data.isFinalized !== undefined && { isFinalized: data.isFinalized }),
     signatories: (data.signatories ?? []) as never,
     createdBy: userId,
   }).returning()
@@ -291,7 +326,16 @@ export async function updateWeeklyPlan(planId: string, data: Partial<{
   pourcentageRealisation: string
 }>) {
   const [row] = await db.update(weeklyProjectPlans)
-    .set({ ...data, rows: data.rows as never, updatedAt: new Date() })
+    .set({
+        ...(data.region !== undefined && { region: data.region }),
+        ...(data.chefEquipe !== undefined && { chefEquipe: data.chefEquipe }),
+        ...(data.weekStartDate !== undefined && { weekStartDate: data.weekStartDate }),
+        ...(data.weekEndDate !== undefined && { weekEndDate: data.weekEndDate }),
+        ...(data.nombreActionsPrevues !== undefined && { nombreActionsPrevues: data.nombreActionsPrevues }),
+        ...(data.pourcentageRealisation !== undefined && { pourcentageRealisation: data.pourcentageRealisation }),
+      rows: data.rows as never,
+      updatedAt: new Date(),
+    })
     .where(eq(weeklyProjectPlans.id, planId))
     .returning()
   return row ?? null
@@ -344,14 +388,30 @@ export async function upsertGantt(projectId: string, data: {
   const existing = await getGantt(projectId)
   if (existing) {
     const [row] = await db.update(realisationGantt)
-      .set({ ...data, ganttRows: (data.ganttRows ?? existing.ganttRows) as never, updatedAt: new Date() })
+      .set({
+        ...(data.localisation !== undefined && { localisation: data.localisation }),
+        ...(data.projectManager !== undefined && { projectManager: data.projectManager }),
+        ...(data.dateDemarragePrevu !== undefined && { dateDemarragePrevu: data.dateDemarragePrevu }),
+        ...(data.dateDemarrageReel !== undefined && { dateDemarrageReel: data.dateDemarrageReel }),
+        ...(data.dateFinPrevue !== undefined && { dateFinPrevue: data.dateFinPrevue }),
+        ...(data.dateFinReelle !== undefined && { dateFinReelle: data.dateFinReelle }),
+        ...(data.dateMaj !== undefined && { dateMaj: data.dateMaj }),
+        ganttRows: (data.ganttRows ?? existing.ganttRows) as never,
+        updatedAt: new Date(),
+      })
       .where(eq(realisationGantt.projectId, projectId))
       .returning()
     return row
   }
   const [row] = await db.insert(realisationGantt).values({
     projectId,
-    ...data,
+    ...(data.localisation !== undefined && { localisation: data.localisation }),
+    ...(data.projectManager !== undefined && { projectManager: data.projectManager }),
+    ...(data.dateDemarragePrevu !== undefined && { dateDemarragePrevu: data.dateDemarragePrevu }),
+    ...(data.dateDemarrageReel !== undefined && { dateDemarrageReel: data.dateDemarrageReel }),
+    ...(data.dateFinPrevue !== undefined && { dateFinPrevue: data.dateFinPrevue }),
+    ...(data.dateFinReelle !== undefined && { dateFinReelle: data.dateFinReelle }),
+    ...(data.dateMaj !== undefined && { dateMaj: data.dateMaj }),
     ganttRows: (data.ganttRows ?? []) as never,
     createdBy: userId,
   }).returning()
@@ -396,7 +456,13 @@ export async function upsertChecklist(projectId: string, checklistType: string, 
   const existing = await getChecklist(projectId, checklistType)
   if (existing) {
     const [row] = await db.update(realisationChecklists)
-      .set({ ...data, items: (data.items ?? existing.items) as never, updatedAt: new Date() })
+      .set({
+        ...(data.signedByName !== undefined && { signedByName: data.signedByName }),
+        ...(data.signedDate !== undefined && { signedDate: data.signedDate }),
+        ...(data.isFinalized !== undefined && { isFinalized: data.isFinalized }),
+        items: (data.items ?? existing.items) as never,
+        updatedAt: new Date(),
+      })
       .where(and(eq(realisationChecklists.projectId, projectId), eq(realisationChecklists.checklistType, checklistType)))
       .returning()
     return row

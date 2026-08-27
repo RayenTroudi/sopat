@@ -5,7 +5,8 @@ import { managementReviews, managementReviewActions } from '@/db/schema'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
-import { getNextReviewReference } from '@/lib/db/management-reviews'
+import { z } from 'zod'
+import { getNextReviewReference, applyManagementReviewUpdate } from '@/lib/db/management-reviews'
 
 type ReviewInputs = Partial<{
   participants: string
@@ -68,10 +69,10 @@ export async function updateManagementReview(
   if (!requireDirection(session.user.role))
     return { success: false, error: 'Accès réservé à la direction' }
 
-  await db
-    .update(managementReviews)
-    .set({ ...data, updatedAt: new Date() })
-    .where(eq(managementReviews.id, id))
+  // Validation and the field allowlist live in the data layer so the contract
+  // is testable without a request scope; this action only authenticates.
+  const result = await applyManagementReviewUpdate(id, data)
+  if (!result.success) return result
 
   revalidatePath('/admin/management-reviews')
   revalidatePath(`/admin/management-reviews/${id}`)

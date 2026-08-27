@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { assertProjectAccess } from '@/lib/db/projects'
 import { getChecklist, upsertChecklist } from '@/lib/db/realisation-docs'
+import { qualityChecklistSchema } from '@/lib/validation/project-docs'
+import { z } from 'zod'
 
 type RouteParams = { params: Promise<{ id: string }> }
 const ALLOWED = ['admin', 'direction', 'realisation_chef', 'realisation_team', 'etudes_chef']
@@ -33,7 +35,11 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
   const access = await assertProjectAccess(id, session.user)
   if ('error' in access) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   if (!ALLOWED.includes(session.user.role)) return NextResponse.json({ error: 'Droits insuffisants' }, { status: 403 })
-  const body = await req.json() as { type: string } & Parameters<typeof upsertChecklist>[2]
+  const parsed = qualityChecklistSchema.extend({ type: z.string().min(1) })
+    .safeParse(await req.json().catch(() => null))
+  if (!parsed.success)
+    return NextResponse.json({ error: 'Données invalides', details: parsed.error.flatten() }, { status: 400 })
+  const body = parsed.data
   const { type, ...data } = body
   if (!VALID_TYPES.includes(type)) return NextResponse.json({ error: 'Type invalide' }, { status: 400 })
   const row = await upsertChecklist(id, type, data, session.user.userId)

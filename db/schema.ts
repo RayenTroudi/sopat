@@ -14,6 +14,7 @@ import {
   index,
   uniqueIndex,
   foreignKey,
+  primaryKey,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -177,7 +178,17 @@ export const ncSourceEnum = pgEnum('nc_source', [
 ])
 
 export const ncDeptEnum = pgEnum('nc_dept', [
-  'AC', 'CO', 'ET', 'MI', 'RE1', 'RE2', 'RH',
+  'AC', 'CO', 'ET', 'MI', 'MI1', 'MI2', 'RE1', 'RE2', 'RH',
+])
+
+/**
+ * Where a quality record came from. Records migrated from the Excel register
+ * predate the platform's workflow and therefore carry no evidence asset and no
+ * effectiveness verification; fabricating either would corrupt the ISO record.
+ */
+export const recordOriginEnum = pgEnum('record_origin', [
+  'platform',
+  'imported',
 ])
 
 export const capaStatusEnum = pgEnum('capa_status', [
@@ -920,6 +931,10 @@ export const nonConformances = pgTable('non_conformances', {
   correctionResponsible: text('correction_responsible'),
   correctionDeadlinePlanned: timestamp('correction_deadline_planned'),
   correctionDeadlineActual: timestamp('correction_deadline_actual'),
+  // The register often uses planning expressions instead of dates
+  // ("S3 Juin 2025", "Réunion du groupe", "Après la revue de direction").
+  correctionDeadlinePlannedText: varchar('correction_deadline_planned_text', { length: 200 }),
+  correctionDeadlineActualText: varchar('correction_deadline_actual_text', { length: 200 }),
   correctionProgress: real('correction_progress'), // Etat d'avancement correction (0–1)
   correctionStatus: varchar('correction_status', { length: 30 }),
   assignedTo: uuid('assigned_to'),
@@ -931,12 +946,24 @@ export const nonConformances = pgTable('non_conformances', {
   evalDatePlanned: timestamp('eval_date_planned'),
   evalDateActual: timestamp('eval_date_actual'),
   // Client / PI response (for reclamation_client / reclamation_pi)
-  clientResponse: text('client_response'),
-  clientResponseRef: varchar('client_response_ref', { length: 200 }), // Désignation R/O field
-  // Risk / Opportunity
+  clientResponse: text('client_response'),           // Réponse Client / PI — Date(s)
+  clientResponseRef: varchar('client_response_ref', { length: 200 }), // Réponse Client / PI — Référence
+  // Désignation de R / O — the register names the risk or the opportunity in
+  // free text ("qualité du service", "stratégique RH", "performance sociale").
   isRisk: boolean('is_risk').default(false),
   isOpportunity: boolean('is_opportunity').default(false),
+  riskDesignation: text('risk_designation'),
+  opportunityDesignation: text('opportunity_designation'),
   needsSecondCapa: boolean('needs_second_capa').default(false),
+  // Provenance — 'imported' exempts the record from workflow steps that did not
+  // exist in the source system. Never settable through the public API.
+  recordOrigin: recordOriginEnum('record_origin').notNull().default('platform'),
+  importedFrom: varchar('imported_from', { length: 200 }),
+  importedAt: timestamp('imported_at'),
+  // Set when the NC was raised from an audit recorded in audit_logs, which keeps
+  // its findings as free text and so has no programme item to link from.
+  // NULL on the 38 imported register NCs — never inferred.
+  auditId: uuid('audit_id'),
   beforePhotoAssetId: uuid('before_photo_asset_id'),
   afterPhotoAssetId: uuid('after_photo_asset_id'),
   dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
@@ -946,6 +973,8 @@ export const nonConformances = pgTable('non_conformances', {
 }, (t) => [
   index('nc_project_id_idx').on(t.projectId),
   index('nc_status_idx').on(t.status),
+  index('nc_record_origin_idx').on(t.recordOrigin),
+  index('nc_audit_id_idx').on(t.auditId),
   index('nc_assigned_to_idx').on(t.assignedTo),
   foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
   foreignKey({ columns: [t.detectedBy], foreignColumns: [users.id] }),
@@ -954,19 +983,42 @@ export const nonConformances = pgTable('non_conformances', {
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
+/**
+ * Per-year counter for platform NC references (NC-YYYY-NNN).
+ *
+ * `lastNumber` is the highest number already allocated for the year. Allocation
+ * is a single INSERT … ON CONFLICT DO UPDATE, which takes a row lock, so
+ * concurrent creations receive distinct numbers. The counter only moves forward,
+ * so a deleted NC never frees its number for reuse.
+ *
+ * Deliberately not derived from COUNT(*): the imported FOR-MI-05 register rows
+ * use their own numbering and must not consume numbers in this sequence.
+ */
+export const ncReferenceSequences = pgTable('nc_reference_sequences', {
+  year: integer('year').primaryKey(),
+  lastNumber: integer('last_number').notNull().default(0),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 // ─── Corrective Actions (CAPA) ────────────────────────────────────────────────
 
 export const correctiveActions = pgTable('corrective_actions', {
   id: uuid('id').primaryKey().defaultRandom(),
   ncId: uuid('nc_id').notNull(),
   actionDescription: text('action_description').notNull(),
-  responsibleId: uuid('responsible_id').notNull(),
+  // Nullable: the register frequently names a role ("RMI", "DG", "Equipe
+  // réalisation") that has no platform account — responsibleName carries it.
+  responsibleId: uuid('responsible_id'),
   responsibleName: text('responsible_name'),        // free-text fallback
   deadlinePlanned: timestamp('deadline_planned'),    // Date prévue
   deadlineActual: timestamp('deadline_actual'),      // Date réalisée
+  deadlinePlannedText: varchar('deadline_planned_text', { length: 200 }),
+  deadlineActualText: varchar('deadline_actual_text', { length: 200 }),
   deadline: timestamp('deadline'),                   // kept for backward compat
   evalDatePlanned: timestamp('eval_date_planned'),   // Date d'évaluation prévue
   evalDateActual: timestamp('eval_date_actual'),     // Date d'évaluation réalisée
+  evalDatePlannedText: varchar('eval_date_planned_text', { length: 200 }),
+  evalDateActualText: varchar('eval_date_actual_text', { length: 200 }),
   evidenceAssetId: uuid('evidence_asset_id'),
   status: capaStatusEnum('status').notNull().default('open'),
   progressStatus: varchar('progress_status', { length: 50 }), // Etat d'avancement text
@@ -976,15 +1028,44 @@ export const correctiveActions = pgTable('corrective_actions', {
   closedAt: timestamp('closed_at'),
   notes: text('notes'),
   dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
+  // Provenance — see nonConformances.recordOrigin.
+  recordOrigin: recordOriginEnum('record_origin').notNull().default('platform'),
+  importedFrom: varchar('imported_from', { length: 200 }),
+  importedAt: timestamp('imported_at'),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
   index('capa_nc_id_idx').on(t.ncId),
   index('capa_status_idx').on(t.status),
+  index('capa_record_origin_idx').on(t.recordOrigin),
   foreignKey({ columns: [t.ncId], foreignColumns: [nonConformances.id] }),
   foreignKey({ columns: [t.responsibleId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.verifiedBy], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * Generic per-year reference counter, keyed by sequence namespace.
+ *
+ * `scope` keeps the generators isolated so they can never consume each other's
+ * numbers: 'audit' for AUD-YYYY-NNN, and 'audit_program:<DEPT>' for the
+ * per-department AUD-DEPT-YYYY-NN series.
+ *
+ * `lastNumber` is the highest number already allocated for that scope and year.
+ * Allocation is a single INSERT … ON CONFLICT DO UPDATE, which takes a row lock,
+ * so concurrent callers receive distinct numbers. The counter only moves forward,
+ * so a deleted record never frees its number for reuse.
+ *
+ * NC references keep their own table (ncReferenceSequences); it is already in
+ * service and folding it in here would risk a regression for no functional gain.
+ */
+export const referenceSequences = pgTable('reference_sequences', {
+  scope: varchar('scope', { length: 60 }).notNull(),
+  year: integer('year').notNull(),
+  lastNumber: integer('last_number').notNull().default(0),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => [
+  primaryKey({ columns: [t.scope, t.year] }),
 ])
 
 // ─── Audit Programs (FOR-MI-14) ───────────────────────────────────────────────
@@ -1031,12 +1112,20 @@ export const auditProgramItems = pgTable('audit_program_items', {
   response: text('response'),                            // Auditor notes / observations
   conformity: varchar('conformity', { length: 10 }),     // C / NC / NA / PA (Piste d'amélioration)
   evidence: text('evidence'),                            // Supporting evidence
+  /**
+   * Non-conformity raised from this finding. Single-valued, so a finding holds
+   * at most one NC; a partial unique index also stops two findings claiming the
+   * same NC. Preserved across the delete-and-reinsert in upsertAuditProgramItems.
+   */
+  ncId: uuid('nc_id'),
   sortOrder: integer('sort_order').notNull().default(0),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
   index('audit_program_items_program_idx').on(t.auditProgramId),
+  index('audit_program_items_nc_idx').on(t.ncId),
   foreignKey({ columns: [t.auditProgramId], foreignColumns: [auditPrograms.id] }),
+  foreignKey({ columns: [t.ncId], foreignColumns: [nonConformances.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
@@ -1177,13 +1266,17 @@ export const auditLogs = pgTable('audit_logs', {
   status: auditStatusEnum('status').notNull().default('scheduled'),
   completedAt: timestamp('completed_at'),
   dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
+  /** Programme (FOR-MI-14) this audit was planned under, when there is one. */
+  auditProgramId: uuid('audit_program_id'),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
   index('audit_logs_status_idx').on(t.status),
+  index('audit_logs_program_idx').on(t.auditProgramId),
   index('audit_logs_auditor_id_idx').on(t.auditorId),
   foreignKey({ columns: [t.auditorId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.auditProgramId], foreignColumns: [auditPrograms.id] }),
 ])
 
 // ─── Email Queue ──────────────────────────────────────────────────────────────

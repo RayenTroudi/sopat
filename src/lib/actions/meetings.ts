@@ -57,9 +57,21 @@ export async function updateMeeting(
   const session = await auth()
   if (!session) return { success: false, error: 'Non autorisé' }
 
+  // Voir updateOffer : champs explicites, reference/createdBy/deletedAt protégés.
   await db
     .update(meetingMinutes)
-    .set({ ...data, updatedAt: new Date() })
+    .set({
+        ...(data.meetingDate !== undefined && { meetingDate: data.meetingDate }),
+        ...(data.meetingType !== undefined && { meetingType: data.meetingType }),
+        ...(data.location !== undefined && { location: data.location }),
+        ...(data.participants !== undefined && { participants: data.participants }),
+        ...(data.absentees !== undefined && { absentees: data.absentees }),
+        ...(data.agenda !== undefined && { agenda: data.agenda }),
+        ...(data.discussions !== undefined && { discussions: data.discussions }),
+        ...(data.decisions !== undefined && { decisions: data.decisions }),
+        ...(data.nextMeetingDate !== undefined && { nextMeetingDate: data.nextMeetingDate }),
+      updatedAt: new Date(),
+    })
     .where(eq(meetingMinutes.id, id))
   revalidatePath('/admin/meetings')
   revalidatePath(`/admin/meetings/${id}`)
