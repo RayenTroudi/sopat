@@ -12,20 +12,22 @@
  *   A  consommation budgétaire  → must equal getProjectSpend().spent
  *      getBudgetVarianceReport · getInternationalDashboardData
  *      getInternationalReport · « Réel » des pages ML · dénominateur du
- *      ratio d'engins · (fiche projet, alertes, liste projets, tableau de
- *      bord, API mobile)
+ *      ratio d'engins · cible de calibration ML · (fiche projet, alertes,
+ *      liste projets, tableau de bord, API mobile)
  *
  *   B  volume d'achat / pièces   → left alone
  *      listes de bons de commande, totaux d'entreprise
  *
  *   C  autre métrique            → left alone
  *      montant de location d'engins seul (un terme, pas le total),
- *      dépense attribuée par phase, entrée d'entraînement du modèle
+ *      dépense attribuée par phase
  *
  *   D  décision métier            → tranchée, voir plus bas
  *      les engins FONT partie de la règle ; « Réel » des pages ML suit la
- *      règle. Le rapprochement budgétaire (BC + engins) reste volontairement
- *      un sous-ensemble et n'est pas la consommation.
+ *      règle ; la cible de calibration du moteur d'estimation aussi, parce
+ *      que son dénominateur (computeBottomUp) chiffre déjà les engins. Le
+ *      rapprochement budgétaire (BC + engins) reste volontairement un
+ *      sous-ensemble et n'est pas la consommation.
  *
  * The fixture is built under an EXISTING project, then removed, with opening
  * counts and the project's own consumption asserted restored. No reference
@@ -55,6 +57,7 @@ import { getProjectSpend, spendPercent } from '../src/lib/db/project-spend'
 import { getBudgetVarianceReport, getMlAccuracyReport } from '../src/lib/db/reports'
 import { getInternationalDashboardData, getInternationalReport } from '../src/lib/db/international'
 import { getTotalSpent } from '../src/lib/db/realisation'
+import { getSimilarCompletedProjects } from '../src/lib/db/budget-calibration'
 import { getEquipmentTotalCost } from '../src/lib/db/equipment'
 import { ensureSupplyRegister, replaceSupplyItems } from '../src/lib/db/supply'
 import { checkBudgetThresholdAndNotify } from '../src/lib/notifications'
@@ -101,6 +104,7 @@ async function main() {
     .select({
       id: projects.id, reference: projects.reference,
       approvedBudget: projects.approvedBudget, country: projects.country,
+      projectType: projects.projectType,
     })
     .from(projects)
     .where(and(isNull(projects.deletedAt), isNotNull(projects.approvedBudget)))
@@ -321,6 +325,24 @@ async function main() {
     console.log('  (ce projet n-a pas de prédiction acceptée — rapport ML ignoré)')
     check('le rapport ML répond sans erreur', Array.isArray(ml.rows))
   }
+
+  // La cible de calibration du moteur d-estimation est cette même règle. Le
+  // scénario complet (engins + achats FOR-AC-10 sur un chantier terminé) vit
+  // dans verify-calibration-target.ts, qui construit sa propre donnée ; ici on
+  // vérifie l-invariant sur le corpus réel, quel qu-il soit.
+  const calibrationCorpus = await getSimilarCompletedProjects({
+    excludeProjectId: '00000000-0000-0000-0000-000000000000',
+    projectType: project.projectType,
+    siteAreaM2: 0,
+  })
+  let calibMismatch = 0
+  for (const c of calibrationCorpus) {
+    const canon = (await getProjectSpend(c.projectId)).spent
+    // Repli documenté : sans dépense enregistrée, le budget approuvé fait foi.
+    if (!near(c.actualCost, canon) && !(canon <= 0 && c.actualCost > 0)) calibMismatch++
+  }
+  check(`la cible de calibration suit la règle canonique (${calibrationCorpus.length} projet(s))`,
+    calibMismatch === 0, `${calibMismatch} écart(s)`)
 
   // ═══ 3b. Equipment rentals — the fourth term, and the 90 % alert ════════
   //

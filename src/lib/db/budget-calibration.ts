@@ -1,11 +1,27 @@
 import { db } from '../../../db/index'
-import { projects, plantListItems, purchaseOrders, extraExpenses } from '../../../db/schema'
+import { projects, plantListItems } from '../../../db/schema'
 import { and, eq, ne, isNull, desc, sql } from 'drizzle-orm'
 import type { EnginePlantItem, PlantCategory } from '../budget-engine'
+import { getProjectSpendMap, ZERO_SPEND } from './project-spend'
 
-// Projets terminés comparables au projet cible, avec leur coût réel :
-// Σ bons d'achat + Σ dépenses supplémentaires approuvées, à défaut le budget approuvé.
-// Sert à calibrer le moteur d'estimation (ratio réel / estimé).
+// Projets terminés comparables au projet cible, avec leur coût réel.
+//
+// Le coût réel est la consommation budgétaire canonique (project-spend.ts) :
+// BC + dépenses approuvées + achats FOR-AC-10 non rattachés + locations
+// d'engins. À défaut — projet sans dépense enregistrée — on retombe sur le
+// budget approuvé.
+//
+// Pourquoi la règle canonique et pas les seuls bons de commande : le
+// dénominateur du ratio est `computeBottomUp`, qui estime plants + terre +
+// main-d'œuvre + ENGINS + logistique. Calibrer une estimation qui inclut la
+// machinerie contre un réel qui l'exclut biaisait le facteur vers le bas, et
+// donc sous-estimait précisément les chantiers les plus mécanisés. Les achats
+// FOR-AC-10 hors bon de commande relèvent de la même logique côté plants et
+// terre végétale.
+//
+// Sert à calibrer le moteur d'estimation (ratio réel / estimé) : le facteur
+// est la médiane de ces ratios. Le calcul du facteur, son clamp, l'écart-type
+// et les critères de sélection des projets ne sont PAS modifiés ici.
 
 export type SimilarProjectData = {
   projectId: string
@@ -44,22 +60,14 @@ export async function getSimilarCompletedProjects(params: {
     .orderBy(desc(projects.updatedAt))
     .limit(10)
 
+  // Un seul lot pour tous les candidats : deux requêtes par projet auparavant.
+  const spendMap = await getProjectSpendMap(candidates.map((c) => c.id))
+
   const out: SimilarProjectData[] = []
   for (const p of candidates) {
-    const [po] = await db
-      .select({ total: sql<string>`coalesce(sum(${purchaseOrders.totalCost}::numeric), 0)::text` })
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.projectId, p.id))
-    const [ex] = await db
-      .select({ total: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric), 0)::text` })
-      .from(extraExpenses)
-      .where(and(
-        eq(extraExpenses.projectId, p.id),
-        eq(extraExpenses.status, 'approved'),
-        isNull(extraExpenses.deletedAt),
-      ))
-
-    let actual = parseFloat(po?.total ?? '0') + parseFloat(ex?.total ?? '0')
+    // Repli inchangé : un projet terminé sans dépense enregistrée est calibré
+    // sur son budget approuvé, et écarté si celui-ci est nul lui aussi.
+    let actual = (spendMap.get(p.id) ?? ZERO_SPEND).spent
     if (actual <= 0) actual = parseFloat(p.approvedBudget ?? '0')
     if (actual <= 0) continue
 
