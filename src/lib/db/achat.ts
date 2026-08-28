@@ -1,6 +1,7 @@
 import { db } from '@/db'
-import { deliveryNotes, extraExpenses, projects, purchaseOrders, suppliers, users } from '@/db/schema'
-import { eq, and, isNull, desc, count, sql } from 'drizzle-orm'
+import { deliveryNotes, extraExpenses, projects, suppliers, users } from '@/db/schema'
+import { eq, and, isNull, desc, count } from 'drizzle-orm'
+import { getProjectSpend, spendPercent } from '@/lib/db/project-spend'
 
 export type DeliveryNote = typeof deliveryNotes.$inferSelect
 export type ExtraExpense = typeof extraExpenses.$inferSelect
@@ -110,39 +111,28 @@ export async function getProjectAchats(projectId: string) {
     .where(and(eq(extraExpenses.projectId, projectId), isNull(extraExpenses.deletedAt)))
     .orderBy(desc(extraExpenses.expenseDate))
 
-  const [poRow] = await db
-    .select({ total: sql<string>`coalesce(sum(${purchaseOrders.totalCost}::numeric), 0)::text` })
-    .from(purchaseOrders)
-    .where(eq(purchaseOrders.projectId, projectId))
-
-  const approvedExpensesTotal = rows
-    .filter((r) => r.expense.status === 'approved')
-    .reduce((s, r) => s + Number(r.expense.amount), 0)
-
-  // Les dépenses en attente n'entrent PAS dans la consommation (la direction
-  // peut encore les rejeter) mais elles sont affichées à part : sans cela une
-  // dépense tout juste scannée ne se voyait nulle part sur cette fiche.
-  const pendingExpensesTotal = rows
-    .filter((r) => r.expense.status === 'pending')
-    .reduce((s, r) => s + Number(r.expense.amount), 0)
-
-  const poTotal = parseFloat(poRow?.total ?? '0')
+  // Consommation budgétaire : une seule définition, celle de project-spend.ts
+  // (BC + dépenses approuvées + achats FOR-AC-10 non rattachés à un BC). Cette
+  // fonction en refaisait sa propre version, ce qui l'exposait à diverger des
+  // alertes et du tableau de bord.
+  const spend = await getProjectSpend(projectId)
   const approved = project?.approvedBudget ? parseFloat(project.approvedBudget) : null
-  const spent = poTotal + approvedExpensesTotal
-  const pct = (value: number) =>
-    approved && approved > 0 ? Math.round((value / approved) * 1000) / 10 : null
 
   return {
     expenses: rows,
     currency: project?.currency ?? 'TND',
     budget: {
       approvedBudget: approved,
-      poTotal,
-      expensesTotal: approvedExpensesTotal,
-      pendingTotal: pendingExpensesTotal,
-      spent,
-      percentSpent: pct(spent),
-      percentPending: pct(pendingExpensesTotal),
+      poTotal: spend.poTotal,
+      /** FOR-AC-10 purchases not already carried by a bon de commande. */
+      supplyTotal: spend.supplyTotal,
+      expensesTotal: spend.expensesTotal,
+      // Les dépenses en attente n'entrent PAS dans la consommation (la
+      // direction peut encore les rejeter) mais restent affichées à part.
+      pendingTotal: spend.pendingTotal,
+      spent: spend.spent,
+      percentSpent: spendPercent(spend.spent, approved),
+      percentPending: spendPercent(spend.pendingTotal, approved),
     },
   }
 }

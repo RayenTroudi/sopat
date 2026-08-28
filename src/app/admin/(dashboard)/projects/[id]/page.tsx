@@ -7,6 +7,12 @@ import { getPlantList, getActiveSuppliers } from '@/lib/db/etudes'
 import { getActiveUsers } from '@/lib/db/iso'
 import { getProjectTeamMembers } from '@/lib/db/realisation'
 import { getProjectAchats } from '@/lib/db/achat'
+import {
+  canEditSupplyRegister,
+  getProjectPurchaseOrdersForSelect,
+  getSupplyRegister,
+  getSupplySuppliers,
+} from '@/lib/db/supply'
 import { PhaseBadge } from '@/components/projects/PhaseBadge'
 import { BudgetBadge } from '@/components/projects/BudgetBadge'
 import { ProjectTabs } from './ProjectTabs'
@@ -60,13 +66,23 @@ export default async function ProjectDetailPage({
 
   const { project, phases, activityLog, assets } = data
 
-  const [latestValidation, plantList, users, teamMembers, achats] = await Promise.all([
+  const [
+    latestValidation, plantList, users, teamMembers, achats,
+    supplySuppliers, supplyRegister, supplyPurchaseOrders,
+  ] = await Promise.all([
     getLatestBudgetValidation(id),
     getPlantList(id),
     getActiveUsers(),
     getProjectTeamMembers(id),
     getProjectAchats(id),
+    getSupplySuppliers(),
+    getSupplyRegister(id),
+    getProjectPurchaseOrdersForSelect(id),
   ])
+
+  // The same predicate the FOR-AC-10 API enforces; the button only mirrors it,
+  // the route remains the authority.
+  const canEditSupply = canEditSupplyRegister(session?.user.role ?? '')
 
   const achatExpenses = achats.expenses.map(({ expense, creatorName }) => ({
     id:              expense.id,
@@ -200,6 +216,10 @@ export default async function ProjectDetailPage({
         initialPlantList={plantList}
         achatExpenses={achatExpenses}
         achatBudget={achats.budget}
+        supplySuppliers={supplySuppliers.map((s) => ({ id: s.id, name: s.name }))}
+        canEditSupply={canEditSupply}
+        supplyRegister={supplyRegister}
+        supplyPurchaseOrders={supplyPurchaseOrders.map((o) => ({ id: o.id, label: o.label }))}
       />
     </div>
   )

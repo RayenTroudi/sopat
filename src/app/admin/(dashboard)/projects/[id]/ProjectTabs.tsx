@@ -9,6 +9,8 @@ import { RealisationTab } from '@/components/realisation/RealisationTab'
 import { EntretienTab } from '@/components/entretien/EntretienTab'
 import { BudgetSummaryBanner } from '@/components/budget/OfficialBudgetCard'
 import { AchatsTab, type AchatExpense, type AchatBudget } from '@/components/achat/AchatsTab'
+import { SupplySection } from '@/components/achat/SupplySection'
+import type { SupplyRegisterRow } from '@/lib/db/supply'
 import type { UploadedAsset } from '@/components/upload/CloudinaryUploader'
 import { ZonesTab } from '@/components/projects/ZonesTab'
 import type { TeamMemberRow } from '@/lib/db/realisation'
@@ -81,6 +83,11 @@ type Props = {
   initialPlantList: PlantListItemRow[]
   achatExpenses: AchatExpense[]
   achatBudget: AchatBudget
+  supplySuppliers: { id: string; name: string }[]
+  supplyPurchaseOrders: { id: string; label: string }[]
+  /** Peut modifier le registre FOR-AC-10 — mêmes rôles que l'API. */
+  canEditSupply: boolean
+  supplyRegister: SupplyRegisterRow | null
 }
 
 const BASE_TABS = [
@@ -149,6 +156,10 @@ export function ProjectTabs({
   achatExpenses,
   achatBudget,
   currency,
+  supplySuppliers,
+  supplyPurchaseOrders,
+  canEditSupply,
+  supplyRegister,
 }: Props) {
   const pathname = usePathname()
 
@@ -217,12 +228,22 @@ export function ProjectTabs({
 
       case 'achats':
         return (
-          <AchatsTab
-            expenses={achatExpenses}
-            budget={achatBudget}
-            currency={currency ?? 'TND'}
-            canEdit={isAdmin}
-          />
+          <div className="space-y-6">
+            <AchatsTab
+              expenses={achatExpenses}
+              budget={achatBudget}
+              currency={currency ?? 'TND'}
+              canEdit={isAdmin}
+            />
+            <SupplySection
+              projectId={projectId}
+              canEdit={canEditSupply}
+              suppliers={supplySuppliers}
+              purchaseOrders={supplyPurchaseOrders}
+              currency={currency ?? 'TND'}
+              initialRegister={supplyRegister}
+            />
+          </div>
         )
 
       case 'documents':

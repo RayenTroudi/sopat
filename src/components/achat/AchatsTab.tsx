@@ -39,6 +39,8 @@ export type AchatExpense = {
 export type AchatBudget = {
   approvedBudget: number | null
   poTotal: number
+  /** FOR-AC-10 purchases not already carried by a bon de commande. */
+  supplyTotal: number
   expensesTotal: number
   pendingTotal: number
   spent: number
@@ -101,7 +103,7 @@ export function AchatsTab({
 }
 
 function BudgetUsageCard({ budget, currency }: { budget: AchatBudget; currency: string }) {
-  const { approvedBudget, poTotal, expensesTotal, pendingTotal, spent, percentSpent, percentPending } = budget
+  const { approvedBudget, poTotal, supplyTotal, expensesTotal, pendingTotal, spent, percentSpent, percentPending } = budget
 
   if (approvedBudget === null) {
     return (
@@ -158,6 +160,12 @@ function BudgetUsageCard({ budget, currency }: { budget: AchatBudget; currency: 
       <div className="flex gap-4 text-xs flex-wrap" style={{ color: 'var(--admin-text-muted)' }}>
         <span>Bons de commande : <strong style={{ color: 'var(--admin-text)' }}>{FMT.format(Math.round(poTotal))} {currency}</strong></span>
         <span>Dépenses approuvées : <strong style={{ color: 'var(--admin-text)' }}>{FMT.format(Math.round(expensesTotal))} {currency}</strong></span>
+        {supplyTotal > 0 && (
+          <span title="Lignes d'achat FOR-AC-10 non rattachées à un bon de commande">
+            Approvisionnement chantier :{' '}
+            <strong style={{ color: 'var(--admin-text)' }}>{FMT.format(Math.round(supplyTotal))} {currency}</strong>
+          </span>
+        )}
         {pendingTotal > 0 && (
           <span>
             En attente de validation :{' '}

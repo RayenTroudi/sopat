@@ -27,6 +27,8 @@ export type AuditEntityType =
   | 'delivery_note'
   | 'non_conformance'
   | 'corrective_action'
+  /** FOR-AC-10 : le registre entier, ses lignes étant éditées comme une grille. */
+  | 'supply_register'
 
 export type AuditAction =
   | 'created'

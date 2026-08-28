@@ -3773,3 +3773,103 @@ export const notifications = pgTable('notifications', {
   foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
+
+// ─── Achat : Suivi d'approvisionnement de chantier (FOR-AC-10) ────────────────
+// The workbook's header block is not repeated here: project reference, name,
+// client and dates already live on `projects`, and its "En cours" end date is
+// `projects.actualDeliveryDate IS NULL`. Only the sheet's three column groups
+// become rows. Every variance, percentage and total in the sheet is a formula
+// over these columns and is computed at read time — see src/lib/db/supply.ts.
+
+export const supplyRegisters = pgTable('supply_registers', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  projectId:       uuid('project_id').notNull(),
+  observations:    text('observations'),
+  dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
+  deletedAt:       timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:       uuid('created_by').notNull(),
+}, (t) => [
+  uniqueIndex('supply_registers_project_uidx').on(t.projectId).where(sql`deleted_at IS NULL`),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+/** A planned line of the validated devis — columns A..E plus the real P.U. (L). */
+export const supplyItems = pgTable('supply_items', {
+  id:                   uuid('id').primaryKey().defaultRandom(),
+  registerId:           uuid('register_id').notNull(),
+  position:             integer('position').notNull().default(0),
+  designation:          text('designation').notNull(),
+  /** Column B: unit *or* specification ("m³", "Sac", "Pot 30"). Free text. */
+  norme:                varchar('norme', { length: 100 }),
+  plannedQuantity:      decimal('planned_quantity', { precision: 12, scale: 3 }).notNull().default('0'),
+  plannedUnitPriceHtva: decimal('planned_unit_price_htva', { precision: 12, scale: 3 }).notNull().default('0'),
+  /** Column L. NULL = unchanged from the devis, which is the sheet's `=D10`. */
+  actualUnitPriceHtva:  decimal('actual_unit_price_htva', { precision: 12, scale: 3 }),
+  observations:         text('observations'),
+  ...timestamps,
+  createdBy:            uuid('created_by').notNull(),
+}, (t) => [
+  index('supply_items_register_idx').on(t.registerId),
+  foreignKey({ columns: [t.registerId], foreignColumns: [supplyRegisters.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+/** One arrival on site — columns F..I. A planned line may have many. */
+export const supplyDeliveries = pgTable('supply_deliveries', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  itemId:         uuid('item_id').notNull(),
+  position:       integer('position').notNull().default(0),
+  /** Nullable: the sheet records quantities with no date, supplier or BL. */
+  deliveryDate:   date('delivery_date'),
+  supplierId:     uuid('supplier_id'),
+  supplierLabel:  varchar('supplier_label', { length: 255 }),
+  /** Column H — the SUPPLIER's own note number, not a SOPAT reference. */
+  blNumber:       varchar('bl_number', { length: 100 }),
+  deliveryNoteId: uuid('delivery_note_id'),
+  quantity:       decimal('quantity', { precision: 12, scale: 3 }).notNull().default('0'),
+  ...timestamps,
+  createdBy:      uuid('created_by').notNull(),
+}, (t) => [
+  index('supply_deliveries_item_idx').on(t.itemId),
+  index('supply_deliveries_supplier_idx').on(t.supplierId),
+  foreignKey({ columns: [t.itemId],          foreignColumns: [supplyItems.id] }),
+  foreignKey({ columns: [t.supplierId],      foreignColumns: [suppliers.id] }),
+  foreignKey({ columns: [t.deliveryNoteId],  foreignColumns: [deliveryNotes.id] }),
+  foreignKey({ columns: [t.createdBy],       foreignColumns: [users.id] }),
+])
+
+/** What SOPAT actually bought — columns R..W. Independent of the deliveries. */
+export const supplyPurchases = pgTable('supply_purchases', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  itemId:        uuid('item_id').notNull(),
+  position:      integer('position').notNull().default(0),
+  supplierId:    uuid('supplier_id'),
+  supplierLabel: varchar('supplier_label', { length: 255 }),
+  norme:         varchar('norme', { length: 100 }),
+  quantity:      decimal('quantity', { precision: 12, scale: 3 }).notNull().default('0'),
+  unitPriceHtva: decimal('unit_price_htva', { precision: 12, scale: 3 }).notNull().default('0'),
+  /**
+   * Fraction, not percent: 0.19 is 19 %. Default 0 because the source workbook
+   * computes W = V and gives no way to infer a rate; the UI lets an authorised
+   * user set the real rate per purchase.
+   */
+  vatRate:       decimal('vat_rate', { precision: 5, scale: 4 }).notNull().default('0'),
+  /**
+   * The bon de commande that already accounts for this purchase, when there is
+   * one. Set → the amount is excluded from FOR-AC-10's contribution to budget
+   * consumption, because `purchase_orders` already carries it. Null → counted.
+   */
+  purchaseOrderId: uuid('purchase_order_id'),
+  ...timestamps,
+  createdBy:     uuid('created_by').notNull(),
+}, (t) => [
+  index('supply_purchases_item_idx').on(t.itemId),
+  index('supply_purchases_supplier_idx').on(t.supplierId),
+  index('supply_purchases_purchase_order_idx').on(t.purchaseOrderId),
+  foreignKey({ columns: [t.itemId],          foreignColumns: [supplyItems.id] }),
+  foreignKey({ columns: [t.supplierId],      foreignColumns: [suppliers.id] }),
+  foreignKey({ columns: [t.purchaseOrderId], foreignColumns: [purchaseOrders.id] }),
+  foreignKey({ columns: [t.createdBy],       foreignColumns: [users.id] }),
+])

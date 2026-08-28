@@ -4,8 +4,8 @@
 // Notifications (jusqu'ici jamais réellement consultées par le code).
 
 import { db } from '../../db/index'
-import { notifications, projects, purchaseOrders, extraExpenses, users } from '../../db/schema'
-import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
+import { notifications, projects, users } from '../../db/schema'
+import { eq, and, isNull, inArray } from 'drizzle-orm'
 import { getNotificationSettings } from './db/settings'
 
 const PHASE_LABELS: Record<string, string> = {
@@ -86,6 +86,8 @@ export async function notifyPhaseTransition(opts: {
   }
 }
 
+import { getProjectSpend, spendPercent } from '@/lib/db/project-spend'
+
 // ─── Alerte budget ─────────────────────────────────────────────────────────────
 
 export async function checkBudgetThresholdAndNotify(projectId: string, actorId: string): Promise<void> {
@@ -107,22 +109,12 @@ export async function checkBudgetThresholdAndNotify(projectId: string, actorId: 
     const approved = parseFloat(project.approvedBudget)
     if (!(approved > 0)) return
 
-    const [poRow] = await db
-      .select({ total: sql<string>`coalesce(sum(${purchaseOrders.totalCost}::numeric), 0)::text` })
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.projectId, projectId))
-
-    const [exRow] = await db
-      .select({ total: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric), 0)::text` })
-      .from(extraExpenses)
-      .where(and(
-        eq(extraExpenses.projectId, projectId),
-        eq(extraExpenses.status, 'approved'),
-        isNull(extraExpenses.deletedAt),
-      ))
-
-    const spent = parseFloat(poRow?.total ?? '0') + parseFloat(exRow?.total ?? '0')
-    const percentSpent = Math.round((spent / approved) * 1000) / 10
+    // Le seuil est évalué sur la même consommation que celle affichée sur la
+    // fiche projet, la liste et le tableau de bord — définition unique dans
+    // project-spend.ts. Une alerte ne peut donc plus se déclencher sur un
+    // chiffre qu'aucun écran ne montre.
+    const { spent } = await getProjectSpend(projectId)
+    const percentSpent = spendPercent(spent, approved) ?? 0
     const now = new Date()
     const settings = await getNotificationSettings()
     const href = `/admin/projects/${projectId}`
