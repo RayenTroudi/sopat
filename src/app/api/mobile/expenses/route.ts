@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { eq, and, isNull, sql } from 'drizzle-orm'
+import { eq, and, isNull } from 'drizzle-orm'
 import { db } from '@/db'
-import { extraExpenses, projects, purchaseOrders } from '@/db/schema'
+import { extraExpenses, projects } from '@/db/schema'
 import { requireMobileAuth, corsJson, corsPreflight } from '@/lib/mobile-auth'
 import { getNextExpenseReference } from '@/lib/db/achat'
+import { getProjectSpend, spendPercent } from '@/lib/db/project-spend'
 import { uploadImageToCloudinary } from '@/lib/cloudinary'
 
 export function OPTIONS() {
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
     })
     .returning({ id: extraExpenses.id, reference: extraExpenses.reference })
 
-  // Consommation budget actuelle du projet (BC + dépenses approuvées) pour
+  // Consommation budget actuelle du projet (règle canonique) pour
   // affichage immédiat dans l'app — la dépense créée reste `pending` et ne
   // compte pas encore dans ce total.
   let budget: {
@@ -153,31 +154,17 @@ export async function POST(req: NextRequest) {
       .where(eq(projects.id, data.projectId))
       .limit(1)
 
-    const [poRow] = await db
-      .select({ total: sql<string>`coalesce(sum(${purchaseOrders.totalCost}::numeric), 0)::text` })
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.projectId, data.projectId))
-
-    const [exRow] = await db
-      .select({
-        approved: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric) filter (where ${extraExpenses.status} = 'approved'), 0)::text`,
-        pending: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric) filter (where ${extraExpenses.status} = 'pending'), 0)::text`,
-      })
-      .from(extraExpenses)
-      .where(
-        and(
-          eq(extraExpenses.projectId, data.projectId),
-          isNull(extraExpenses.deletedAt),
-        ),
-      )
-
+    // Même règle que la fiche projet, la liste, le tableau de bord et les
+    // alertes : définition unique dans project-spend.ts. Cette route sommait
+    // les BC et les dépenses approuvées sans les achats FOR-AC-10, et pouvait
+    // donc renvoyer à l'app un pourcentage inférieur à celui du back-office.
+    const spend = await getProjectSpend(data.projectId)
     const approved = proj?.approvedBudget ? parseFloat(proj.approvedBudget) : null
-    const spent = parseFloat(poRow?.total ?? '0') + parseFloat(exRow?.approved ?? '0')
     budget = {
       approvedBudget: approved,
-      spent,
-      pendingTotal: parseFloat(exRow?.pending ?? '0'),
-      percentSpent: approved && approved > 0 ? Math.round((spent / approved) * 1000) / 10 : null,
+      spent: spend.spent,
+      pendingTotal: spend.pendingTotal,
+      percentSpent: spendPercent(spend.spent, approved),
     }
   }
 

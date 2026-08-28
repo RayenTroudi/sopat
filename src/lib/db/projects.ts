@@ -6,10 +6,9 @@ import {
   projectActivityLog,
   cloudinaryAssets,
   clients,
-  purchaseOrders,
-  extraExpenses,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
+import { getProjectSpendMap, ZERO_SPEND } from './project-spend'
 import { attachDmsCode } from '../dms/attach'
 import { obsoleteDmsDocument } from '../dms/obsolete'
 import { notifyPhaseTransition } from '../notifications'
@@ -162,27 +161,11 @@ async function _getAllProjects(filters?: {
   if (filters?.projectType) conditions.push(eq(projects.projectType, filters.projectType))
   if (filters?.country) conditions.push(eq(projects.country, filters.country))
 
-  // Consommation budgétaire par projet (BC + dépenses extra approuvées —
-  // même règle que les alertes budget). Sous-requêtes groupées jointes en
-  // une seule requête : pas de N+1.
-  const poSpent = db
-    .select({
-      projectId: purchaseOrders.projectId,
-      total: sql<string>`coalesce(sum(${purchaseOrders.totalCost}::numeric), 0)::text`.as('po_total'),
-    })
-    .from(purchaseOrders)
-    .groupBy(purchaseOrders.projectId)
-    .as('po_spent')
-
-  const exSpent = db
-    .select({
-      projectId: extraExpenses.projectId,
-      total: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric), 0)::text`.as('ex_total'),
-    })
-    .from(extraExpenses)
-    .where(and(eq(extraExpenses.status, 'approved'), isNull(extraExpenses.deletedAt)))
-    .groupBy(extraExpenses.projectId)
-    .as('ex_spent')
+  // La consommation budgétaire n'est plus calculée ici : elle vient de
+  // getProjectSpendMap, seule définition de la règle. Les sous-requêtes
+  // jointes qui vivaient à cet endroit ne connaissaient pas les achats
+  // FOR-AC-10 et affichaient donc un pourcentage plus bas que la fiche projet.
+  // Le lot est chargé après la page, sur ses seuls identifiants : pas de N+1.
 
   const [rows, [{ total }]] = await Promise.all([
     db.select({
@@ -214,13 +197,9 @@ async function _getAllProjects(filters?: {
         clientId: projects.clientId,
         clientDisplayName: clients.displayName,
         dmsDocumentCode: projects.dmsDocumentCode,
-        poTotal: poSpent.total,
-        exTotal: exSpent.total,
       })
       .from(projects)
       .leftJoin(clients, eq(projects.clientId, clients.id))
-      .leftJoin(poSpent, eq(poSpent.projectId, projects.id))
-      .leftJoin(exSpent, eq(exSpent.projectId, projects.id))
       .where(and(...conditions))
       .orderBy(desc(projects.createdAt))
       .limit(pageSize)
@@ -230,10 +209,12 @@ async function _getAllProjects(filters?: {
       .where(and(...conditions)),
   ])
 
+  const spendMap = await getProjectSpendMap(rows.map((r) => r.id))
+
   return {
-    rows: rows.map(({ poTotal, exTotal, ...row }) => ({
+    rows: rows.map((row) => ({
       ...row,
-      spent: String(parseFloat(poTotal ?? '0') + parseFloat(exTotal ?? '0')),
+      spent: String((spendMap.get(row.id) ?? ZERO_SPEND).spent),
     })),
     total: Number(total),
     page,

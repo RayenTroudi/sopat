@@ -1,4 +1,5 @@
 import { db } from '../../../db/index'
+import { getProjectSpendMap, ZERO_SPEND } from './project-spend'
 import {
   projects,
   purchaseOrders,
@@ -41,11 +42,15 @@ export async function getBudgetVarianceReport(): Promise<BudgetVarianceRow[]> {
 
   const rows: BudgetVarianceRow[] = []
 
+  // « Dépenses réelles » de ce rapport est la consommation budgétaire du
+  // projet, comparée au budget approuvé juste à côté : c'est donc la règle
+  // canonique (BC + dépenses approuvées + achats FOR-AC-10 non rattachés) et
+  // non les seuls bons de commande, qui la sous-estimaient. Un seul lot pour
+  // tous les projets, ce qui supprime au passage un N+1.
+  const spendMap = await getProjectSpendMap(allProjects.map((p) => p.id))
+
   for (const p of allProjects) {
-    const [spentRow, predRow] = await Promise.all([
-      db.select({ total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text` })
-        .from(purchaseOrders)
-        .where(eq(purchaseOrders.projectId, p.id)),
+    const [predRow] = await Promise.all([
       db.select({ predictedTotal: budgetPredictions.predictedTotal })
         .from(budgetPredictions)
         .where(and(eq(budgetPredictions.projectId, p.id), sql`${budgetPredictions.status} IN ('accepted','overridden')`))
@@ -53,7 +58,7 @@ export async function getBudgetVarianceReport(): Promise<BudgetVarianceRow[]> {
         .limit(1),
     ])
 
-    const actualSpend    = parseFloat(spentRow[0]?.total ?? '0')
+    const actualSpend    = (spendMap.get(p.id) ?? ZERO_SPEND).spent
     const approved       = p.approvedBudget ? parseFloat(p.approvedBudget) : null
     const mlPrediction   = predRow[0]?.predictedTotal ? parseFloat(predRow[0].predictedTotal) : null
     const variancePct    = approved && approved > 0 ? Math.round(((actualSpend - approved) / approved) * 1000) / 10 : null

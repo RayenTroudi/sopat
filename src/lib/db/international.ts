@@ -1,7 +1,8 @@
 import { db } from '../../../db/index'
-import { projects, purchaseOrders, exchangeRates } from '../../../db/schema'
-import { eq, and, isNull, desc, sql, lte } from 'drizzle-orm'
+import { projects, exchangeRates } from '../../../db/schema'
+import { eq, and, isNull, desc, lte } from 'drizzle-orm'
 import type { Currency } from '@/lib/currency'
+import { getProjectSpendMap } from './project-spend'
 
 // ─── Country metadata ─────────────────────────────────────────────────────────
 
@@ -102,17 +103,13 @@ export async function getInternationalDashboardData(): Promise<InternationalDash
     }
   }
 
-  // Get spend per project (in project currency — approximate as TND for now)
-  const spendRows = await db
-    .select({
-      projectId: purchaseOrders.projectId,
-      total:     sql<string>`sum(total_cost::numeric)::text`,
-    })
-    .from(purchaseOrders)
-    .groupBy(purchaseOrders.projectId)
-
+  // Consommation par projet (en devise du projet — assimilée au TND pour
+  // l'instant). Règle canonique : BC + dépenses approuvées + achats FOR-AC-10
+  // non rattachés à un bon de commande. Ce tableau de bord ne sommait que les
+  // bons de commande, et sa variance budgétaire était donc trop favorable.
+  const spendMap = await getProjectSpendMap(allProjects.map((p) => p.id))
   const spendByProject: Record<string, number> = {}
-  for (const s of spendRows) spendByProject[s.projectId] = parseFloat(s.total ?? '0')
+  for (const [id, spend] of spendMap) spendByProject[id] = spend.spent
 
   // Pre-fetch rates for all currencies we need
   const rateCache: Record<string, number | null> = {}
@@ -183,16 +180,10 @@ export async function getInternationalReport(): Promise<InternationalReportRow[]
     .from(projects)
     .where(isNull(projects.deletedAt))
 
-  const spendRows = await db
-    .select({
-      projectId: purchaseOrders.projectId,
-      total:     sql<string>`sum(total_cost::numeric)::text`,
-    })
-    .from(purchaseOrders)
-    .groupBy(purchaseOrders.projectId)
-
+  // Même règle canonique que partout ailleurs — voir project-spend.ts.
+  const spendMap = await getProjectSpendMap(allProjects.map((p) => p.id))
   const spendByProject: Record<string, number> = {}
-  for (const s of spendRows) spendByProject[s.projectId] = parseFloat(s.total ?? '0')
+  for (const [id, spend] of spendMap) spendByProject[id] = spend.spent
 
   const rateCache: Record<string, number | null> = {}
   const uniqueCurrencies = [...new Set(allProjects.map((p) => (p.currency ?? 'TND') as Currency))]

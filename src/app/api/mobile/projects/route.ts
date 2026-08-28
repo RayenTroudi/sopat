@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server'
-import { sql, eq, and, isNull, inArray } from 'drizzle-orm'
+import { and, isNull, inArray } from 'drizzle-orm'
 import { db } from '@/db'
-import { projects, purchaseOrders, extraExpenses } from '@/db/schema'
+import { projects } from '@/db/schema'
+import { getProjectSpendMap, spendPercent, ZERO_SPEND } from '@/lib/db/project-spend'
 import { requireMobileAuth, corsJson, corsPreflight } from '@/lib/mobile-auth'
 
 export function OPTIONS() {
@@ -9,42 +10,16 @@ export function OPTIONS() {
 }
 
 // Liste allégée des projets pour l'app mobile (sélecteur de projet du scan
-// de dépenses) : référence, nom, budget approuvé et consommation actuelle
-// (bons de commande + dépenses extra approuvées — même règle que les alertes).
+// de dépenses) : référence, nom, budget approuvé et consommation actuelle.
+//
+// La consommation vient de `getProjectSpendMap`, seule définition de la règle
+// (BC + dépenses approuvées + achats FOR-AC-10 non rattachés à un BC). Cette
+// route en refaisait sa propre version, qui ignorait le troisième terme : un
+// chef pouvait donc voir un pourcentage plus bas sur mobile que sur la fiche
+// projet du même chantier.
 export async function GET(req: NextRequest) {
   const guard = await requireMobileAuth(req, ['admin', 'realisation_chef', 'realisation_team'])
   if ('response' in guard) return guard.response
-
-  const poSpent = db
-    .select({
-      projectId: purchaseOrders.projectId,
-      total: sql<string>`coalesce(sum(${purchaseOrders.totalCost}::numeric), 0)::text`.as('po_total'),
-    })
-    .from(purchaseOrders)
-    .groupBy(purchaseOrders.projectId)
-    .as('po_spent')
-
-  const exSpent = db
-    .select({
-      projectId: extraExpenses.projectId,
-      total: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric), 0)::text`.as('ex_total'),
-    })
-    .from(extraExpenses)
-    .where(and(eq(extraExpenses.status, 'approved'), isNull(extraExpenses.deletedAt)))
-    .groupBy(extraExpenses.projectId)
-    .as('ex_spent')
-
-  // Dépenses en attente de validation : n'entrent pas dans la consommation,
-  // mais affichées dans l'app pour que l'utilisateur voie ses soumissions.
-  const exPending = db
-    .select({
-      projectId: extraExpenses.projectId,
-      total: sql<string>`coalesce(sum(${extraExpenses.amount}::numeric), 0)::text`.as('ex_pending_total'),
-    })
-    .from(extraExpenses)
-    .where(and(eq(extraExpenses.status, 'pending'), isNull(extraExpenses.deletedAt)))
-    .groupBy(extraExpenses.projectId)
-    .as('ex_pending')
 
   const rows = await db
     .select({
@@ -54,14 +29,8 @@ export async function GET(req: NextRequest) {
       currency: projects.currency,
       status: projects.status,
       approvedBudget: projects.approvedBudget,
-      poTotal: poSpent.total,
-      exTotal: exSpent.total,
-      pendingTotal: exPending.total,
     })
     .from(projects)
-    .leftJoin(poSpent, eq(poSpent.projectId, projects.id))
-    .leftJoin(exSpent, eq(exSpent.projectId, projects.id))
-    .leftJoin(exPending, eq(exPending.projectId, projects.id))
     .where(
       and(
         isNull(projects.deletedAt),
@@ -70,9 +39,14 @@ export async function GET(req: NextRequest) {
     )
     .orderBy(projects.reference)
 
+  // Un seul lot pour toute la liste : pas de N+1. `pendingTotal` sort du même
+  // helper — les dépenses en attente n'entrent pas dans la consommation (la
+  // direction peut encore les rejeter) mais restent affichées dans l'app.
+  const spendMap = await getProjectSpendMap(rows.map((r) => r.id))
+
   return corsJson({
     projects: rows.map((p) => {
-      const spent = parseFloat(p.poTotal ?? '0') + parseFloat(p.exTotal ?? '0')
+      const spend = spendMap.get(p.id) ?? ZERO_SPEND
       const approved = p.approvedBudget ? parseFloat(p.approvedBudget) : null
       return {
         id: p.id,
@@ -81,9 +55,9 @@ export async function GET(req: NextRequest) {
         currency: p.currency,
         status: p.status,
         approvedBudget: approved,
-        spent,
-        pendingTotal: parseFloat(p.pendingTotal ?? '0'),
-        percentSpent: approved && approved > 0 ? Math.round((spent / approved) * 1000) / 10 : null,
+        spent: spend.spent,
+        pendingTotal: spend.pendingTotal,
+        percentSpent: spendPercent(spend.spent, approved),
       }
     }),
   })

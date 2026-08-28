@@ -7,11 +7,11 @@ import {
   maintenanceSchedules,
   clientSatisfaction,
   projectActivityLog,
-  purchaseOrders,
   budgetPredictions,
   users,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql, lt, gte, lte, isNotNull, inArray } from 'drizzle-orm'
+import { getProjectSpendMap, spendPercent, ZERO_SPEND } from './project-spend'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,20 +149,14 @@ async function getAvgBudgetVariance(): Promise<number | null> {
   if (completedWithBudget.length === 0) return null
 
   const ids = completedWithBudget.map((p) => p.id)
-  const spentByProject = await db
-    .select({
-      projectId: purchaseOrders.projectId,
-      total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text`,
-    })
-    .from(purchaseOrders)
-    .where(inArray(purchaseOrders.projectId, ids))
-    .groupBy(purchaseOrders.projectId)
-
-  const spentMap = new Map(spentByProject.map((r) => [r.projectId, r.total]))
+  // Consommation = BC + dépenses approuvées + achats FOR-AC-10 non rattachés.
+  // Auparavant cette KPI ne sommait que les bons de commande, ce qui sous-
+  // estimait l'écart budgétaire de tout ce qui passait par les autres canaux.
+  const spendMap = await getProjectSpendMap(ids)
 
   const spentRows = completedWithBudget.map((p) => ({
     approvedBudget: parseFloat(p.approvedBudget!),
-    totalSpent:     parseFloat(spentMap.get(p.id) ?? '0'),
+    totalSpent:     (spendMap.get(p.id) ?? ZERO_SPEND).spent,
   }))
 
   const variances = spentRows
@@ -286,15 +280,12 @@ export async function getAtRiskProjects(): Promise<AtRiskProject[]> {
 
   const projectIds = activeProjects.map((p) => p.id)
 
-  // Batch both lookups — 2 queries total instead of 2N
-  const [spentRows, ncRows] = await Promise.all([
-    db.select({
-        projectId: purchaseOrders.projectId,
-        total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text`,
-      })
-      .from(purchaseOrders)
-      .where(inArray(purchaseOrders.projectId, projectIds))
-      .groupBy(purchaseOrders.projectId),
+  // Batch both lookups — pas de N+1. La consommation suit la règle canonique
+  // (BC + dépenses approuvées + achats FOR-AC-10 non rattachés) : ce widget ne
+  // comptait que les bons de commande et pouvait donc afficher un chantier
+  // « sain » alors que l'alerte 90 % s'était déjà déclenchée.
+  const [spendMap, ncRows] = await Promise.all([
+    getProjectSpendMap(projectIds),
     db.select({
         projectId: nonConformances.projectId,
         count: sql<number>`count(*)`,
@@ -308,18 +299,17 @@ export async function getAtRiskProjects(): Promise<AtRiskProject[]> {
       .groupBy(nonConformances.projectId),
   ])
 
-  const spentByProject = new Map(spentRows.map((r) => [r.projectId, r.total]))
-  const ncByProject    = new Map(ncRows.map((r) => [r.projectId, Number(r.count)]))
+  const ncByProject = new Map(ncRows.map((r) => [r.projectId, Number(r.count)]))
 
   const results: AtRiskProject[] = []
 
   for (const p of activeProjects) {
     const riskReasons: string[] = []
 
-    const totalSpent = spentByProject.get(p.id) ?? '0'
-    const spent      = parseFloat(totalSpent)
+    const spend      = spendMap.get(p.id) ?? ZERO_SPEND
+    const totalSpent = String(spend.spent)
     const approved   = p.approvedBudget ? parseFloat(p.approvedBudget) : null
-    const spendPct   = approved && approved > 0 ? (spent / approved) * 100 : null
+    const spendPct   = spendPercent(spend.spent, approved)
 
     if (spendPct !== null && spendPct >= 90) {
       riskReasons.push(spendPct >= 100 ? `Budget dépassé (${spendPct.toFixed(0)}%)` : `Budget à 90% (${spendPct.toFixed(0)}%)`)
