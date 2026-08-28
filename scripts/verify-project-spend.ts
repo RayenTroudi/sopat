@@ -26,6 +26,8 @@ console.log(`Cible : ${target.label}\n`)
 
 import { db } from '../db/index'
 import {
+  equipmentRentals,
+  equipmentTypes,
   extraExpenses,
   projects,
   purchaseOrders,
@@ -35,7 +37,7 @@ import {
   supplyRegisters,
   users,
 } from '../db/schema'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql, asc, isNotNull } from 'drizzle-orm'
 import {
   getProjectSpend,
   getProjectSpendMap,
@@ -68,6 +70,8 @@ async function count(table: string): Promise<number> {
 async function main() {
   const before = {
     projects: await count('projects'),
+    equipmentTypes: await count('equipment_types'),
+    equipmentRentals: await count('equipment_rentals'),
     suppliers: await count('suppliers'),
     purchaseOrders: await count('purchase_orders'),
     extraExpenses: await count('extra_expenses'),
@@ -97,9 +101,18 @@ async function main() {
   // ═══ 3. Term-by-term, against a real project ════════════════════════════
   console.log('\n3. Règle canonique, terme par terme')
 
+  // Le widget « projets à risque » ne considère que les chantiers actifs, donc
+  // le projet de test doit en être un pour que la comparaison soit exercée.
   const [project] = await db
     .select({ id: projects.id, reference: projects.reference, approvedBudget: projects.approvedBudget })
-    .from(projects).where(isNull(projects.deletedAt)).limit(1)
+    .from(projects)
+    .where(and(
+      isNull(projects.deletedAt),
+      isNotNull(projects.approvedBudget),
+      sql`${projects.status} IN ('etudes','realisation','entretien')`,
+    ))
+    .orderBy(asc(projects.reference))
+    .limit(1)
   const [user] = await db
     .select({ id: users.id, name: users.name, email: users.email, role: users.role })
     .from(users).limit(1)
@@ -265,20 +278,68 @@ async function main() {
       near(mapped.get(project.id)!.expensesTotal, spend.expensesTotal) &&
       near(mapped.get(project.id)!.supplyTotal, spend.supplyTotal))
 
+    // Le widget « projets à risque » ne liste un chantier qu-à partir de 90 %
+    // (ou d-un délai/NC). Pour que la comparaison tableau de bord ↔ règle soit
+    // réellement exercée et non sautée, on pousse volontairement le projet
+    // au-dessus du seuil avec une location d-engins, puis on la retire.
+    const approved = project.approvedBudget ? parseFloat(project.approvedBudget) : null
+    let typeId: string | null = null
+    let rentalId: string | null = null
+
+    if (approved && approved > 0) {
+      const current = await getProjectSpend(project.id)
+      const needed = Math.round((approved * 0.95 - current.spent) * 1000) / 1000
+      if (needed > 0) {
+        const [t] = await db.insert(equipmentTypes).values({
+          name: 'TEST-SPEND type engin',
+          displayNameFr: 'TEST-SPEND engin de test',
+        }).returning({ id: equipmentTypes.id })
+        typeId = t.id
+        const [r] = await db.insert(equipmentRentals).values({
+          projectId: project.id,
+          equipmentTypeId: typeId,
+          equipmentDescription: 'TEST-SPEND location',
+          startDate: new Date().toISOString().slice(0, 10),
+          endDate: new Date().toISOString().slice(0, 10),
+          rentalDays: 1,
+          dailyRate: String(needed),
+          totalCost: String(needed),
+          createdBy: user.id,
+        }).returning({ id: equipmentRentals.id })
+        rentalId = r.id
+      }
+    }
+
+    const spendAtRisk = await getProjectSpend(project.id)
     const atRisk = await getAtRiskProjects()
     const row = atRisk.find((r) => r.id === project.id)
+
+    check('le projet est bien listé « à risque » une fois au-dessus de 90 %',
+      row !== undefined || approved === null,
+      `pct=${spendPercent(spendAtRisk.spent, approved)}`)
+
     if (row) {
       check('tableau de bord « projets à risque » : même consommation',
-        near(parseFloat(row.totalSpent ?? '0'), spend.spent),
-        `${row.totalSpent} vs ${spend.spent}`)
-      const approved = project.approvedBudget ? parseFloat(project.approvedBudget) : null
+        near(parseFloat(row.totalSpent ?? '0'), spendAtRisk.spent),
+        `${row.totalSpent} vs ${spendAtRisk.spent}`)
       check('tableau de bord : même pourcentage que la règle',
-        near(row.spendPct, spendPercent(spend.spent, approved)),
-        `${row.spendPct} vs ${spendPercent(spend.spent, approved)}`)
+        near(row.spendPct, spendPercent(spendAtRisk.spent, approved)),
+        `${row.spendPct} vs ${spendPercent(spendAtRisk.spent, approved)}`)
+      check('la location d-engins est bien comptée par le tableau de bord',
+        near(parseFloat(row.totalSpent ?? '0'),
+          spend.spent + spendAtRisk.equipmentTotal - spend.equipmentTotal),
+        String(row.totalSpent))
     } else {
-      console.log('  (ce projet n-est pas « à risque » — comparaison du widget ignorée)')
+      console.log('  (projet sans budget approuvé — comparaison du widget ignorée)')
       check('le widget « à risque » s-exécute sans erreur', Array.isArray(atRisk))
     }
+
+    // Retrait immédiat : le seuil d-alerte est réévalué par la suite normale.
+    if (rentalId) await db.delete(equipmentRentals).where(eq(equipmentRentals.id, rentalId))
+    if (typeId) await db.delete(equipmentTypes).where(eq(equipmentTypes.id, typeId))
+    await db.update(projects)
+      .set({ budgetAlert90NotifiedAt: null, budgetAlertOverNotifiedAt: null })
+      .where(eq(projects.id, project.id))
 
     // ── Cleanup ──
     console.log('\n5. Nettoyage et restauration')
@@ -298,6 +359,8 @@ async function main() {
     for (const id of createdPoIds) {
       await db.delete(purchaseOrders).where(eq(purchaseOrders.id, id))
     }
+    await db.execute(sql`DELETE FROM equipment_rentals WHERE equipment_description LIKE 'TEST-SPEND%'`)
+    await db.execute(sql`DELETE FROM equipment_types WHERE name LIKE 'TEST-SPEND%'`)
 
     const restored = await getProjectSpend(project.id)
     check('la consommation revient exactement à son point de départ',
@@ -318,6 +381,8 @@ async function main() {
   console.log('\n6. Données existantes inchangées')
   const after = {
     projects: await count('projects'),
+    equipmentTypes: await count('equipment_types'),
+    equipmentRentals: await count('equipment_rentals'),
     suppliers: await count('suppliers'),
     purchaseOrders: await count('purchase_orders'),
     extraExpenses: await count('extra_expenses'),

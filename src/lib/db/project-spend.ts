@@ -18,6 +18,7 @@
  *   spent = Σ purchase_orders.total_cost
  *         + Σ extra_expenses.amount        WHERE status = 'approved'
  *         + Σ FOR-AC-10 purchase lines TTC WHERE purchase_order_id IS NULL
+ *         + Σ equipment_rentals.total_cost WHERE deleted_at IS NULL
  *
  * Each term is a disjoint set of records, so nothing is counted twice:
  *
@@ -33,12 +34,23 @@
  *   and the column the source workbook totals as « Somme des dépenses ». With
  *   the default VAT rate of 0, TTC equals HTVA, so rows created or imported
  *   before VAT was configurable contribute exactly what they always did.
+ * - Equipment rentals are money spent on the chantier like any other, and live
+ *   in their own table with no overlap with the three above. They were added
+ *   to the rule by an explicit business decision; `budget-reconciliation`
+ *   already counted them, and leaving them out made that screen disagree with
+ *   every other one. Soft-deleted rentals are excluded.
+ *
+ * Adding a term raises every project's consumption, so it can push a chantier
+ * across the 90 % / 100 % alert thresholds. That is the alert mechanism working,
+ * not a regression: `checkBudgetThresholdAndNotify` is deliberately left to
+ * fire on the new figure.
  *
  * `getProjectSpend` is a thin wrapper over `getProjectSpendMap`, so a single
  * project and a dashboard batch can never diverge: there is one query set.
  */
 import { db } from '@/db'
 import {
+  equipmentRentals,
   extraExpenses,
   purchaseOrders,
   supplyItems,
@@ -54,14 +66,17 @@ export type ProjectSpend = {
   expensesTotal: number
   /** Σ FOR-AC-10 purchase lines TTC not already carried by a bon de commande. */
   supplyTotal: number
-  /** The consumed figure: poTotal + expensesTotal + supplyTotal. */
+  /** Σ equipment_rentals.total_cost, excluding soft-deleted rentals. */
+  equipmentTotal: number
+  /** The consumed figure: poTotal + expensesTotal + supplyTotal + equipmentTotal. */
   spent: number
   /** Pending extra expenses — shown separately, never part of `spent`. */
   pendingTotal: number
 }
 
 export const ZERO_SPEND: ProjectSpend = {
-  poTotal: 0, expensesTotal: 0, supplyTotal: 0, spent: 0, pendingTotal: 0,
+  poTotal: 0, expensesTotal: 0, supplyTotal: 0, equipmentTotal: 0,
+  spent: 0, pendingTotal: 0,
 }
 
 /** Budget consumption for many projects at once — one query per term, no N+1. */
@@ -71,7 +86,7 @@ export async function getProjectSpendMap(
   const result = new Map<string, ProjectSpend>()
   if (projectIds.length === 0) return result
 
-  const [poRows, expenseRows, supplyRows] = await Promise.all([
+  const [poRows, expenseRows, supplyRows, equipmentRows] = await Promise.all([
     db
       .select({
         projectId: purchaseOrders.projectId,
@@ -114,6 +129,18 @@ export async function getProjectSpendMap(
         isNull(supplyPurchases.purchaseOrderId),
       ))
       .groupBy(supplyRegisters.projectId),
+
+    db
+      .select({
+        projectId: equipmentRentals.projectId,
+        total: sql<string>`coalesce(sum(${equipmentRentals.totalCost}::numeric), 0)::text`,
+      })
+      .from(equipmentRentals)
+      .where(and(
+        inArray(equipmentRentals.projectId, projectIds),
+        isNull(equipmentRentals.deletedAt),
+      ))
+      .groupBy(equipmentRentals.projectId),
   ])
 
   for (const id of projectIds) result.set(id, { ...ZERO_SPEND })
@@ -130,9 +157,11 @@ export async function getProjectSpendMap(
     bump(r.projectId, { expensesTotal: Number(r.approved), pendingTotal: Number(r.pending) })
   }
   for (const r of supplyRows) bump(r.projectId, { supplyTotal: Number(r.total) })
+  for (const r of equipmentRows) bump(r.projectId, { equipmentTotal: Number(r.total) })
 
   for (const spend of result.values()) {
-    spend.spent = spend.poTotal + spend.expensesTotal + spend.supplyTotal
+    spend.spent =
+      spend.poTotal + spend.expensesTotal + spend.supplyTotal + spend.equipmentTotal
   }
 
   return result

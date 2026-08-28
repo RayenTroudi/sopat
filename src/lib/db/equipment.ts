@@ -1,10 +1,10 @@
 import { db } from '../../../db/index'
+import { getProjectSpendMap, ZERO_SPEND } from './project-spend'
 import {
   equipmentTypes,
   equipmentRentals,
   cloudinaryAssets,
   plantListItems,
-  purchaseOrders,
   projects,
   users,
 } from '../../../db/schema'
@@ -287,19 +287,18 @@ export async function getEquipmentReport(): Promise<EquipmentReportData> {
     .from(projects)
     .where(isNull(projects.deletedAt))
 
+  // Le dénominateur du ratio est la consommation canonique du projet — même
+  // règle que partout ailleurs (project-spend.ts). Il valait auparavant
+  // « engins + bons de commande » seulement, si bien que la part des engins
+  // était surévaluée dès qu'un chantier portait des dépenses extra ou des
+  // achats FOR-AC-10. Un seul lot pour tous les projets : plus de N+1.
+  const spendMap = await getProjectSpendMap(allProjects.map((p) => p.id))
+
   const byProject: EquipmentProjectRow[] = []
   for (const p of allProjects) {
-    const [eqRow, poRow] = await Promise.all([
-      db.select({ total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text` })
-        .from(equipmentRentals)
-        .where(and(eq(equipmentRentals.projectId, p.id), isNull(equipmentRentals.deletedAt))),
-      db.select({ total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text` })
-        .from(purchaseOrders)
-        .where(eq(purchaseOrders.projectId, p.id)),
-    ])
-    const equipmentCost = parseFloat(eqRow[0]?.total ?? '0')
-    const purchaseCost  = parseFloat(poRow[0]?.total ?? '0')
-    const totalProjectSpend = equipmentCost + purchaseCost
+    const spend = spendMap.get(p.id) ?? ZERO_SPEND
+    const equipmentCost = spend.equipmentTotal
+    const totalProjectSpend = spend.spent
     if (totalProjectSpend === 0) continue
 
     byProject.push({

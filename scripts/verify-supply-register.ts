@@ -33,7 +33,7 @@ import {
   supplyRegisters,
   users,
 } from '../db/schema'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql, asc } from 'drizzle-orm'
 import {
   computeItem,
   computePurchase,
@@ -408,7 +408,8 @@ async function main() {
 
   const [project] = await db
     .select({ id: projects.id, name: projects.name, reference: projects.reference })
-    .from(projects).where(isNull(projects.deletedAt)).limit(1)
+    .from(projects).where(isNull(projects.deletedAt))
+    .orderBy(asc(projects.reference)).limit(1)
   const [user] = await db
     .select({ id: users.id, name: users.name, email: users.email, role: users.role })
     .from(users).limit(1)

@@ -2,7 +2,6 @@ import { db } from '../../../db/index'
 import { getProjectSpendMap, ZERO_SPEND } from './project-spend'
 import {
   projects,
-  purchaseOrders,
   budgetPredictions,
   nonConformances,
   projectPhases,
@@ -202,8 +201,13 @@ export async function getMlAccuracyReport(): Promise<MlAccuracySummary> {
 
   const rows: MlAccuracyRow[] = []
 
+  // « Réel » suit la règle canonique — voir project-spend.ts. Ce rapport ne
+  // sommait que les bons de commande, ce qui mesurait le modèle contre un
+  // chiffre que plus aucun écran n'affichait.
+  const accuracySpend = await getProjectSpendMap(completedProjects.map((p) => p.id))
+
   for (const p of completedProjects) {
-    const [predRow, spentRow] = await Promise.all([
+    const [predRow] = await Promise.all([
       db.select({
         predictedTotal: budgetPredictions.predictedTotal,
         isFallback:     budgetPredictions.isFallback,
@@ -214,14 +218,11 @@ export async function getMlAccuracyReport(): Promise<MlAccuracySummary> {
         .where(and(eq(budgetPredictions.projectId, p.id), sql`${budgetPredictions.status} IN ('accepted','overridden')`))
         .orderBy(desc(budgetPredictions.createdAt))
         .limit(1),
-      db.select({ total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text` })
-        .from(purchaseOrders)
-        .where(eq(purchaseOrders.projectId, p.id)),
     ])
 
     if (!predRow[0]) continue
     const predicted = parseFloat(predRow[0].predictedTotal)
-    const actual    = parseFloat(spentRow[0]?.total ?? '0')
+    const actual    = (accuracySpend.get(p.id) ?? ZERO_SPEND).spent
     if (actual === 0) continue
 
     rows.push({

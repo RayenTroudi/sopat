@@ -11,19 +11,21 @@
  *
  *   A  consommation budgétaire  → must equal getProjectSpend().spent
  *      getBudgetVarianceReport · getInternationalDashboardData
- *      getInternationalReport · (already migrated: fiche projet, alertes,
- *      liste projets, tableau de bord, API mobile)
+ *      getInternationalReport · « Réel » des pages ML · dénominateur du
+ *      ratio d'engins · (fiche projet, alertes, liste projets, tableau de
+ *      bord, API mobile)
  *
  *   B  volume d'achat / pièces   → left alone
  *      listes de bons de commande, totaux d'entreprise
  *
  *   C  autre métrique            → left alone
- *      coût de location d'engins, dépense attribuée par phase
+ *      montant de location d'engins seul (un terme, pas le total),
+ *      dépense attribuée par phase, entrée d'entraînement du modèle
  *
- *   D  décision métier requise   → left alone, reported
- *      rapprochement budgétaire (inclut les engins, ignore les extra et
- *      FOR-AC-10) · « Réel » des pages ML (cible du modèle ou consommation
- *      officielle ?)
+ *   D  décision métier            → tranchée, voir plus bas
+ *      les engins FONT partie de la règle ; « Réel » des pages ML suit la
+ *      règle. Le rapprochement budgétaire (BC + engins) reste volontairement
+ *      un sous-ensemble et n'est pas la consommation.
  *
  * The fixture is built under an EXISTING project, then removed, with opening
  * counts and the project's own consumption asserted restored. No reference
@@ -37,6 +39,8 @@ console.log(`Cible : ${target.label}\n`)
 
 import { db } from '../db/index'
 import {
+  equipmentRentals,
+  equipmentTypes,
   extraExpenses,
   projects,
   purchaseOrders,
@@ -46,13 +50,14 @@ import {
   supplyRegisters,
   users,
 } from '../db/schema'
-import { and, eq, isNull, sql } from 'drizzle-orm'
-import { getProjectSpend } from '../src/lib/db/project-spend'
+import { and, eq, isNull, sql, asc, isNotNull } from 'drizzle-orm'
+import { getProjectSpend, spendPercent } from '../src/lib/db/project-spend'
 import { getBudgetVarianceReport, getMlAccuracyReport } from '../src/lib/db/reports'
 import { getInternationalDashboardData, getInternationalReport } from '../src/lib/db/international'
 import { getTotalSpent } from '../src/lib/db/realisation'
 import { getEquipmentTotalCost } from '../src/lib/db/equipment'
 import { ensureSupplyRegister, replaceSupplyItems } from '../src/lib/db/supply'
+import { checkBudgetThresholdAndNotify } from '../src/lib/notifications'
 import type { AuditActor } from '../src/lib/audit-record'
 
 let passed = 0
@@ -76,6 +81,8 @@ async function count(table: string): Promise<number> {
 async function main() {
   const before = {
     projects: await count('projects'),
+    equipmentTypes: await count('equipment_types'),
+    notifications: await count('notifications'),
     purchaseOrders: await count('purchase_orders'),
     extraExpenses: await count('extra_expenses'),
     supplyRegisters: await count('supply_registers'),
@@ -86,12 +93,19 @@ async function main() {
   const [user] = await db
     .select({ id: users.id, name: users.name, email: users.email, role: users.role })
     .from(users).where(eq(users.role, 'admin')).limit(1)
+  // Sélection DÉTERMINISTE : sans ORDER BY, Postgres peut renvoyer un projet
+  // différent d-une exécution à l-autre, et plusieurs sections se branchent sur
+  // ses propriétés (pays, budget, prédiction ML). Le nombre d-assertions variait
+  // alors entre deux exécutions identiques.
   const [project] = await db
     .select({
       id: projects.id, reference: projects.reference,
       approvedBudget: projects.approvedBudget, country: projects.country,
     })
-    .from(projects).where(isNull(projects.deletedAt)).limit(1)
+    .from(projects)
+    .where(and(isNull(projects.deletedAt), isNotNull(projects.approvedBudget)))
+    .orderBy(asc(projects.reference))
+    .limit(1)
 
   if (!user || !project) {
     console.log('  (aucun projet ou administrateur — suite ignorée)')
@@ -259,7 +273,7 @@ async function main() {
   //
   // These MUST NOT equal the canonical rule. Asserting the difference is the
   // point: it records the classification so nobody "corrects" them later.
-  console.log('\n3. Métriques volontairement différentes')
+  console.log('\n3. Termes de la règle et métriques volontairement différentes')
 
   const canonicalNow = (await getProjectSpend(project.id)).spent
 
@@ -275,22 +289,158 @@ async function main() {
       (baseline.expensesTotal + 200) + (baseline.supplyTotal + 150)),
     String(canonicalNow - totalSpentOnly))
 
-  // getEquipmentTotalCost : locations d'engins, absentes de la règle canonique.
+  // getEquipmentTotalCost reste UN TERME de la règle, pas le total : il ne doit
+  // donc pas égaler la consommation, mais il doit s-y retrouver exactement.
   const equipment = await getEquipmentTotalCost(project.id)
-  check('getEquipmentTotalCost est un montant de location, pas une consommation',
-    typeof equipment === 'number' && Number.isFinite(equipment), String(equipment))
-  check('les engins n-entrent PAS dans la règle canonique',
-    near(canonicalNow, baseline.spent + 1350), String(canonicalNow))
+  const spendNow = await getProjectSpend(project.id)
+  check('getEquipmentTotalCost = le terme « engins » de la règle',
+    near(equipment, spendNow.equipmentTotal), `${equipment} vs ${spendNow.equipmentTotal}`)
+  check('c-est un terme, pas le total',
+    spendNow.spent >= equipment, `${spendNow.spent} >= ${equipment}`)
 
-  // Rapport de précision ML : « Réel » y sert à mesurer le modèle. Il reste
-  // sur les bons de commande seuls tant que la décision n-est pas prise.
+  // Le rapprochement budgétaire additionne BC + engins : toujours un
+  // sous-ensemble de la règle, par décision métier. Il ne doit pas être
+  // « corrigé » en le branchant sur project-spend.ts.
+  check('rapprochement (BC + engins) reste un sous-ensemble de la règle',
+    near(totalSpentOnly + equipment,
+      spendNow.poTotal + spendNow.equipmentTotal),
+    `${totalSpentOnly + equipment}`)
+
+  // Rapport de précision ML : « Réel » suit désormais la règle canonique, pour
+  // qu-un montant ainsi étiqueté veuille dire la même chose partout.
   const ml = await getMlAccuracyReport()
   const mlRow = ml.rows.find((r) => r.projectId === project.id)
   if (mlRow) {
-    check('rapport ML : « Réel » reste les bons de commande seuls',
-      near(mlRow.actualSpend, totalSpentOnly), `${mlRow.actualSpend} vs ${totalSpentOnly}`)
+    const mlCanonical = (await getProjectSpend(project.id)).spent
+    check('rapport ML : « Réel » = règle canonique',
+      near(mlRow.actualSpend, mlCanonical), `${mlRow.actualSpend} vs ${mlCanonical}`)
+    check('rapport ML : ce ne sont plus les bons de commande seuls',
+      !near(mlRow.actualSpend, totalSpentOnly) || near(mlCanonical, totalSpentOnly),
+      `${mlRow.actualSpend} vs ${totalSpentOnly}`)
   } else {
+    console.log('  (ce projet n-a pas de prédiction acceptée — rapport ML ignoré)')
     check('le rapport ML répond sans erreur', Array.isArray(ml.rows))
+  }
+
+  // ═══ 3b. Equipment rentals — the fourth term, and the 90 % alert ════════
+  //
+  // Adding a term raises consumption, so it can push a chantier across the
+  // alert threshold. The alert mechanism is deliberately NOT bypassed here:
+  // the test drives it and checks it fires on the new figure. The budget path
+  // writes in-app notification rows only — it sends no email — so this is safe
+  // to exercise, and every row is removed afterwards.
+  console.log('\n3b. Engins : quatrième terme et seuil d-alerte 90 %')
+
+  const budget = project.approvedBudget ? parseFloat(project.approvedBudget) : null
+  const spendBeforeEquipment = await getProjectSpend(project.id)
+  const pctBefore = spendPercent(spendBeforeEquipment.spent, budget)
+
+  // État d-alerte d-origine, restauré à la fin quoi qu-il arrive.
+  const [flagsBefore] = await db
+    .select({
+      a90: projects.budgetAlert90NotifiedAt,
+      aOver: projects.budgetAlertOverNotifiedAt,
+    })
+    .from(projects).where(eq(projects.id, project.id)).limit(1)
+  const notifBefore = await count('notifications')
+
+  let typeId: string | null = null
+  let rentalId: string | null = null
+
+  if (budget && budget > 0 && pctBefore !== null && pctBefore < 90) {
+    // Location juste assez grosse pour franchir 90 % sans atteindre 100 %.
+    const target = budget * 0.925
+    const rentalCost = Math.round((target - spendBeforeEquipment.spent) * 1000) / 1000
+
+    const [t] = await db.insert(equipmentTypes).values({
+      name: 'TEST-CONSUMERS type engin',
+      displayNameFr: 'TEST-CONSUMERS engin de test',
+    }).returning({ id: equipmentTypes.id })
+    typeId = t.id
+
+    const [r] = await db.insert(equipmentRentals).values({
+      projectId: project.id,
+      equipmentTypeId: typeId,
+      equipmentDescription: 'TEST-CONSUMERS location',
+      startDate: new Date().toISOString().slice(0, 10),
+      endDate: new Date().toISOString().slice(0, 10),
+      rentalDays: 1,
+      dailyRate: String(rentalCost),
+      totalCost: String(rentalCost),
+      createdBy: user.id,
+    }).returning({ id: equipmentRentals.id })
+    rentalId = r.id
+
+    const withEquipment = await getProjectSpend(project.id)
+    const pctAfter = spendPercent(withEquipment.spent, budget)
+
+    check('la location entre dans le terme « engins »',
+      near(withEquipment.equipmentTotal, spendBeforeEquipment.equipmentTotal + rentalCost),
+      String(withEquipment.equipmentTotal))
+    check('et donc dans la consommation totale',
+      near(withEquipment.spent, spendBeforeEquipment.spent + rentalCost),
+      String(withEquipment.spent))
+    check('spent = BC + dépenses + approvisionnement + engins',
+      near(withEquipment.spent, withEquipment.poTotal + withEquipment.expensesTotal
+        + withEquipment.supplyTotal + withEquipment.equipmentTotal))
+    check(`le projet franchit 90 % (${pctBefore} % → ${pctAfter} %)`,
+      pctAfter !== null && pctBefore < 90 && pctAfter >= 90 && pctAfter < 100,
+      `${pctBefore} → ${pctAfter}`)
+
+    // Le mécanisme d-alerte doit se déclencher sur le nouveau chiffre.
+    await checkBudgetThresholdAndNotify(project.id, user.id)
+
+    const [flagsAfter] = await db
+      .select({
+        a90: projects.budgetAlert90NotifiedAt,
+        aOver: projects.budgetAlertOverNotifiedAt,
+      })
+      .from(projects).where(eq(projects.id, project.id)).limit(1)
+    const notifAfter = await count('notifications')
+
+    check('l-alerte 90 % est armée par le franchissement',
+      flagsAfter.a90 !== null, String(flagsAfter.a90))
+    check('l-alerte de dépassement N-EST PAS armée (on reste sous 100 %)',
+      flagsAfter.aOver === null, String(flagsAfter.aOver))
+    check('au moins une notification a été créée',
+      notifAfter > notifBefore, `${notifBefore} → ${notifAfter}`)
+
+    // Retrait de la location : la consommation redescend et l-alerte se réarme.
+    await db.delete(equipmentRentals).where(eq(equipmentRentals.id, rentalId))
+    rentalId = null
+
+    const removed = await getProjectSpend(project.id)
+    check('retirer la location fait redescendre la consommation',
+      near(removed.spent, spendBeforeEquipment.spent), String(removed.spent))
+
+    await checkBudgetThresholdAndNotify(project.id, user.id)
+    const [flagsReset] = await db
+      .select({ a90: projects.budgetAlert90NotifiedAt })
+      .from(projects).where(eq(projects.id, project.id)).limit(1)
+    check('repasser sous 90 % réarme l-alerte',
+      flagsReset.a90 === null, String(flagsReset.a90))
+
+    // Nettoyage des notifications et restauration exacte des drapeaux.
+    await db.execute(sql`DELETE FROM notifications
+      WHERE type = 'budget_alert' AND project_id = ${project.id}`)
+    await db.update(projects)
+      .set({
+        budgetAlert90NotifiedAt: flagsBefore.a90,
+        budgetAlertOverNotifiedAt: flagsBefore.aOver,
+      })
+      .where(eq(projects.id, project.id))
+
+    if (typeId) {
+      await db.delete(equipmentTypes).where(eq(equipmentTypes.id, typeId))
+      typeId = null
+    }
+
+    check('notifications revenues au niveau initial',
+      (await count('notifications')) === notifBefore)
+  } else {
+    console.log(`  (projet à ${pctBefore} % ou sans budget — scénario de franchissement ignoré)`)
+    check('la règle expose bien un terme « engins »',
+      typeof spendBeforeEquipment.equipmentTotal === 'number')
   }
 
   // ═══ 4. Cleanup and restoration ════════════════════════════════════════
@@ -305,6 +455,8 @@ async function main() {
     WHERE entity_type = 'supply_register' AND entity_id = ${registerId}`)
   for (const id of expenseIds) await db.delete(extraExpenses).where(eq(extraExpenses.id, id))
   for (const id of poIds) await db.delete(purchaseOrders).where(eq(purchaseOrders.id, id))
+  await db.execute(sql`DELETE FROM equipment_rentals WHERE equipment_description LIKE 'TEST-CONSUMERS%'`)
+  await db.execute(sql`DELETE FROM equipment_types WHERE name LIKE 'TEST-CONSUMERS%'`)
   await db.execute(sql`DELETE FROM extra_expenses WHERE description LIKE 'TEST-CONSUMERS%'`)
   await db.execute(sql`DELETE FROM purchase_orders WHERE item_description LIKE 'TEST-CONSUMERS%'`)
 
@@ -325,6 +477,8 @@ async function main() {
   console.log('\n5. Données existantes inchangées')
   const after = {
     projects: await count('projects'),
+    equipmentTypes: await count('equipment_types'),
+    notifications: await count('notifications'),
     purchaseOrders: await count('purchase_orders'),
     extraExpenses: await count('extra_expenses'),
     supplyRegisters: await count('supply_registers'),

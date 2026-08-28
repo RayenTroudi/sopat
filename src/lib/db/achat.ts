@@ -126,6 +126,8 @@ export async function getProjectAchats(projectId: string) {
       poTotal: spend.poTotal,
       /** FOR-AC-10 purchases not already carried by a bon de commande. */
       supplyTotal: spend.supplyTotal,
+      /** Locations d'engins — quatrième terme de la règle canonique. */
+      equipmentTotal: spend.equipmentTotal,
       expensesTotal: spend.expensesTotal,
       // Les dépenses en attente n'entrent PAS dans la consommation (la
       // direction peut encore les rejeter) mais restent affichées à part.

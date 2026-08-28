@@ -38,7 +38,7 @@ import {
   supplyRegisters,
   users,
 } from '../db/schema'
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull, sql, asc, isNotNull } from 'drizzle-orm'
 import { getProjectSpend, spendPercent } from '../src/lib/db/project-spend'
 import { getProjectAchats } from '../src/lib/db/achat'
 import { getAtRiskProjects } from '../src/lib/db/dashboard'
@@ -130,8 +130,10 @@ async function main() {
     .from(projects)
     .where(and(
       isNull(projects.deletedAt),
+      isNotNull(projects.approvedBudget),
       sql`${projects.status} IN ('etudes','realisation','entretien')`,
     ))
+    .orderBy(asc(projects.reference))
     .limit(1)
 
   if (!user || !project) {

@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '../../../../../db/index'
-import { budgetPredictions, projects, purchaseOrders } from '../../../../../db/schema'
+import { budgetPredictions, projects } from '../../../../../db/schema'
 import { eq, and, desc, isNull, sql } from 'drizzle-orm'
 import { ENGINE_VERSION } from '@/lib/budget-engine'
+import { getProjectSpendMap } from '@/lib/db/project-spend'
 
 export async function GET() {
   const session = await auth()
@@ -36,24 +37,26 @@ export async function GET() {
     .orderBy(desc(budgetPredictions.createdAt))
     .limit(50)
 
-  // Dépense réelle des projets terminés (pour la variance prédite/réelle)
+  // « Réel » des projets terminés, pour la variance prédite/réelle.
+  //
+  // C'est la consommation budgétaire canonique (BC + dépenses approuvées +
+  // achats FOR-AC-10 non rattachés + locations d'engins), la même que la fiche
+  // projet, la liste, le tableau de bord et les alertes. Cette route ne sommait
+  // que les bons de commande, si bien qu'un montant affiché « Réel » y valait
+  // moins qu'ailleurs dans l'application pour le même chantier.
   const completedIds = preds.filter((p) => p.projectStatus === 'completed').map((p) => p.projectId)
-  const spendMap: Record<string, number> = {}
-  for (const pid of completedIds) {
-    const [row] = await db
-      .select({ total: sql<string>`coalesce(sum(total_cost::numeric), 0)::text` })
-      .from(purchaseOrders)
-      .where(eq(purchaseOrders.projectId, pid))
-    spendMap[pid] = parseFloat(row?.total ?? '0')
-  }
+  const spendMap = await getProjectSpendMap(completedIds)
 
-  const rows = preds.map((p) => ({
-    ...p,
-    actualSpend: spendMap[p.projectId] ?? null,
-    variancePct: spendMap[p.projectId] && parseFloat(p.predictedTotal)
-      ? Math.round(((parseFloat(p.predictedTotal) - spendMap[p.projectId]) / spendMap[p.projectId]) * 1000) / 10
-      : null,
-  }))
+  const rows = preds.map((p) => {
+    const spent = spendMap.get(p.projectId)?.spent ?? null
+    return {
+      ...p,
+      actualSpend: spent,
+      variancePct: spent && parseFloat(p.predictedTotal)
+        ? Math.round(((parseFloat(p.predictedTotal) - spent) / spent) * 1000) / 10
+        : null,
+    }
+  })
 
   return NextResponse.json({
     engine: { version: ENGINE_VERSION, completedProjects: completed?.n ?? 0 },
