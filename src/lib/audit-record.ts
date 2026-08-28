@@ -29,6 +29,9 @@ export type AuditEntityType =
   | 'corrective_action'
   /** FOR-AC-10 : le registre entier, ses lignes étant éditées comme une grille. */
   | 'supply_register'
+  /** FOR-MI-04 : PV de réunion, y compris ceux produits par l'assistant IA. */
+  | 'meeting_minute'
+  | 'meeting_action_item'
 
 export type AuditAction =
   | 'created'
@@ -45,6 +48,10 @@ export type AuditAction =
   | 'imported'
   /** Data-quality backfill performed by a migration script rather than a user. */
   | 'reclassified'
+  /** Assistant de réunion IA : analyse produite, notification envoyée, étape en échec. */
+  | 'analyzed'
+  | 'notified'
+  | 'failed'
 
 /**
  * Écrire la trace DANS la transaction qui modifie l'enregistrement : un

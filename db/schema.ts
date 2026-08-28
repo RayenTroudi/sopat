@@ -3441,6 +3441,60 @@ export const managementReviewActions = pgTable('management_review_actions', {
 ])
 
 // ─── PV de réunion (FOR-MI-04) ────────────────────────────────────────────────
+//
+// Un PV est soit saisi à la main (source = 'manual', comportement historique
+// inchangé), soit produit par l'assistant de réunion IA (source =
+// 'ai_assistant') : un bot Recall.ai rejoint la visioconférence, la transcrit,
+// et l'analyse OpenAI alimente le compte rendu. Dans les deux cas la sortie
+// reste UN PV FOR-MI-04 avec sa référence PV-AAAA-NNN — l'IA n'introduit pas
+// un registre parallèle.
+
+export const meetingSourceEnum = pgEnum('meeting_source', [
+  'manual',
+  'ai_assistant',
+])
+
+/** Plateformes réellement prises en charge par le bot Recall.ai. */
+export const meetingPlatformEnum = pgEnum('meeting_platform', [
+  'google_meet',
+  'zoom',
+  'microsoft_teams',
+  'webex',
+])
+
+/**
+ * Cycle de vie de l'assistant IA. Machine à états : les transitions ne vont
+ * que vers l'avant, 'completed' / 'failed' / 'cancelled' sont terminaux.
+ */
+export const meetingAiStatusEnum = pgEnum('meeting_ai_status', [
+  'scheduled',
+  'bot_created',
+  'joining',
+  'in_meeting',
+  'processing',
+  'completed',
+  'failed',
+  'cancelled',
+])
+
+export const meetingActionSourceEnum = pgEnum('meeting_action_source', [
+  'manual',
+  'ai',
+])
+
+export const meetingActionPriorityEnum = pgEnum('meeting_action_priority', [
+  'low',
+  'medium',
+  'high',
+])
+
+/** Statut de l'e-mail de compte rendu — indépendant du statut de la réunion. */
+export const meetingReportEmailStatusEnum = pgEnum('meeting_report_email_status', [
+  'pending',
+  'sent',
+  'failed',
+  'skipped',
+])
 
 export const meetingMinutes = pgTable('meeting_minutes', {
   id:              uuid('id').primaryKey().defaultRandom(),
@@ -3457,8 +3511,35 @@ export const meetingMinutes = pgTable('meeting_minutes', {
   deletedAt:       timestamp('deleted_at'),
   ...timestamps,
   createdBy:       uuid('created_by').notNull(),
+
+  // ── Assistant de réunion IA ────────────────────────────────────────────────
+  // Colonnes additives, nullables, source par défaut 'manual' : les PV
+  // existants gardent exactement le sens qu'ils avaient.
+  source:             meetingSourceEnum('source').notNull().default('manual'),
+  meetingUrl:         text('meeting_url'),
+  platform:           meetingPlatformEnum('platform'),
+  scheduledAt:        timestamp('scheduled_at', { withTimezone: true }),
+  startedAt:          timestamp('started_at', { withTimezone: true }),
+  endedAt:            timestamp('ended_at', { withTimezone: true }),
+  durationSeconds:    integer('duration_seconds'),
+  aiStatus:           meetingAiStatusEnum('ai_status'),
+  aiError:            text('ai_error'),
+  // Identifiants Recall.ai. recall_bot_id est UNIQUE : c'est la clé de
+  // résolution des webhooks, et l'unicité empêche deux PV de revendiquer le
+  // même bot — donc deux traitements pour un seul événement.
+  recallBotId:        varchar('recall_bot_id', { length: 100 }).unique(),
+  recallRecordingId:  varchar('recall_recording_id', { length: 100 }),
+  recallTranscriptId: varchar('recall_transcript_id', { length: 100 }),
+  botName:            varchar('bot_name', { length: 100 }),
+  autoJoin:           boolean('auto_join').notNull().default(false),
+  sendEmailReport:    boolean('send_email_report').notNull().default(false),
+  reportEmailStatus:  meetingReportEmailStatusEnum('report_email_status'),
+  reportEmailSentAt:  timestamp('report_email_sent_at'),
+  reportEmailError:   text('report_email_error'),
 }, (t) => [
   index('meeting_minutes_date_idx').on(t.meetingDate),
+  index('meeting_minutes_source_idx').on(t.source),
+  index('meeting_minutes_ai_status_idx').on(t.aiStatus),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
@@ -3471,10 +3552,105 @@ export const meetingActionItems = pgTable('meeting_action_items', {
   completedAt: timestamp('completed_at'),
   ...timestamps,
   createdBy:   uuid('created_by').notNull(),
+
+  // ── Actions proposées par l'IA ─────────────────────────────────────────────
+  // assigneeId n'est renseigné que si UN SEUL utilisateur SOPAT correspond au
+  // nom prononcé ; en cas d'ambiguïté il reste NULL et responsible conserve le
+  // nom brut, à charge d'un humain d'affecter l'action.
+  assigneeId:  uuid('assignee_id'),
+  source:      meetingActionSourceEnum('source').notNull().default('manual'),
+  priority:    meetingActionPriorityEnum('priority'),
+  // Empreinte stable d'une action extraite d'un PV donné. L'unicité
+  // (meeting_id, dedupe_key) rend la création d'actions idempotente : un
+  // webhook rejoué ou une régénération ne duplique rien. NULL pour les actions
+  // saisies à la main, que Postgres ne considère jamais comme dupliquées.
+  dedupeKey:   varchar('dedupe_key', { length: 64 }),
 }, (t) => [
   index('meeting_action_items_meeting_idx').on(t.meetingId),
+  index('meeting_action_items_assignee_idx').on(t.assigneeId),
+  uniqueIndex('meeting_action_items_dedupe_idx').on(t.meetingId, t.dedupeKey),
   foreignKey({ columns: [t.meetingId], foreignColumns: [meetingMinutes.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.assigneeId], foreignColumns: [users.id] }),
+])
+
+/**
+ * Transcription brute, stockée UNE seule fois par réunion (meeting_id unique).
+ * Conservée à part du PV : elle est volumineuse, n'est affichée que sur
+ * demande, et surtout elle permet de relancer l'analyse IA sans refaire
+ * rejoindre un bot ni re-télécharger quoi que ce soit chez Recall.
+ */
+export const meetingTranscripts = pgTable('meeting_transcripts', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  meetingId:  uuid('meeting_id').notNull().unique(),
+  provider:   varchar('provider', { length: 50 }).notNull(),
+  /** Utterances telles que renvoyées par Recall (participant + mots datés). */
+  utterances: jsonb('utterances'),
+  /** Rendu « Nom : texte » consommé par l'analyse IA. */
+  plainText:  text('plain_text').notNull(),
+  wordCount:  integer('word_count').notNull().default(0),
+  fetchedAt:  timestamp('fetched_at').notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.meetingId], foreignColumns: [meetingMinutes.id] }),
+])
+
+/**
+ * Compte rendu structuré produit par l'IA. Une ligne PAR génération : une
+ * régénération n'écrase pas la précédente, l'écran lit la plus récente. Un
+ * enregistrement qualité ne doit pas pouvoir changer sans laisser de trace.
+ */
+export const meetingAiReports = pgTable('meeting_ai_reports', {
+  id:            uuid('id').primaryKey().defaultRandom(),
+  meetingId:     uuid('meeting_id').notNull(),
+  model:         varchar('model', { length: 100 }).notNull(),
+  promptVersion: varchar('prompt_version', { length: 20 }).notNull(),
+  summary:       text('summary').notNull(),
+  topics:        jsonb('topics').notNull(),
+  decisions:     jsonb('decisions').notNull(),
+  actionItems:   jsonb('action_items').notNull(),
+  risks:         jsonb('risks').notNull(),
+  questions:     jsonb('questions').notNull(),
+  followUps:     jsonb('follow_ups').notNull(),
+  /**
+   * Constats QMS PROPOSÉS. L'IA ne crée jamais de NC ni d'action corrective
+   * formelle : ces éléments restent des propositions jusqu'à confirmation
+   * explicite par un responsable, conformément au principe SOPAT selon lequel
+   * l'IA ne remplace pas la personne responsable.
+   */
+  qmsFindings:   jsonb('qms_findings').notNull(),
+  inputTokens:   integer('input_tokens'),
+  outputTokens:  integer('output_tokens'),
+  generatedAt:   timestamp('generated_at').notNull().defaultNow(),
+  generatedBy:   uuid('generated_by').notNull(),
+}, (t) => [
+  index('meeting_ai_reports_meeting_idx').on(t.meetingId, t.generatedAt),
+  foreignKey({ columns: [t.meetingId], foreignColumns: [meetingMinutes.id] }),
+  foreignKey({ columns: [t.generatedBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * Journal des webhooks entrants — le verrou d'idempotence. event_id est
+ * l'identifiant de message du fournisseur (en-tête webhook-id de Recall) : un
+ * INSERT … ON CONFLICT DO NOTHING qui n'insère rien signifie « déjà reçu », et
+ * le handler s'arrête là. Sans cela, une nouvelle tentative de Recall (24 h de
+ * retries) recréerait transcription, rapport, actions et e-mail.
+ */
+export const meetingWebhookEvents = pgTable('meeting_webhook_events', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  provider:    varchar('provider', { length: 30 }).notNull().default('recall'),
+  eventId:     varchar('event_id', { length: 200 }).notNull(),
+  eventType:   varchar('event_type', { length: 100 }).notNull(),
+  botId:       varchar('bot_id', { length: 100 }),
+  meetingId:   uuid('meeting_id'),
+  payload:     jsonb('payload'),
+  status:      varchar('status', { length: 20 }).notNull().default('received'),
+  error:       text('error'),
+  receivedAt:  timestamp('received_at').notNull().defaultNow(),
+  processedAt: timestamp('processed_at'),
+}, (t) => [
+  uniqueIndex('meeting_webhook_events_provider_event_idx').on(t.provider, t.eventId),
+  index('meeting_webhook_events_bot_idx').on(t.botId),
+  foreignKey({ columns: [t.meetingId], foreignColumns: [meetingMinutes.id] }),
 ])
 
 // ─── Commercial : Tableau de suivi des offres (FOR-CO-01) ────────────────────

@@ -42,5 +42,9 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)'],
+  // /api/webhooks/* est exclu : ces requêtes viennent d'un tiers (Recall.ai),
+  // n'ont pas de cookie de session, et sont authentifiées par signature HMAC
+  // dans la route elle-même. Les faire passer par la logique de session ne les
+  // protégerait pas davantage et lirait un cookie inexistant à chaque appel.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|api/webhooks|.*\\.png$).*)'],
 }

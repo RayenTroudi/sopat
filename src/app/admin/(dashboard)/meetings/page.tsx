@@ -31,6 +31,13 @@ export default async function MeetingsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/admin/meetings/ai"
+            className="text-[13px] px-3 py-1.5 rounded border transition-opacity hover:opacity-80"
+            style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+          >
+            Réunions IA
+          </Link>
           <ExportExcelButton register="meetings" />
           <Link
             href="/admin/meetings/new"

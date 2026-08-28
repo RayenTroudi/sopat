@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { getMeetingById } from '@/lib/db/meetings'
 import Link from 'next/link'
 import MeetingActionsPanel from './MeetingActionsPanel'
+import AiMeetingPanel from './AiMeetingPanel'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'PV de réunion | SOPAT Admin' }
@@ -68,6 +69,10 @@ export default async function MeetingDetailPage({
           )}
         </dl>
       </div>
+
+      {/* Réunions assistées uniquement : un PV saisi à la main n'affiche rien
+          de plus qu'avant. */}
+      {meeting.source === 'ai_assistant' && <AiMeetingPanel meetingId={meeting.id} />}
 
       <MeetingActionsPanel
         meetingId={meeting.id}

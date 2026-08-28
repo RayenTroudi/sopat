@@ -55,6 +55,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/context',             label: 'Contexte & politiques',  icon: Globe2,         roles: ['admin','direction'] },
       { href: '/admin/management-reviews',  label: 'Revues de direction',    icon: ClipboardCheck, roles: ['admin','direction'] },
       { href: '/admin/meetings',            label: 'PV de réunion',          icon: ScrollText,     roles: ['admin','direction'] },
+      { href: '/admin/meetings/ai',         label: 'Réunions IA',            icon: Sparkles,       roles: ['admin','direction'] },
       { href: '/admin/risks-opportunities', label: 'Risques & Opportunités', icon: ShieldCheck,   roles: ['admin','direction'] },
       { href: '/admin/stakeholders',        label: 'Parties Intéressées',    icon: Users,          roles: ['admin','direction'] },
       { href: '/admin/regulatory-watch',    label: 'Veille Réglementaire',   icon: Scale,          roles: ['admin','direction'] },

@@ -38,6 +38,7 @@ export type EmailTemplate =
   | 'rse-commitment-overdue'
   | 'rse-communication-submitted'
   | 'smq-alerts-digest'
+  | 'ai-meeting-report'
 
 export type SendEmailOptions = {
   to:                  string | string[]
@@ -143,6 +144,10 @@ async function renderTemplate(
     case 'smq-alerts-digest': {
       const { SmqAlertsDigestEmail } = await import('../../emails/smq-alerts-digest')
       return render(SmqAlertsDigestEmail(props as Parameters<typeof SmqAlertsDigestEmail>[0]))
+    }
+    case 'ai-meeting-report': {
+      const { AiMeetingReportEmail } = await import('../../emails/ai-meeting-report')
+      return render(AiMeetingReportEmail(props as Parameters<typeof AiMeetingReportEmail>[0]))
     }
     case 'rse-expiry-warning':
     case 'rse-commitment-overdue':
