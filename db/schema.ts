@@ -15,6 +15,7 @@ import {
   uniqueIndex,
   foreignKey,
   primaryKey,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
@@ -502,6 +503,20 @@ export const projects = pgTable('projects', {
   dmsDocumentCode: varchar('dms_document_code', { length: 20 }),
   budgetAlert90NotifiedAt: timestamp('budget_alert_90_notified_at'),
   budgetAlertOverNotifiedAt: timestamp('budget_alert_over_notified_at'),
+  /**
+   * The contractual selling price — FOR-CO-02's approved total, once a human
+   * has confirmed it. Deliberately NOT `approvedBudget`, which is the internal
+   * COST ceiling `project-spend.ts` measures consumption against, and NOT
+   * `actualRevenue`, which means realised/invoiced revenue. Keeping it apart
+   * is what makes `contractAmount − spent` a gross margin instead of a number
+   * that silently deflates every budget-consumption percentage in the app.
+   */
+  contractAmount: decimal('contract_amount', { precision: 14, scale: 3 }),
+  /** What the won offer proposed, kept beside what was actually confirmed. */
+  contractAmountSuggested: decimal('contract_amount_suggested', { precision: 14, scale: 3 }),
+  contractAmountSourceOfferId: uuid('contract_amount_source_offer_id'),
+  contractAmountConfirmedBy: uuid('contract_amount_confirmed_by'),
+  contractAmountConfirmedAt: timestamp('contract_amount_confirmed_at'),
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by').notNull(),
@@ -3682,12 +3697,44 @@ export const commercialOffers = pgTable('commercial_offers', {
   projectId:    uuid('project_id'),
   responsible:  text('responsible'),
   notes:        text('notes'),
+  // ── FOR-CO-02 « Bordereau des prix » (migration 0035) ──
+  documentCode:         varchar('document_code', { length: 20 }).notNull().default('FOR-CO-02'),
+  /** The form revision the document follows — `G2` of the source sheet. */
+  formRevision:         integer('form_revision'),
+  offerDate:            date('offer_date'),
+  siteLocation:         varchar('site_location', { length: 255 }),
+  maitreDouvrage:       varchar('maitre_douvrage', { length: 255 }),
+  /**
+   * The workbook's own « Référence projet », which uses a different scheme
+   * from `projects.reference`. Provenance only — never used to pick a project.
+   */
+  projectReferenceText: varchar('project_reference_text', { length: 100 }),
+  /**
+   * Fraction, not percent: 0.19 is 19 %. Default 0 so no existing offer's
+   * figures moved when VAT support was added. New offers take the configured
+   * rate from `system_settings`; the workbook carries no rate and none is
+   * ever inferred from it.
+   */
+  vatRate:              decimal('vat_rate', { precision: 5, scale: 4 }).notNull().default('0'),
+  /** Mirrors `amount`, which keeps its historical HTVA meaning. */
+  totalHtva:            decimal('total_htva', { precision: 14, scale: 3 }),
+  totalVat:             decimal('total_vat', { precision: 14, scale: 3 }),
+  totalTtc:             decimal('total_ttc', { precision: 14, scale: 3 }),
+  validityDays:         integer('validity_days'),
+  currentVersionNo:     integer('current_version_no').notNull().default(0),
+  /** Set → the document is approved and locked against edits and imports. */
+  approvedVersionId:    uuid('approved_version_id'),
+  lockedAt:             timestamp('locked_at'),
   deletedAt:    timestamp('deleted_at'),
   ...timestamps,
   createdBy:    uuid('created_by').notNull(),
 }, (t) => [
   index('commercial_offers_status_idx').on(t.status),
   index('commercial_offers_client_idx').on(t.clientId),
+  // Several FOR-CO-02 per project stay allowed; at most one may be approved.
+  uniqueIndex('commercial_offers_one_approved_per_project_uidx')
+    .on(t.projectId)
+    .where(sql`project_id IS NOT NULL AND approved_version_id IS NOT NULL AND deleted_at IS NULL`),
   foreignKey({ columns: [t.clientId],  foreignColumns: [clients.id] }),
   foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
@@ -3836,21 +3883,61 @@ export const extraExpenses = pgTable('extra_expenses', {
 
 // ─── Commercial : Bordereau des prix (FOR-CO-02) ─────────────────────────────
 
+/**
+ * The four kinds of row a FOR-CO-02 tree holds:
+ *
+ *   section  — « I. TRAVAUX PRELIMINAIRES », « II. FOURNITURE DES VEGETAUX »
+ *   category — « II.1 LES PALMIERS » and its sixteen siblings
+ *   item     — a priceable line: a species, a bac, a prestation
+ *   spec     — a specification paragraph that is itself the priced line, as in
+ *              « ENGAZONNEMENT » and the three murs végétaux
+ *
+ * Only `item` and `spec` carry figures. Sections and categories are totalled
+ * from their children and never store a subtotal, so a corrected line price
+ * corrects every total above it.
+ */
+export const offerLineTypeEnum = pgEnum('offer_line_type', [
+  'section',
+  'category',
+  'item',
+  'spec',
+])
+
 export const offerLineItems = pgTable('offer_line_items', {
   id:          uuid('id').primaryKey().defaultRandom(),
   offerId:     uuid('offer_id').notNull(),
+  /** Self-reference: section → category → item/spec. Null at the root. */
+  parentId:    uuid('parent_id').references((): AnyPgColumn => offerLineItems.id, { onDelete: 'cascade' }),
+  lineType:    offerLineTypeEnum('line_type').notNull().default('item'),
+  /** What the sheet prints — the body skips II.12 and prints II.17 twice. */
+  sourceCode:  varchar('source_code', { length: 20 }),
+  /** The recap's corrected 1…17. Neither code is derived from the other. */
+  displayCode: varchar('display_code', { length: 20 }),
   position:    integer('position').notNull().default(0),
   designation: text('designation').notNull(),
-  unit:        varchar('unit', { length: 20 }).notNull().default('U'),
-  quantity:    decimal('quantity', { precision: 12, scale: 2 }).notNull(),
-  unitPrice:   decimal('unit_price', { precision: 12, scale: 3 }).notNull(),
-  total:       decimal('total', { precision: 14, scale: 3 }).notNull(),
+  /** The long French specification from column B — a business requirement. */
+  description: text('description'),
+  norme:       varchar('norme', { length: 255 }),
+  /** Free text: the sheet writes both "P" and "p", plus Ens, M³, M², Sac, TONNE. */
+  unit:        varchar('unit', { length: 20 }),
+  quantity:    decimal('quantity', { precision: 12, scale: 2 }),
+  unitPrice:   decimal('unit_price', { precision: 12, scale: 3 }),
+  /** Stored `quantity × unitPrice`; recomputed by `bordereau-calc`, never read from Excel. */
+  total:       decimal('total', { precision: 14, scale: 3 }),
+  plantSpeciesId:       uuid('plant_species_id'),
+  decorativeMaterialId: uuid('decorative_material_id'),
+  /** Provenance metadata only. Never an identifier — that is what `id` is for. */
+  sourceRow:   integer('source_row'),
   ...timestamps,
   createdBy:   uuid('created_by').notNull(),
 }, (t) => [
   index('offer_line_items_offer_idx').on(t.offerId),
+  index('offer_line_items_parent_idx').on(t.parentId),
+  index('offer_line_items_offer_pos_idx').on(t.offerId, t.position),
   foreignKey({ columns: [t.offerId],   foreignColumns: [commercialOffers.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.plantSpeciesId],       foreignColumns: [plantSpecies.id] }),
+  foreignKey({ columns: [t.decorativeMaterialId], foreignColumns: [decorativeMaterials.id] }),
 ])
 
 // ─── Revue documentaire périodique (FOR-MI-01 / PRC-MI-01) ───────────────────
@@ -4048,4 +4135,155 @@ export const supplyPurchases = pgTable('supply_purchases', {
   foreignKey({ columns: [t.supplierId],      foreignColumns: [suppliers.id] }),
   foreignKey({ columns: [t.purchaseOrderId], foreignColumns: [purchaseOrders.id] }),
   foreignKey({ columns: [t.createdBy],       foreignColumns: [users.id] }),
+])
+
+// ─── FOR-CO-02 « Bordereau des prix » — template, milestones, versions ────────
+//
+// The uploaded `.xltx` is a BLANK TEMPLATE: no client, no date, no price, no
+// total and no VAT rate anywhere. It is therefore a catalogue, not an offer.
+// These tables hold it, and cloning one produces an empty priced document that
+// a human fills — nothing here can manufacture money.
+
+export const bordereauTemplates = pgTable('bordereau_templates', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  code:           varchar('code', { length: 20 }).notNull().default('FOR-CO-02'),
+  revision:       integer('revision').notNull().default(1),
+  title:          varchar('title', { length: 255 }).notNull(),
+  sourceFileName: varchar('source_file_name', { length: 255 }),
+  /** SHA-256 of the uploaded bytes — the same file can never seed twice. */
+  sourceFileHash: varchar('source_file_hash', { length: 64 }).notNull(),
+  isActive:       boolean('is_active').notNull().default(true),
+  ...timestamps,
+  createdBy:      uuid('created_by').notNull(),
+}, (t) => [
+  uniqueIndex('bordereau_templates_code_rev_uidx').on(t.code, t.revision),
+  uniqueIndex('bordereau_templates_active_uidx').on(t.code).where(sql`is_active`),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+export const bordereauTemplateLines = pgTable('bordereau_template_lines', {
+  id:          uuid('id').primaryKey().defaultRandom(),
+  templateId:  uuid('template_id').notNull(),
+  parentId:    uuid('parent_id').references((): AnyPgColumn => bordereauTemplateLines.id, { onDelete: 'cascade' }),
+  lineType:    offerLineTypeEnum('line_type').notNull(),
+  sourceCode:  varchar('source_code', { length: 20 }),
+  displayCode: varchar('display_code', { length: 20 }),
+  designation: text('designation').notNull(),
+  description: text('description'),
+  norme:       varchar('norme', { length: 255 }),
+  unit:        varchar('unit', { length: 20 }),
+  /**
+   * The placeholder quantities the blank form itself prints (1 on most
+   * Section I lines, 0 on « Amendement minéral »). Kept for fidelity to the
+   * template — but NOT copied when a template is cloned into an offer, so an
+   * instance never inherits a quantity nobody entered.
+   */
+  defaultQuantity: decimal('default_quantity', { precision: 12, scale: 2 }),
+  position:    integer('position').notNull().default(0),
+  sourceRow:   integer('source_row'),
+  ...timestamps,
+}, (t) => [
+  index('bordereau_template_lines_template_idx').on(t.templateId, t.position),
+  index('bordereau_template_lines_parent_idx').on(t.parentId),
+  foreignKey({ columns: [t.templateId], foreignColumns: [bordereauTemplates.id] }),
+])
+
+export const offerMilestoneBasisEnum = pgEnum('offer_milestone_basis', ['htva', 'ttc'])
+
+export const offerMilestoneTriggerEnum = pgEnum('offer_milestone_trigger', [
+  'confirmation',
+  'during_works',
+  'completion',
+  'other',
+])
+
+/**
+ * « 50 % lors de la confirmation / 30 % pendant les travaux / 20 % à la fin du
+ * chantier » as structured rows. PLANNING DATA ONLY: nothing here creates an
+ * invoice, a receipt or a `client_account_entries` row. The optional FK
+ * records, after the fact, which FOR-CO-03 entry settled a milestone.
+ */
+export const offerPaymentMilestones = pgTable('offer_payment_milestones', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  offerId:    uuid('offer_id').notNull(),
+  position:   integer('position').notNull().default(0),
+  label:      varchar('label', { length: 255 }).notNull(),
+  /** Percent, not fraction: 50 is 50 %. numeric(6,3) so 33.333 is expressible. */
+  percentage: decimal('percentage', { precision: 6, scale: 3 }).notNull(),
+  basis:      offerMilestoneBasisEnum('basis').notNull().default('ttc'),
+  triggerEvent: offerMilestoneTriggerEnum('trigger_event').notNull().default('other'),
+  dueDate:    date('due_date'),
+  clientAccountEntryId: uuid('client_account_entry_id'),
+  notes:      text('notes'),
+  ...timestamps,
+  createdBy:  uuid('created_by').notNull(),
+}, (t) => [
+  index('offer_payment_milestones_offer_idx').on(t.offerId, t.position),
+  foreignKey({ columns: [t.offerId],   foreignColumns: [commercialOffers.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.clientAccountEntryId], foreignColumns: [clientAccountEntries.id] }),
+])
+
+export const offerVersionStatusEnum = pgEnum('offer_version_status', [
+  'draft',
+  'approved',
+  'superseded',
+])
+
+/**
+ * A snapshot of the whole document — header, tree, milestones, totals — taken
+ * when a version is cut. Once approved it is evidence, so immutability is
+ * enforced by a database trigger (`offer_versions_guard`), not by convention:
+ * the content columns can never change and a row can never be deleted.
+ */
+export const offerVersions = pgTable('offer_versions', {
+  id:           uuid('id').primaryKey().defaultRandom(),
+  offerId:      uuid('offer_id').notNull(),
+  versionNo:    integer('version_no').notNull(),
+  label:        varchar('label', { length: 60 }),
+  status:       offerVersionStatusEnum('status').notNull().default('draft'),
+  snapshot:     jsonb('snapshot').notNull(),
+  totalHtva:    decimal('total_htva', { precision: 14, scale: 3 }).notNull().default('0'),
+  totalVat:     decimal('total_vat', { precision: 14, scale: 3 }).notNull().default('0'),
+  totalTtc:     decimal('total_ttc', { precision: 14, scale: 3 }).notNull().default('0'),
+  vatRate:      decimal('vat_rate', { precision: 5, scale: 4 }).notNull().default('0'),
+  lineCount:    integer('line_count').notNull().default(0),
+  changeSummary: text('change_summary').notNull(),
+  createdAt:    timestamp('created_at').notNull().defaultNow(),
+  createdBy:    uuid('created_by').notNull(),
+  approvedBy:   uuid('approved_by'),
+  approvedAt:   timestamp('approved_at'),
+}, (t) => [
+  uniqueIndex('offer_versions_offer_no_uidx').on(t.offerId, t.versionNo),
+  index('offer_versions_offer_idx').on(t.offerId),
+  foreignKey({ columns: [t.offerId],    foreignColumns: [commercialOffers.id] }),
+  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.approvedBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * One row per COMMITTED import, keyed by the SHA-256 of the uploaded bytes.
+ * This is the idempotency guarantee: re-uploading the same file into the same
+ * offer is refused with "already imported on <date> by <user>" rather than
+ * duplicating a commercial document. Previews write nothing here.
+ */
+export const offerImports = pgTable('offer_imports', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  offerId:    uuid('offer_id'),
+  templateId: uuid('template_id'),
+  fileName:   varchar('file_name', { length: 255 }).notNull(),
+  fileHash:   varchar('file_hash', { length: 64 }).notNull(),
+  byteSize:   integer('byte_size').notNull(),
+  lineCount:  integer('line_count').notNull().default(0),
+  stats:      jsonb('stats'),
+  importedBy: uuid('imported_by').notNull(),
+  importedAt: timestamp('imported_at').notNull().defaultNow(),
+}, (t) => [
+  uniqueIndex('offer_imports_offer_hash_uidx')
+    .on(t.offerId, t.fileHash).where(sql`offer_id IS NOT NULL`),
+  uniqueIndex('offer_imports_template_hash_uidx')
+    .on(t.fileHash).where(sql`template_id IS NOT NULL`),
+  foreignKey({ columns: [t.offerId],    foreignColumns: [commercialOffers.id] }),
+  foreignKey({ columns: [t.templateId], foreignColumns: [bordereauTemplates.id] }),
+  foreignKey({ columns: [t.importedBy], foreignColumns: [users.id] }),
 ])

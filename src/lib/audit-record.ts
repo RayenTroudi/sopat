@@ -32,6 +32,16 @@ export type AuditEntityType =
   /** FOR-MI-04 : PV de réunion, y compris ceux produits par l'assistant IA. */
   | 'meeting_minute'
   | 'meeting_action_item'
+  /** FOR-CO-02 : le bordereau des prix, édité comme un document entier. */
+  | 'commercial_offer'
+  /** Le catalogue FOR-CO-02 vierge, importé depuis le formulaire officiel. */
+  | 'bordereau_template'
+  /**
+   * Le montant contractuel d'un projet. Entité à part entière : c'est une
+   * décision commerciale distincte du budget approuvé, qui reste, lui, le
+   * plafond de coût interne écrit par la validation budgétaire.
+   */
+  | 'project_contract_amount'
 
 export type AuditAction =
   | 'created'

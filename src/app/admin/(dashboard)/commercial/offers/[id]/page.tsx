@@ -1,6 +1,7 @@
 import { auth } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
-import { getOfferById, getOfferLineItems, OFFER_STATUS_LABELS, type OfferStatus } from '@/lib/db/commercial'
+import { getOfferById, OFFER_STATUS_LABELS, type OfferStatus } from '@/lib/db/commercial'
+import { canApproveBordereau, canEditBordereau, getOfferBordereau } from '@/lib/db/bordereau'
 import Link from 'next/link'
 import OfferStatusPanel from './OfferStatusPanel'
 import BordereauPanel from './BordereauPanel'
@@ -20,14 +21,14 @@ export default async function OfferDetailPage({
   const row = await getOfferById(id)
   if (!row) notFound()
   const { offer, clientCompany } = row
-  const lineItems = await getOfferLineItems(id)
+  const bordereau = await getOfferBordereau(id)
 
   const fields: { label: string; value: string | null }[] = [
     { label: 'Client', value: clientCompany ?? offer.clientName },
     { label: 'Type de projet', value: offer.projectType },
     { label: 'Description', value: offer.description },
     {
-      label: 'Montant',
+      label: 'Montant HTVA',
       value: offer.amount != null
         ? `${Number(offer.amount).toLocaleString('fr-FR')} ${offer.currency}`
         : null,
@@ -39,7 +40,7 @@ export default async function OfferDetailPage({
   ]
 
   return (
-    <div className="p-6 max-w-3xl mx-auto space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/admin/commercial/offers" className="text-[13px] hover:opacity-70" style={{ color: 'var(--admin-text-muted)' }}>
@@ -79,18 +80,13 @@ export default async function OfferDetailPage({
         </dl>
       </div>
 
-      <BordereauPanel
-        offerId={offer.id}
-        currency={offer.currency}
-        lines={lineItems.map((l) => ({
-          id: l.id,
-          designation: l.designation,
-          unit: l.unit,
-          quantity: l.quantity,
-          unitPrice: l.unitPrice,
-          total: l.total,
-        }))}
-      />
+      {bordereau && (
+        <BordereauPanel
+          document={bordereau}
+          canEdit={canEditBordereau(session.user.role)}
+          canApprove={canApproveBordereau(session.user.role)}
+        />
+      )}
 
       <OfferStatusPanel offerId={offer.id} status={offer.status as OfferStatus} />
     </div>

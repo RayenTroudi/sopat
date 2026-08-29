@@ -2,14 +2,21 @@
 
 import { db } from '@/db'
 import { commercialOffers, offerLineItems } from '@/db/schema'
-import { sum } from 'drizzle-orm'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { getNextOfferReference, type OfferStatus } from '@/lib/db/commercial'
+import {
+  assertNotLocked,
+  canEditBordereau,
+  getDefaultVatRate,
+  syncOfferTotals,
+} from '@/lib/db/bordereau'
+import { lineTotal } from '@/lib/bordereau-calc'
 
+/** The offer module's existing write list, unchanged. */
 function canManageOffers(role: string) {
-  return ['admin', 'direction', 'etudes_chef'].includes(role)
+  return canEditBordereau(role)
 }
 
 export async function createOffer(data: {
@@ -31,8 +38,13 @@ export async function createOffer(data: {
     return { success: false, error: 'Accès non autorisé' }
 
   const reference = await getNextOfferReference()
+  // A NEW document takes the configured VAT rate. Existing offers keep the 0
+  // they were created with — adding VAT support must not move a single figure
+  // that has already been quoted to a client.
+  const vatRate = await getDefaultVatRate()
   const [row] = await db.insert(commercialOffers).values({
     reference,
+    vatRate: vatRate.toFixed(4),
     clientId: data.clientId || null,
     clientName: data.clientName,
     projectTitle: data.projectTitle,
@@ -104,21 +116,19 @@ export async function updateOffer(
   return { success: true }
 }
 
-/** Recalcule le montant de l'offre à partir des lignes du bordereau. */
-async function syncOfferAmount(offerId: string) {
-  const [{ total }] = await db
-    .select({ total: sum(offerLineItems.total) })
-    .from(offerLineItems)
-    .where(eq(offerLineItems.offerId, offerId))
-  await db
-    .update(commercialOffers)
-    .set({ amount: total ?? null, updatedAt: new Date() })
-    .where(eq(commercialOffers.id, offerId))
-}
-
+/**
+ * Ajoute une ligne au bordereau, sous une section ou une catégorie choisie.
+ *
+ * `parentId` absent = ligne à la racine, ce qui est exactement la forme plate
+ * que le module produisait avant FOR-CO-02 : les offres existantes continuent
+ * de fonctionner sans changer de comportement.
+ */
 export async function addOfferLineItem(data: {
   offerId: string
+  parentId?: string | null
   designation: string
+  description?: string | null
+  norme?: string | null
   unit?: string
   quantity: string
   unitPrice: string
@@ -128,30 +138,57 @@ export async function addOfferLineItem(data: {
   if (!canManageOffers(session.user.role))
     return { success: false, error: 'Accès non autorisé' }
 
-  const total = (Number(data.quantity) * Number(data.unitPrice)).toFixed(3)
+  const locked = await assertNotLocked(data.offerId)
+  if (locked) return { success: false, error: locked }
+
+  const quantity = Number(data.quantity)
+  const unitPrice = Number(data.unitPrice)
+  if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice) || quantity < 0 || unitPrice < 0)
+    return { success: false, error: 'Quantité ou prix unitaire invalide' }
+
+  const [{ nextPosition }] = await db
+    .select({
+      nextPosition: sql<number>`coalesce(max(${offerLineItems.position}), -1) + 1`,
+    })
+    .from(offerLineItems)
+    .where(eq(offerLineItems.offerId, data.offerId))
+
+  const total = lineTotal(quantity, unitPrice)
   await db.insert(offerLineItems).values({
     offerId: data.offerId,
+    parentId: data.parentId || null,
+    lineType: 'item',
+    position: Number(nextPosition),
     designation: data.designation,
+    description: data.description || null,
+    norme: data.norme || null,
     unit: data.unit || 'U',
-    quantity: data.quantity,
-    unitPrice: data.unitPrice,
-    total,
+    quantity: String(quantity),
+    unitPrice: String(unitPrice),
+    total: total === null ? null : total.toFixed(3),
     createdBy: session.user.userId,
   })
-  await syncOfferAmount(data.offerId)
+  await syncOfferTotals(db, data.offerId)
   revalidatePath(`/admin/commercial/offers/${data.offerId}`)
   revalidatePath('/admin/commercial/offers')
   return { success: true }
 }
 
+/**
+ * Supprime une ligne et, par cascade, tout ce qu'elle porte : supprimer une
+ * catégorie emporte ses lignes, ce que la hiérarchie rend explicite.
+ */
 export async function deleteOfferLineItem(lineId: string, offerId: string) {
   const session = await auth()
   if (!session) return { success: false, error: 'Non autorisé' }
   if (!canManageOffers(session.user.role))
     return { success: false, error: 'Accès non autorisé' }
 
+  const locked = await assertNotLocked(offerId)
+  if (locked) return { success: false, error: locked }
+
   await db.delete(offerLineItems).where(eq(offerLineItems.id, lineId))
-  await syncOfferAmount(offerId)
+  await syncOfferTotals(db, offerId)
   revalidatePath(`/admin/commercial/offers/${offerId}`)
   revalidatePath('/admin/commercial/offers')
   return { success: true }
