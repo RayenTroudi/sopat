@@ -1,10 +1,6 @@
 import 'server-only'
-import { createStructuredResponse, OpenAiCallError } from './openai'
-import {
-  MEETING_ANALYSIS_INSTRUCTIONS,
-  MEETING_ANALYSIS_JSON_SCHEMA,
-  PROMPT_VERSION,
-} from './prompts'
+import { createStructuredResponse, AiCallError } from './claude'
+import { MEETING_ANALYSIS_INSTRUCTIONS, PROMPT_VERSION } from './prompts'
 import {
   parseAnalysis,
   meetingAnalysisSchema,
@@ -15,12 +11,14 @@ import {
 /**
  * Analyse d'une transcription de réunion.
  *
- * Deux barrières successives : le JSON Schema strict contraint la génération
- * côté OpenAI, puis Zod revalide ici (./meeting-analysis-schema.ts).
+ * Deux barrières successives : le schéma de sortie structurée contraint la
+ * génération côté fournisseur, puis Zod revalide la réponse reçue
+ * (./meeting-analysis-schema.ts). Les deux dérivent du MÊME schéma Zod, donc
+ * elles ne peuvent pas diverger.
  *
  * Ce module ne connaît ni la base ni Recall : il transforme un texte en
- * structure validée. C'est ce qui permet de changer de modèle — voire de
- * fournisseur — sans toucher au reste du module réunions.
+ * structure validée. C'est ce qui a permis de changer de fournisseur d'IA sans
+ * toucher au reste du module réunions.
  */
 
 export {
@@ -80,14 +78,13 @@ export async function analyzeTranscript(
 ): Promise<MeetingAnalysisResult> {
   const trimmed = transcript.trim()
   if (!trimmed) {
-    throw new OpenAiCallError('Transcription vide — analyse impossible.', 'empty_transcript')
+    throw new AiCallError('Transcription vide — analyse impossible.', 'empty_transcript')
   }
 
   const response = await createStructuredResponse({
     instructions: MEETING_ANALYSIS_INSTRUCTIONS,
     input: buildInput(trimmed, context),
-    schemaName: 'meeting_analysis',
-    schema: MEETING_ANALYSIS_JSON_SCHEMA,
+    schema: meetingAnalysisSchema,
     maxOutputTokens: 8000,
   })
 

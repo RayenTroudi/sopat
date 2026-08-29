@@ -5,7 +5,7 @@ import { listAiMeetings, getAiMeetingCounts } from '@/lib/db/ai-meetings'
 import { MeetingStatusBadge } from '@/components/meetings/MeetingStatusBadge'
 import { PLATFORM_LABELS, type MeetingPlatform } from '@/lib/recall/types'
 import { isRecallConfigured } from '@/lib/recall/client'
-import { isOpenAiConfigured } from '@/lib/ai/openai'
+import { isAiConfigured } from '@/lib/ai/claude'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Réunions IA | SOPAT Admin' }
@@ -14,7 +14,7 @@ export const metadata = { title: 'Réunions IA | SOPAT Admin' }
  * Tableau de bord des réunions assistées.
  *
  * Aucune génération n'est déclenchée ici : la page lit ce qui est déjà stocké.
- * Ouvrir cet écran ne coûte donc jamais un appel OpenAI.
+ * Ouvrir cet écran ne coûte donc jamais un appel au modèle.
  */
 
 function formatDuration(seconds: number | null): string {
@@ -49,7 +49,7 @@ export default async function AiMeetingsPage() {
     { label: 'En échec', value: counts.failed ?? 0 },
   ]
 
-  const configured = isRecallConfigured() && isOpenAiConfigured()
+  const configured = isRecallConfigured() && isAiConfigured()
 
   return (
     <div className="p-6 space-y-6">
@@ -93,7 +93,7 @@ export default async function AiMeetingsPage() {
           }}
         >
           L&apos;assistant n&apos;est pas entièrement configuré. Renseignez{' '}
-          <code>RECALL_API_KEY</code>, <code>OPENAI_API_KEY</code> et <code>OPENAI_MODEL</code>{' '}
+          <code>RECALL_API_KEY</code> et <code>CLAUDE_API_KEY</code>{' '}
           côté serveur pour activer la programmation des bots et l&apos;analyse.
         </div>
       )}

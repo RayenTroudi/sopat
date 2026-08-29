@@ -17,7 +17,7 @@ import type {
  * Registre de lecture des réunions IA.
  *
  * Séparé de src/lib/db/meetings.ts, qui continue de servir les PV manuels sans
- * changement. Aucun appel OpenAI ni Recall ici : ouvrir la fiche d'une réunion
+ * changement. Aucun appel au modèle ni à Recall ici : ouvrir la fiche d'une réunion
  * lit le rapport DÉJÀ stocké, jamais n'en régénère un — c'est ce qui évite de
  * refacturer une analyse à chaque affichage.
  */

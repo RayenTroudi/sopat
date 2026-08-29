@@ -22,7 +22,7 @@ import { logMeeting } from '@/lib/meetings/logging'
  *
  * 1. RIEN n'est écrit avant la vérification de signature. L'endpoint est
  *    forcément public ; sans cette barrière, n'importe qui pourrait piloter
- *    l'état d'une réunion et déclencher des analyses OpenAI facturées.
+ *    l'état d'une réunion et déclencher des analyses facturées.
  * 2. L'idempotence est garantie par la base, pas par du code : l'insertion de
  *    l'événement porte un index unique (provider, event_id). Une seconde
  *    livraison n'insère rien et s'arrête là. Recall réessaie pendant 24 h.
@@ -117,6 +117,20 @@ export async function POST(req: NextRequest) {
     .set({ meetingId: meeting.id })
     .where(eq(meetingWebhookEvents.id, eventRowId))
 
+  // Une réunion annulée ou déjà terminée ne doit plus rien déclencher : Recall
+  // continue d'émettre les événements d'un bot dont l'utilisateur a annulé le
+  // suivi, et les traiter reviendrait à récupérer une transcription, payer une
+  // analyse et écraser une décision humaine ("Annulée") par un statut technique.
+  // L'événement est acquitté — sinon Recall le rejouerait 24 h durant.
+  if (meeting.aiStatus === 'cancelled' || meeting.aiStatus === 'completed') {
+    logMeeting.info('webhook_skipped_terminal', {
+      meetingId: meeting.id,
+      eventType: event.event,
+    })
+    await closeEvent(eventRowId, 'ignored', `meeting_${meeting.aiStatus}`)
+    return NextResponse.json({ status: 'ignored' })
+  }
+
   try {
     await handleEvent(event.event, meeting.id, event)
     await closeEvent(eventRowId, 'processed')
@@ -174,7 +188,7 @@ async function handleEvent(
 
       // Chaque étape est idempotente indépendamment : transcription déjà
       // stockée ⇒ pas de nouveau téléchargement ; compte rendu déjà produit ⇒
-      // pas de nouvel appel OpenAI ; e-mail déjà envoyé ⇒ pas de doublon.
+      // pas de nouvel appel au modèle ; e-mail déjà envoyé ⇒ pas de doublon.
       const stored = await fetchAndStoreTranscript(meetingId, transcriptId, SYSTEM_ACTOR)
       if (!stored.success) return
 

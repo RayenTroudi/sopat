@@ -12,7 +12,7 @@ import { getNextMeetingReference } from '@/lib/db/meetings'
 import { getMatchableUsers, getTranscriptByMeetingId } from '@/lib/db/ai-meetings'
 import { analyzeTranscript, type MeetingAnalysis } from '@/lib/ai/meeting-analysis'
 import { matchUser } from './user-matching'
-import { canTransition, type MeetingAiStatus } from './status'
+import { canTransition, isTerminal, type MeetingAiStatus } from './status'
 import { BOT_DISPLAY_NAME, createBot, deleteScheduledBot, leaveCall } from '@/lib/recall/bots'
 import { canSchedule } from './schedule-window'
 import { actionDedupeKey } from './dedupe'
@@ -28,7 +28,7 @@ import { logMeeting } from './logging'
  * Toutes les écritures passent par ici : les routes API et les server actions
  * n'écrivent jamais directement. Chaque étape est reprenable séparément —
  * relancer l'analyse ne recrée pas de bot, renvoyer l'e-mail ne rappelle pas
- * OpenAI — et chaque étape est idempotente, parce qu'un webhook Recall peut
+ * le modèle — et chaque étape est idempotente, parce qu'un webhook Recall peut
  * être rejoué pendant 24 h.
  */
 
@@ -285,7 +285,27 @@ export async function applyStatus(
   return allowed
 }
 
+/**
+ * Bascule la réunion en échec, SAUF si elle est déjà dans un état terminal.
+ *
+ * Le garde-fou n'est pas théorique : une réunion annulée par un utilisateur a
+ * malgré tout été traitée à la réception d'un `transcript.done` tardif, et
+ * s'est retrouvée affichée « Échec » alors que la décision enregistrée était
+ * « Annulée ». Pour un enregistrement qualité, écraser une décision humaine par
+ * un statut technique est une perte de traçabilité, pas un détail d'affichage.
+ */
 async function markFailed(meetingId: string, code: string, actor: AuditActor): Promise<void> {
+  const [current] = await db
+    .select({ aiStatus: meetingMinutes.aiStatus })
+    .from(meetingMinutes)
+    .where(eq(meetingMinutes.id, meetingId))
+    .limit(1)
+
+  if (isTerminal(current?.aiStatus)) {
+    logMeeting.warn('failure_ignored_terminal_state', { meetingId, errorCode: code })
+    return
+  }
+
   await db.transaction(async (tx) => {
     await tx
       .update(meetingMinutes)
@@ -362,7 +382,7 @@ export async function fetchAndStoreTranscript(
 /**
  * Analyse la transcription STOCKÉE et enregistre le compte rendu.
  *
- * OpenAI n'est appelé qu'ici, et seulement sur trois chemins : première
+ * Le modèle n'est appelé qu'ici, et seulement sur trois chemins : première
  * réception d'une transcription, relance explicite, régénération explicite.
  * L'affichage de la fiche réunion ne passe jamais par cette fonction.
  */
@@ -419,8 +439,8 @@ export async function runAnalysis(
       err instanceof Error && 'code' in err && typeof (err as { code?: unknown }).code === 'string'
         ? (err as { code: string }).code
         : err instanceof Error && err.name === 'MeetingAnalysisValidationError'
-          ? 'openai_invalid_response'
-          : 'openai_failed'
+          ? 'ai_invalid_response'
+          : 'ai_failed'
     await markFailed(meetingId, code, actor)
     logMeeting.error('analysis_failed', { meetingId, errorCode: code }, err)
     return failure("L'analyse IA a échoué.", code)

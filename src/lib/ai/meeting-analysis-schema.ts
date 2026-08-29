@@ -3,14 +3,16 @@ import { z } from 'zod'
 /**
  * Forme validée du compte rendu produit par le modèle.
  *
- * Séparée du service OpenAI (qui porte `server-only` et la clé d'API) pour être
+ * Séparée du client d'IA (qui porte `server-only` et la clé d'API) pour être
  * importable par les scripts de vérification : la validation est précisément ce
  * qu'il faut pouvoir éprouver sans dépenser un appel au modèle.
  *
- * Cette validation Zod n'est pas redondante avec le JSON Schema strict envoyé à
- * l'API : le schéma contraint la génération, celle-ci contrôle ce qui arrive
- * réellement — y compris si le fournisseur change de comportement, ou si la
- * réponse vient d'un jeu d'essai local.
+ * Ce schéma sert DEUX fois : converti en JSON Schema par le SDK, il contraint
+ * la génération côté fournisseur ; puis il valide la réponse reçue. Une seule
+ * définition, donc aucune divergence possible entre ce qui est demandé au
+ * modèle et ce que le code accepte. La seconde passe reste utile : elle
+ * contrôle ce qui arrive réellement — y compris quand la réponse vient d'un jeu
+ * d'essai local plutôt que du fournisseur.
  */
 
 export const meetingAnalysisSchema = z.object({

@@ -33,7 +33,7 @@ export async function authorizeMeetingAccess(): Promise<MeetingAuthorization> {
 }
 
 /**
- * Opérations qui consomment un bot Recall ou un appel OpenAI facturé
+ * Opérations qui consomment un bot Recall ou un appel au modèle facturé
  * (création, annulation, relance d'analyse, renvoi d'e-mail). Réservées aux
  * rôles du module ET, au-delà, au créateur du PV : un compte `direction` garde
  * la main sur tout, mais on ne veut pas qu'un rôle large relance par accident

@@ -11,7 +11,7 @@ import { sendMeetingReportEmail } from '@/lib/meetings/report-email'
 import { recordAudit, type AuditActor } from '@/lib/audit-record'
 import type { LegacySession } from '@/lib/auth'
 import { isRecallConfigured } from '@/lib/recall/client'
-import { isOpenAiConfigured } from '@/lib/ai/openai'
+import { isAiConfigured } from '@/lib/ai/claude'
 
 /**
  * Server actions du module réunions IA.
@@ -146,11 +146,11 @@ export async function retryAnalysisAction(
   const loaded = await loadForMutation(meetingId)
   if (!loaded.ok) return { success: false, error: loaded.error }
 
-  if (!isOpenAiConfigured()) {
+  if (!isAiConfigured()) {
     return {
       success: false,
-      error: "L'analyse IA n'est pas configurée (OPENAI_API_KEY / OPENAI_MODEL).",
-      code: 'openai_not_configured',
+      error: "L'analyse IA n'est pas configurée (CLAUDE_API_KEY).",
+      code: 'ai_not_configured',
     }
   }
 
@@ -165,7 +165,7 @@ export async function retryAnalysisAction(
 
 // ── E-mail ────────────────────────────────────────────────────────────────────
 
-/** Renvoie le compte rendu déjà stocké — aucun appel OpenAI. */
+/** Renvoie le compte rendu déjà stocké — aucun appel au modèle. */
 export async function retryReportEmailAction(meetingId: string): Promise<ActionResult> {
   const loaded = await loadForMutation(meetingId)
   if (!loaded.ok) return { success: false, error: loaded.error }

@@ -14,7 +14,7 @@
  *     suite crée ses propres lignes jetables et les supprime, puis vérifie que
  *     les compteurs d'ouverture sont restaurés.
  *
- * Aucune clé d'API n'est nécessaire : ni OpenAI ni Recall ne sont appelés.
+ * Aucune clé d'API n'est nécessaire : ni le modèle ni Recall ne sont appelés.
  * L'analyse est éprouvée sur des réponses de modèle enregistrées.
  *
  * Lancement :

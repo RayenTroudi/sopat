@@ -16,6 +16,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
     "@hookform/resolvers": "^5.4.0",
     "@neondatabase/serverless": "^1.1.0",
     "@prisma/adapter-pg": "^7.8.0",
@@ -46,7 +47,6 @@
     "next": "16.2.4",
     "next-cloudinary": "^6.17.5",
     "nodemailer": "^7.0.13",
-    "openai": "^7.8.0",
     "pg": "^8.21.0",
     "pptxgenjs": "^4.0.1",
     "prisma": "^7.8.0",
@@ -54,6 +54,7 @@
     "react-dom": "19.2.4",
     "react-hook-form": "^7.77.0",
     "recharts": "^2.15.4",
+    "resend": "^6.25.0",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.6.0",
     "ws": "^8.21.0",

@@ -15,7 +15,7 @@ import type { MeetingAiStatus } from '@/lib/meetings/status'
  *
  * Chaque bouton correspond à UNE étape reprenable, jamais au traitement entier :
  * relancer l'analyse ne recrée pas de bot et ne redemande pas la transcription,
- * renvoyer l'e-mail ne rappelle pas OpenAI. C'est ce cloisonnement qui évite de
+ * renvoyer l'e-mail ne rappelle pas le modèle. C'est ce cloisonnement qui évite de
  * repayer une analyse parce qu'un e-mail n'est pas parti.
  */
 

@@ -103,7 +103,8 @@ export async function PUT(req: NextRequest) {
           projectReference: 'TEST-001',
           fromPhase:      'etudes',
           toPhase:        'realisation',
-          projectUrl:     `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/admin`,
+          // `||` : la variable peut être définie mais vide, `??` la laisserait passer.
+          projectUrl:     `${process.env.NEXT_PUBLIC_APP_URL?.trim() || 'http://localhost:3000'}/admin`,
         },
         createdBy: uid,
       })

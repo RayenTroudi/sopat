@@ -16,7 +16,10 @@ import {
 import { eq, desc, and, isNull } from 'drizzle-orm'
 import { SYSTEM_USER_ID } from '@/lib/system-user'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sopat.vercel.app'
+// `||` et non `??` : NEXT_PUBLIC_APP_URL peut être défini mais vide, et `??`
+// laisserait alors passer la chaîne vide — tous les liens des e-mails
+// deviendraient relatifs, donc inutilisables depuis une boîte mail.
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.trim() || 'https://sopat.vercel.app'
 
 // ─── Prediction email (études → réalisation transition) ───────────────────────
 

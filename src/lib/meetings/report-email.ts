@@ -13,7 +13,7 @@ import { logMeeting } from './logging'
  * Principe : l'e-mail est une étape SÉPARÉE du traitement. Une réunion dont le
  * compte rendu est produit reste `completed` même si l'envoi échoue — l'échec
  * est enregistré dans `report_email_status` / `report_email_error`, et le
- * renvoi se fait depuis les données déjà stockées, sans nouvel appel OpenAI.
+ * renvoi se fait depuis les données déjà stockées, sans nouvel appel au modèle.
  *
  * Idempotent : si le compte rendu a déjà été envoyé, on ne renvoie pas — sauf
  * demande explicite (`force`), qui correspond au bouton « Renvoyer ».

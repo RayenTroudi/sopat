@@ -13,7 +13,7 @@ import TranscriptViewer from './TranscriptViewer'
  * Rendu UNIQUEMENT pour les réunions dont source = 'ai_assistant'. Les PV
  * saisis à la main gardent leur écran d'origine, inchangé.
  *
- * Lecture seule : la page n'appelle jamais OpenAI ni Recall, elle affiche ce
+ * Lecture seule : la page n'appelle jamais le modèle ni Recall, elle affiche ce
  * qui est déjà stocké.
  */
 
@@ -33,11 +33,14 @@ const ERROR_LABELS: Record<string, string> = {
   bot_creation_failed:    "Le bot n'a pas pu être créé.",
   transcript_unavailable: 'La transcription est indisponible.',
   transcript_fetch_failed:'La transcription n’a pas pu être récupérée.',
-  openai_auth_failed:     "Authentification OpenAI refusée — vérifiez la clé d'API.",
-  openai_rate_limited:    'Quota OpenAI atteint — réessayez plus tard.',
-  openai_unavailable:     'OpenAI est momentanément indisponible.',
-  openai_invalid_response:"La réponse du modèle n'était pas exploitable — relancez l'analyse.",
-  openai_failed:          "L'analyse IA a échoué.",
+  ai_auth_failed:         "Authentification refusée par l'API Claude — vérifiez la clé.",
+  ai_rate_limited:        'Quota du modèle atteint — réessayez plus tard.',
+  ai_unavailable:         'Le service du modèle est momentanément indisponible.',
+  ai_unreachable:         'Le service du modèle est injoignable.',
+  ai_invalid_response:    "La réponse du modèle n'était pas exploitable — relancez l'analyse.",
+  ai_truncated:           "La réponse du modèle a été tronquée — relancez l'analyse.",
+  ai_refusal:             'Le modèle a refusé de traiter cette transcription.',
+  ai_failed:              "L'analyse IA a échoué.",
   empty_transcript:       'La transcription est vide.',
 }
 

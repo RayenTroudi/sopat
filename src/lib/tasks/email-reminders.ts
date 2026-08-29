@@ -26,7 +26,9 @@ import { runRseReminderSweep } from '@/lib/tasks/rse-reminders'
 import { runSmqAlertsDigest } from '@/lib/tasks/smq-alerts'
 import { SYSTEM_USER_ID } from '@/lib/system-user'
 
-const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? 'https://sopat.vercel.app'
+// `||` et non `??` : une variable définie mais vide donnerait des liens
+// relatifs, inexploitables depuis une boîte mail.
+const APP_URL        = process.env.NEXT_PUBLIC_APP_URL?.trim() || 'https://sopat.vercel.app'
 const SWEEP_INTERVAL = 30 * 60 * 1000   // 30 minutes between sweeps
 const SETTINGS_KEY   = 'last_reminder_sweep'
 

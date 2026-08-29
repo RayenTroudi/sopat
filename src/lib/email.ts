@@ -1,16 +1,28 @@
 import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 import { render } from '@react-email/components'
 import { db } from '../../db/index'
 import { emailQueue } from '../../db/schema'
 import { eq } from 'drizzle-orm'
 
 // ─── Transport ────────────────────────────────────────────────────────────────
+//
+// Deux transports possibles, choisis à l'exécution :
+//
+//   RESEND_API_KEY défini  → Resend (API HTTP)
+//   sinon                  → SMTP via nodemailer (comportement historique)
+//
+// Le choix est fait par variable d'environnement plutôt que par réécriture des
+// appelants : les douze modèles d'e-mail existants (NC, budget, RSE, relances…)
+// continuent d'appeler sendEmail() sans savoir par où le message part. Un
+// déploiement encore configuré en SMTP n'est donc pas cassé par ce changement.
 
-let _transport: nodemailer.Transporter | null = null
+let _smtp: nodemailer.Transporter | null = null
+let _resend: Resend | null = null
 
-function getTransport() {
-  if (!_transport) {
-    _transport = nodemailer.createTransport({
+function getSmtpTransport() {
+  if (!_smtp) {
+    _smtp = nodemailer.createTransport({
       host:   process.env.SMTP_HOST,
       port:   Number(process.env.SMTP_PORT ?? 587),
       secure: false,
@@ -20,7 +32,57 @@ function getTransport() {
       },
     })
   }
-  return _transport
+  return _smtp
+}
+
+function getResend(): Resend {
+  if (!_resend) _resend = new Resend(process.env.RESEND_API_KEY)
+  return _resend
+}
+
+/** Expéditeur affiché. Le domaine doit être vérifié côté Resend. */
+function fromAddress(): string {
+  return `"SOPAT Admin" <${process.env.EMAIL_FROM ?? 'noreply@sopat.tn'}>`
+}
+
+/**
+ * Redirection de test : si EMAIL_TO_OVERRIDE est défini, TOUT part vers cette
+ * adresse au lieu des destinataires réels.
+ *
+ * Nécessaire parce que les comptes SOPAT portent des adresses @sopat.tn qui ne
+ * sont pas relevées pendant la mise au point — sans redirection, un envoi
+ * « réussi » n'arriverait nulle part et ne prouverait rien. Le destinataire
+ * réel reste enregistré dans email_queue.recipient_email : la trace n'est pas
+ * falsifiée, seul l'acheminement change. Retirer la variable rétablit le
+ * routage normal, sans modification de code.
+ */
+function resolveRecipients(intended: string[]): { to: string[]; redirected: boolean } {
+  const override = process.env.EMAIL_TO_OVERRIDE?.trim()
+  if (!override) return { to: intended, redirected: false }
+  return { to: [override], redirected: true }
+}
+
+async function deliver(args: { to: string[]; subject: string; html: string }): Promise<void> {
+  if (process.env.RESEND_API_KEY) {
+    const { error } = await getResend().emails.send({
+      from:    fromAddress(),
+      to:      args.to,
+      subject: args.subject,
+      html:    args.html,
+    })
+    // Le SDK Resend ne lève pas : il renvoie { data, error }. Sans ce contrôle,
+    // un refus (domaine non vérifié, adresse invalide) serait enregistré comme
+    // un envoi réussi.
+    if (error) throw new Error(`Resend: ${error.message ?? 'échec inconnu'}`)
+    return
+  }
+
+  await getSmtpTransport().sendMail({
+    from:    fromAddress(),
+    to:      args.to.join(', '),
+    subject: args.subject,
+    html:    args.html,
+  })
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -61,7 +123,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<string> {
   // Dynamically import the template so Next.js RSC bundling doesn't break
   const html = await renderTemplate(opts.template, opts.props)
 
-  // Write to email_queue first so we have a record even if SMTP fails
+  // Write to email_queue first so we have a record even if delivery fails
   const [queueRow] = await db
     .insert(emailQueue)
     .values({
@@ -79,12 +141,11 @@ export async function sendEmail(opts: SendEmailOptions): Promise<string> {
     .returning()
 
   try {
-    await getTransport().sendMail({
-      from:    `"SOPAT Admin" <${process.env.EMAIL_FROM ?? 'noreply@sopat.tn'}>`,
-      to:      recipients.join(', '),
-      subject: opts.subject,
-      html,
-    })
+    const { to, redirected } = resolveRecipients(recipients)
+    await deliver({ to, subject: opts.subject, html })
+    if (redirected) {
+      console.log(`[email] redirigé vers ${to[0]} (destinataire réel : ${recipients.join(', ')})`)
+    }
 
     await db
       .update(emailQueue)

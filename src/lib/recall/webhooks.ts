@@ -52,7 +52,7 @@ export function verifyRecallSignature(args: {
 
   // Pas de secret configuré ⇒ refus. Accepter un webhook non vérifié
   // laisserait n'importe qui piloter l'état d'une réunion et déclencher des
-  // appels OpenAI facturés.
+  // appels facturés au modèle.
   if (!secret) return { ok: false, reason: 'not_configured' }
   if (!headers.id || !headers.timestamp || !headers.signature) {
     return { ok: false, reason: 'missing_headers' }
