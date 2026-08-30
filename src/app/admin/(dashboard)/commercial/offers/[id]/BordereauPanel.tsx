@@ -14,7 +14,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { RotateCcw } from 'lucide-react'
+import { Lock, RotateCcw } from 'lucide-react'
 import { addOfferLineItem, deleteOfferLineItem } from '@/lib/actions/commercial'
 import { BordereauImportPanel } from '@/components/commercial/BordereauImportPanel'
 import { RevisionHistory, revisionLabel } from '@/components/commercial/RevisionHistory'
@@ -64,12 +64,15 @@ export default function BordereauPanel({
   const [error, setError] = useState<string | null>(null)
   const [reopenOpen, setReopenOpen] = useState(false)
   const [reopenReason, setReopenReason] = useState('')
+  const [freezeOpen, setFreezeOpen] = useState(false)
+  const [freezeSummary, setFreezeSummary] = useState('')
 
   const { offer, sections, totals, milestones, milestoneSummary, versions, locked } = document
   const editable = canEdit && !locked
   // Ce que la réouverture va produire, annoncé avant de la confirmer.
   const approvedRevision = versions.find((v) => v.status === 'approved') ?? null
   const nextRevisionNo = versions.reduce((max, v) => Math.max(max, v.versionNo), 0) + 1
+  const modalOpen = reopenOpen || freezeOpen
   const parents = parentOptions(sections)
   // A legacy flat bordereau has one synthetic root that owns no real id.
   const attachable = parents.filter((p) => p.id !== '__legacy__')
@@ -115,29 +118,46 @@ export default function BordereauPanel({
   }
 
   /**
-   * Réouverture : le motif part avec l'action et la fenêtre ne se ferme qu'en
-   * cas de succès — un refus du serveur laisse le texte saisi en place plutôt
-   * que de le faire retaper.
+   * Action de version lancée depuis une fenêtre modale.
+   *
+   * La fenêtre ne se ferme qu'en cas de succès : un refus du serveur laisse la
+   * saisie en place et l'erreur sous le champ, plutôt que de faire retaper un
+   * motif que l'utilisateur vient d'écrire.
    */
-  async function submitReopen() {
-    const reason = reopenReason.trim()
-    if (!reason) return
+  async function submitFromModal(body: Record<string, unknown>, onSuccess: () => void) {
     setLoading(true)
     setError(null)
     const res = await fetch(`/api/commercial/offers/${offer.id}/bordereau/versions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'reopen', reason }),
+      body: JSON.stringify(body),
     })
     const data = await res.json().catch(() => ({}))
     if (!res.ok) {
       setError((data as { error?: string }).error ?? 'Action refusée')
     } else {
-      setReopenOpen(false)
-      setReopenReason('')
+      onSuccess()
       router.refresh()
     }
     setLoading(false)
+  }
+
+  function submitReopen() {
+    const reason = reopenReason.trim()
+    if (!reason) return
+    return submitFromModal({ action: 'reopen', reason }, () => {
+      setReopenOpen(false)
+      setReopenReason('')
+    })
+  }
+
+  function submitFreeze() {
+    const changeSummary = freezeSummary.trim()
+    if (!changeSummary) return
+    return submitFromModal({ action: 'create', changeSummary }, () => {
+      setFreezeOpen(false)
+      setFreezeSummary('')
+    })
   }
 
   async function useTemplate() {
@@ -260,7 +280,8 @@ export default function BordereauPanel({
           </div>
         </div>
 
-        {error && (
+        {/* Une erreur née dans une modale s'affiche sous le champ concerné, pas ici aussi. */}
+        {error && !modalOpen && (
           <div className="mx-5 mt-3 px-4 py-2 rounded-lg text-sm" style={{ background: 'var(--admin-red-dim)', color: 'var(--admin-red)' }}>
             {error}
           </div>
@@ -409,14 +430,12 @@ export default function BordereauPanel({
                 Partir du modèle vierge
               </button>
               <button
-                onClick={() => {
-                  const changeSummary = window.prompt('Motif de la nouvelle version ?')
-                  if (changeSummary) versionAction({ action: 'create', changeSummary })
-                }}
+                onClick={() => { setError(null); setFreezeOpen(true) }}
                 disabled={loading || locked}
-                className="px-3 py-1.5 rounded-lg border text-[13px] font-medium disabled:opacity-40"
+                className="px-3 py-1.5 rounded-lg border text-[13px] font-medium inline-flex items-center gap-1.5 disabled:opacity-40"
                 style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
               >
+                <Lock className="w-3.5 h-3.5" aria-hidden />
                 Figer une version
               </button>
             </>
@@ -454,6 +473,54 @@ export default function BordereauPanel({
         seulement le « quoi ». Un `window.prompt` ne pouvait ni l'imposer ni le
         rendre lisible.
       */}
+      {/*
+        Figer une version : le motif est le « changeSummary » de l'enregistrement.
+        Il devient la ligne d'historique que quelqu'un lira dans deux ans pour
+        comprendre ce que cette révision changeait — un motif vide serait une
+        version sans justification.
+      */}
+      <ConfirmModal
+        open={freezeOpen}
+        tone="neutral"
+        title="Figer la version"
+        description={
+          <>
+            Cette action verrouillera le bordereau actuel en lecture seule. Vous ne pourrez
+            plus le modifier sans l&apos;enregistrer comme une nouvelle révision.
+          </>
+        }
+        confirmLabel="Figer l'offre"
+        loadingLabel="Verrouillage…"
+        confirmIcon={<Lock className="w-3.5 h-3.5" aria-hidden />}
+        loading={loading}
+        canConfirm={freezeSummary.trim().length > 0}
+        onConfirm={submitFreeze}
+        onClose={() => { if (!loading) { setFreezeOpen(false); setError(null) } }}
+      >
+        <div className="space-y-1.5">
+          <label htmlFor="freeze-summary" className="block text-[12px] font-medium" style={cellText}>
+            Motif de la nouvelle version <span style={{ color: 'var(--admin-red)' }}>*</span>
+          </label>
+          <textarea
+            id="freeze-summary"
+            required
+            rows={3}
+            maxLength={2000}
+            value={freezeSummary}
+            onChange={(e) => setFreezeSummary(e.target.value)}
+            placeholder="Ex. : intégration des quantités révisées après visite de site du 04/03."
+            className={`${inputClass} resize-y`}
+            style={inputStyle}
+          />
+          <p className="text-[11px]" style={cellMuted}>
+            Enregistré comme motif de la {revisionLabel(nextRevisionNo)}. {freezeSummary.trim().length}/2000
+          </p>
+          {error && freezeOpen && (
+            <p className="text-[12px]" style={{ color: 'var(--admin-red)' }}>{error}</p>
+          )}
+        </div>
+      </ConfirmModal>
+
       <ConfirmModal
         open={reopenOpen}
         tone="danger"
