@@ -52,16 +52,43 @@ type RouteEntry = { href: string; destination: string; kind?: IsoRouteKind }
 const TYPE_ALT = TYPE_CODES.join('|')
 const PROCESS_ALT = PROCESS_CODES.join('|')
 
+/**
+ * Numéro de séquence : un ou deux chiffres (« 2 », « 02 »), ou trois chiffres
+ * ne commençant pas par zéro (« 100 »).
+ *
+ * Le refus de « 021 » est délibéré. La forme canonique complète à deux
+ * positions, jamais à trois : un zéro de tête suivi de deux chiffres n'est donc
+ * jamais un code du registre, c'est une coquille. L'accepter la ferait passer
+ * pour valide ; la tronquer en « 02 » ferait pire encore — le code d'un autre
+ * document.
+ */
+const SEQ = '([1-9]\\d{2}|\\d{1,2})'
+
+/** Séparateurs tolérés entre les segments : « FOR CO 02 », « for.co.02 », « FOR_CO_02 ». */
+const SEP = '[\\s._/-]*'
+
 /** Code isolé, ponctuation et casse déjà retirées : « forco02 », « FORCO02VA ». */
-const COMPACT_CODE = new RegExp(`^(${TYPE_ALT})(${PROCESS_ALT})(\\d{1,3})(VA)?$`, 'i')
+const COMPACT_CODE = new RegExp(`^(${TYPE_ALT})(${PROCESS_ALT})${SEQ}(VA)?$`, 'i')
 
 /**
  * Code repéré dans une chaîne plus longue (« FOR-CO-02 bordereau », « (for co 02) »).
- * Les séparateurs sont optionnels, d'où le garde-fou `(?![A-Z0-9])` en fin : il
- * évite d'attraper les 2 premiers chiffres d'un code à 3 chiffres.
+ *
+ * Trois garde-fous, chacun contre un faux positif précis :
+ *
+ *   `(?<![A-Z0-9])`  rien d'alphanumérique devant, sinon « XFOR-CO-02 »
+ *                    livrerait FOR-CO-02.
+ *   `(?!\d)`         aucun chiffre derrière, sinon « FOR-MI-100 » serait tronqué
+ *                    en FOR-MI-10 et « FOR-CO-021 » en FOR-CO-02.
+ *   `(?![A-Za-z]{1,2}(?![A-Za-z]))`
+ *                    aucun suffixe d'une ou deux lettres collé au code. Une ou
+ *                    deux lettres qui s'arrêtent net se lisent comme une
+ *                    variante inconnue (« PRC-MI-01B ») ; à partir de trois,
+ *                    c'est le mot suivant (« FOR-CO-02and let me know ») et le
+ *                    code doit être reconnu. Le suffixe officiel `-VA` échappe
+ *                    au garde-fou : le groupe optionnel l'a déjà consommé.
  */
 const EMBEDDED_CODE = new RegExp(
-  `(?<![A-Z0-9])(${TYPE_ALT})[\\s._/-]*(${PROCESS_ALT})[\\s._/-]*(\\d{1,3})(?:[\\s._/-]*(VA))?(?![A-Z0-9])`,
+  `(?<![A-Z0-9])(${TYPE_ALT})${SEP}(${PROCESS_ALT})${SEP}${SEQ}(?:${SEP}(VA))?(?!\\d)(?![A-Za-z]{1,2}(?![A-Za-z]))`,
   'i',
 )
 

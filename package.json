@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:api": "npx tsx scripts/test-api.ts",
+    "test:iso-codes": "npx tsx scripts/verify-iso-code-parsing.ts",
     "test:iso-routes": "npx tsx --env-file=.env scripts/verify-iso-routes.ts",
     "extract:images": "npx tsx scripts/extract-images.ts",
     "migrate": "npx tsx scripts/migrate.ts",
