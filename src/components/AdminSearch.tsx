@@ -9,6 +9,11 @@ import { DMS_SEARCH_ENTITY_LABELS, type DmsSearchResult } from '@/lib/dms/search
 // code (ex. "MI-05", "mi05", "evt 2025"), la ponctuation et la casse sont
 // ignorées, et redirige vers l'entité (projet, client, NC, etc.) au clic.
 // À défaut de code correspondant, les libellés des entités sont aussi inspectés.
+//
+// Un résultat peut ne PAS être navigable : c'est le cas d'un document maîtrisé
+// qu'aucune page opérationnelle ne met en œuvre. La ligne annonce alors « Page
+// opérationnelle non configurée » et reste inerte, plutôt que de renvoyer vers
+// le registre LIS-MI-01 comme si celui-ci traitait le document.
 
 export function AdminSearch() {
   const router = useRouter()
@@ -50,6 +55,7 @@ export function AdminSearch() {
   }
 
   function selectResult(r: DmsSearchResult) {
+    if (!r.href) return
     setOpen(false)
     setQuery('')
     setResults([])
@@ -70,7 +76,7 @@ export function AdminSearch() {
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const chosen = results[activeIndex] ?? results[0]
-      if (chosen) selectResult(chosen)
+      if (chosen?.href) selectResult(chosen)
     } else if (e.key === 'Escape') {
       setOpen(false)
     }
@@ -133,31 +139,46 @@ export function AdminSearch() {
             </p>
           ) : (
             <ul className="max-h-80 overflow-y-auto py-1">
-              {results.map((r, i) => (
-                <li key={`${r.entityType}-${r.code}-${i}`}>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => { e.preventDefault(); selectResult(r) }}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-3 transition-colors"
-                    style={{ background: activeIndex === i ? 'rgba(0,0,0,0.05)' : 'transparent' }}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-xs font-mono font-semibold" style={{ color: '#1F6B3D' }}>{r.code}</p>
-                      <p className="text-sm truncate" style={{ color: 'rgba(0,0,0,0.8)' }}>{r.label}</p>
-                      {r.sublabel && (
-                        <p className="text-xs truncate" style={{ color: 'rgba(0,0,0,0.4)' }}>{r.sublabel}</p>
-                      )}
-                    </div>
-                    <span
-                      className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
-                      style={{ background: 'rgba(0,0,0,0.06)', color: 'rgba(0,0,0,0.5)' }}
+              {results.map((r, i) => {
+                const navigable = !!r.href
+                return (
+                  <li key={`${r.entityType}-${r.code}-${i}`}>
+                    <button
+                      type="button"
+                      disabled={!navigable}
+                      aria-disabled={!navigable}
+                      onMouseDown={(e) => { e.preventDefault(); selectResult(r) }}
+                      onMouseEnter={() => setActiveIndex(i)}
+                      className="w-full text-left px-4 py-2.5 flex items-center justify-between gap-3 transition-colors"
+                      style={{
+                        background: activeIndex === i && navigable ? 'rgba(0,0,0,0.05)' : 'transparent',
+                        cursor:     navigable ? 'pointer' : 'default',
+                      }}
                     >
-                      {DMS_SEARCH_ENTITY_LABELS[r.entityType]}
-                    </span>
-                  </button>
-                </li>
-              ))}
+                      <div className="min-w-0">
+                        <p className="text-xs font-mono font-semibold" style={{ color: navigable ? '#1F6B3D' : 'rgba(0,0,0,0.45)' }}>{r.code}</p>
+                        <p className="text-sm truncate" style={{ color: navigable ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.5)' }}>{r.label}</p>
+                        {r.destination ? (
+                          <p
+                            className="text-xs truncate"
+                            style={{ color: navigable ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.35)', fontStyle: navigable ? 'normal' : 'italic' }}
+                          >
+                            {r.destination}
+                          </p>
+                        ) : r.sublabel ? (
+                          <p className="text-xs truncate" style={{ color: 'rgba(0,0,0,0.4)' }}>{r.sublabel}</p>
+                        ) : null}
+                      </div>
+                      <span
+                        className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
+                        style={{ background: 'rgba(0,0,0,0.06)', color: 'rgba(0,0,0,0.5)' }}
+                      >
+                        {DMS_SEARCH_ENTITY_LABELS[r.entityType]}
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
             </ul>
           )}
         </div>

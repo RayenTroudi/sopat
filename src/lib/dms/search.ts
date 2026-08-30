@@ -9,6 +9,7 @@
 // également inspecté. Les résultats sont classés du plus exact au plus large.
 import { sql, type SQL } from 'drizzle-orm'
 import { db } from '../../../db/index'
+import { extractIsoCode, normalizeIsoCode, resolveIsoDocumentRoute, UNMAPPED_DESTINATION } from './iso-routes'
 
 export type DmsSearchEntityType =
   | 'project'
@@ -48,7 +49,19 @@ export type DmsSearchResult = {
   entityType: DmsSearchEntityType
   label: string
   sublabel: string | null
-  href: string
+  /**
+   * Destination de navigation, ou `null` quand le résultat est un document
+   * maîtrisé qu'aucune page opérationnelle ne met en œuvre. Un `href` nul n'est
+   * jamais remplacé par un repli : le composant affiche alors le résultat sans
+   * cible plutôt que de promettre une page qui ne traite pas le document.
+   */
+  href: string | null
+  /**
+   * Fil d'Ariane de la destination pour les codes ISO (« Commercial / Bordereau
+   * des prix »), ou le motif d'absence de page. `null` pour les entités
+   * métier, dont la puce de type suffit à situer la destination.
+   */
+  destination: string | null
 }
 
 export const DMS_SEARCH_ENTITY_LABELS: Record<DmsSearchEntityType, string> = {
@@ -85,7 +98,14 @@ export const DMS_SEARCH_ENTITY_LABELS: Record<DmsSearchEntityType, string> = {
   training_session:         'Formation',
 }
 
-function buildHref(entityType: DmsSearchEntityType, entityId: string, parentId: string | null): string {
+/**
+ * URL d'une entité métier. Les deux sources documentaires (`document` et
+ * `dms_document`) ne sont volontairement pas traitées ici : leur destination
+ * dépend du code ISO porté par la ligne et passe par
+ * `resolveIsoDocumentRoute`. Renvoyer `/admin/documents` pour elles était
+ * précisément le repli LIS-MI-01 qui affichait une destination fausse.
+ */
+function buildHref(entityType: DmsSearchEntityType, entityId: string, parentId: string | null): string | null {
   switch (entityType) {
     case 'project':                return `/admin/projects/${entityId}`
     case 'client':                 return `/admin/clients/${entityId}`
@@ -108,8 +128,8 @@ function buildHref(entityType: DmsSearchEntityType, entityId: string, parentId: 
     case 'phytosanitary_product':  return `/admin/etude/phytosanitary/${entityId}`
     case 'regulatory_watch':       return `/admin/regulatory-watch`
     case 'extra_expense':          return `/admin/achat/extra-expenses`
-    case 'document':               return `/admin/documents`
-    case 'dms_document':           return `/admin/documents`
+    case 'document':               return null
+    case 'dms_document':           return null
     case 'document_review':        return `/admin/document-reviews`
     case 'organizational_knowledge': return `/admin/knowledge`
     case 'study_record':           return parentId ? `/admin/projects/${parentId}/etudes` : `/admin/etude/study-register`
@@ -317,7 +337,11 @@ export async function searchByDmsCode(query: string, limit = 25): Promise<DmsSea
   const trimmed = query.trim()
   if (trimmed.length === 0) return []
 
-  const nq = normalizeQuery(trimmed)
+  // Une saisie peut mêler un code et du texte — « FOR-CO-02 bordereau ». La
+  // normalisation brute donnerait « forco02bordereau », qui ne correspond à
+  // aucun code ; on isole donc le code ISO présent et on cherche sur lui.
+  const embedded = extractIsoCode(trimmed)
+  const nq = embedded ? normalizeQuery(embedded) : normalizeQuery(trimmed)
   const pattern = `%${trimmed}%`
   const perSource = Math.max(3, Math.ceil(limit / 4))
 
@@ -332,11 +356,60 @@ export async function searchByDmsCode(query: string, limit = 25): Promise<DmsSea
     LIMIT ${limit}
   `)
 
-  return (result.rows as Row[]).map((r) => ({
-    code:       r.code,
-    entityType: r.entity_type,
-    label:      r.label,
-    sublabel:   r.sublabel,
-    href:       buildHref(r.entity_type, r.entity_id, r.parent_id),
-  }))
+  return resolveRows(result.rows as Row[])
+}
+
+/** Les deux sources qui décrivent un document maîtrisé plutôt qu'une opération. */
+const DOCUMENT_ENTITY_TYPES = new Set<DmsSearchEntityType>(['document', 'dms_document'])
+
+/**
+ * Transforme les lignes SQL en résultats navigables.
+ *
+ * Deux règles, dans cet ordre :
+ *
+ * 1. **Déduplication.** Beaucoup de codes du registre sont en réalité des
+ *    enregistrements : `FOR-MI-21` est une non-conformité, `FOR-AC-14` une ligne
+ *    de commande, `PRS-RE-03` un projet. Ces entités portent le même code dans
+ *    leur colonne `dms_document_code`, et leur ligne métier — qui, elle, mène à
+ *    la bonne page — est déjà dans le jeu de résultats. On retire alors le
+ *    doublon documentaire au lieu de proposer deux destinations pour un code.
+ *
+ * 2. **Résolution.** Ce qui reste est un document maîtrisé : sa destination
+ *    vient du résolveur canonique. Sans page opérationnelle, `href` reste nul.
+ */
+function resolveRows(rows: Row[]): DmsSearchResult[] {
+  const operationalCodes = new Set<string>()
+  for (const r of rows) {
+    if (DOCUMENT_ENTITY_TYPES.has(r.entity_type)) continue
+    const code = normalizeIsoCode(r.code)
+    if (code) operationalCodes.add(code)
+  }
+
+  const out: DmsSearchResult[] = []
+  for (const r of rows) {
+    if (!DOCUMENT_ENTITY_TYPES.has(r.entity_type)) {
+      out.push({
+        code:        r.code,
+        entityType:  r.entity_type,
+        label:       r.label,
+        sublabel:    r.sublabel,
+        href:        buildHref(r.entity_type, r.entity_id, r.parent_id),
+        destination: null,
+      })
+      continue
+    }
+
+    const resolution = resolveIsoDocumentRoute(r.code)
+    if (resolution && operationalCodes.has(resolution.code)) continue
+
+    out.push({
+      code:        resolution?.code ?? r.code,
+      entityType:  r.entity_type,
+      label:       r.label,
+      sublabel:    r.sublabel,
+      href:        resolution?.href ?? null,
+      destination: resolution?.destination ?? UNMAPPED_DESTINATION,
+    })
+  }
+  return out
 }
