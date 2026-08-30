@@ -721,6 +721,25 @@ async function main() {
     check('son montant approuvé reste lisible tel qu-il a été signé',
       near(num(afterReopen.totalTtc), 19733.175), String(afterReopen.totalTtc))
 
+    // Le motif de réouverture est porté par la version remplacée, pas seulement
+    // par le journal : ISO 9001:2015 §8.2.3.2 le veut avec l'enregistrement.
+    check('le motif de réouverture est conservé sur la version remplacée',
+      afterReopen?.reopenReason === 'Révision du prix des palmiers',
+      String(afterReopen?.reopenReason))
+    check('la réouverture est horodatée et signée',
+      afterReopen?.reopenedBy === actor.userId && afterReopen?.reopenedAt instanceof Date,
+      `${String(afterReopen?.reopenedBy)} / ${String(afterReopen?.reopenedAt)}`)
+    check('le motif remonte dans l-historique de révision',
+      document!.versions.find((v) => v.id === versionId)?.reopenReason === 'Révision du prix des palmiers')
+
+    let motifImmutable = false
+    try {
+      await db.update(offerVersions)
+        .set({ reopenReason: 'motif réécrit après coup' })
+        .where(eq(offerVersions.id, versionId))
+    } catch { motifImmutable = true }
+    check('la base refuse de réécrire un motif de réouverture', motifImmutable)
+
     // ═══ 14. Contract amount — approvedBudget untouched ════════════════════
     console.log('\n14. Montant contractuel : le budget approuvé reste intact')
 

@@ -168,6 +168,14 @@ export type BordereauVersionRow = {
   createdByName: string | null
   approvedByName: string | null
   approvedAt: Date | null
+  /**
+   * Pourquoi cette version a été remplacée. Non nul uniquement sur une version
+   * `superseded`, et jamais réécrit — c'est l'information documentée exigée par
+   * ISO 9001:2015 §8.2.3.2 sur les modifications d'exigences.
+   */
+  reopenReason: string | null
+  reopenedByName: string | null
+  reopenedAt: Date | null
 }
 
 export type BordereauRow = {
@@ -377,6 +385,9 @@ export async function getOfferBordereau(offerId: string): Promise<BordereauRow |
       createdByName: users.name,
       approvedAt: offerVersions.approvedAt,
       approvedById: offerVersions.approvedBy,
+      reopenReason: offerVersions.reopenReason,
+      reopenedAt: offerVersions.reopenedAt,
+      reopenedById: offerVersions.reopenedBy,
     })
       .from(offerVersions)
       .leftJoin(users, eq(offerVersions.createdBy, users.id))
@@ -384,11 +395,16 @@ export async function getOfferBordereau(offerId: string): Promise<BordereauRow |
       .orderBy(desc(offerVersions.versionNo)),
   ])
 
-  const approverIds = versionRows.map((v) => v.approvedById).filter((v): v is string => !!v)
-  const approvers = approverIds.length
-    ? await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, approverIds))
+  // Approbateurs et personnes ayant rouvert : mêmes utilisateurs, un seul aller-retour.
+  const stampIds = [
+    ...versionRows.map((v) => v.approvedById),
+    ...versionRows.map((v) => v.reopenedById),
+  ].filter((v): v is string => !!v)
+  const stampUsers = stampIds.length
+    ? await db.select({ id: users.id, name: users.name }).from(users)
+        .where(inArray(users.id, [...new Set(stampIds)]))
     : []
-  const approverName = new Map(approvers.map((a) => [a.id, a.name]))
+  const userName = new Map(stampUsers.map((a) => [a.id, a.name]))
 
   const sections = asSections(buildTree(lineRows as FlatLine[]))
   const vatRate = num(row.offer.vatRate)
@@ -458,8 +474,11 @@ export async function getOfferBordereau(offerId: string): Promise<BordereauRow |
       changeSummary: v.changeSummary,
       createdAt: v.createdAt,
       createdByName: v.createdByName,
-      approvedByName: v.approvedById ? approverName.get(v.approvedById) ?? null : null,
+      approvedByName: v.approvedById ? userName.get(v.approvedById) ?? null : null,
       approvedAt: v.approvedAt,
+      reopenReason: v.reopenReason,
+      reopenedByName: v.reopenedById ? userName.get(v.reopenedById) ?? null : null,
+      reopenedAt: v.reopenedAt,
     })),
     locked: row.offer.approvedVersionId !== null,
   }
@@ -1243,9 +1262,17 @@ export async function reopenOfferBordereau(
     if (!offer) return { success: false as const, error: 'Offre introuvable' }
     if (!offer.approvedVersionId) return { success: false as const, error: "Ce bordereau n'est pas verrouillé." }
 
+    // Le motif est porté par la version qu'il remplace, pas seulement par le
+    // journal : c'est là qu'on le cherchera dans trois ans, en lisant l'offre.
+    const reopenedAt = new Date()
     await tx
       .update(offerVersions)
-      .set({ status: 'superseded' })
+      .set({
+        status:       'superseded',
+        reopenReason: reason,
+        reopenedBy:   userId,
+        reopenedAt,
+      })
       .where(eq(offerVersions.id, offer.approvedVersionId))
 
     await tx

@@ -14,8 +14,11 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { RotateCcw } from 'lucide-react'
 import { addOfferLineItem, deleteOfferLineItem } from '@/lib/actions/commercial'
 import { BordereauImportPanel } from '@/components/commercial/BordereauImportPanel'
+import { RevisionHistory, revisionLabel } from '@/components/commercial/RevisionHistory'
+import { ConfirmModal } from '@/components/ui/ConfirmModal'
 import { formatMoney, formatQuantity, formatVatRate } from '@/lib/bordereau-calc'
 import type { BordereauLineRow, BordereauRow } from '@/lib/db/bordereau'
 
@@ -59,9 +62,14 @@ export default function BordereauPanel({
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [reopenOpen, setReopenOpen] = useState(false)
+  const [reopenReason, setReopenReason] = useState('')
 
   const { offer, sections, totals, milestones, milestoneSummary, versions, locked } = document
   const editable = canEdit && !locked
+  // Ce que la réouverture va produire, annoncé avant de la confirmer.
+  const approvedRevision = versions.find((v) => v.status === 'approved') ?? null
+  const nextRevisionNo = versions.reduce((max, v) => Math.max(max, v.versionNo), 0) + 1
   const parents = parentOptions(sections)
   // A legacy flat bordereau has one synthetic root that owns no real id.
   const attachable = parents.filter((p) => p.id !== '__legacy__')
@@ -103,6 +111,32 @@ export default function BordereauPanel({
     const data = await res.json().catch(() => ({}))
     if (!res.ok) setError((data as { error?: string }).error ?? 'Action refusée')
     else router.refresh()
+    setLoading(false)
+  }
+
+  /**
+   * Réouverture : le motif part avec l'action et la fenêtre ne se ferme qu'en
+   * cas de succès — un refus du serveur laisse le texte saisi en place plutôt
+   * que de le faire retaper.
+   */
+  async function submitReopen() {
+    const reason = reopenReason.trim()
+    if (!reason) return
+    setLoading(true)
+    setError(null)
+    const res = await fetch(`/api/commercial/offers/${offer.id}/bordereau/versions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reopen', reason }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      setError((data as { error?: string }).error ?? 'Action refusée')
+    } else {
+      setReopenOpen(false)
+      setReopenReason('')
+      router.refresh()
+    }
     setLoading(false)
   }
 
@@ -389,61 +423,79 @@ export default function BordereauPanel({
           )}
           {canApprove && locked && (
             <button
-              onClick={() => {
-                const reason = window.prompt('Motif de réouverture ?')
-                if (reason) versionAction({ action: 'reopen', reason })
-              }}
+              onClick={() => { setError(null); setReopenOpen(true) }}
               disabled={loading}
-              className="px-3 py-1.5 rounded-lg border text-[13px] font-medium disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg border text-[13px] font-medium inline-flex items-center gap-1.5 disabled:opacity-40"
               style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-red)' }}
             >
+              <RotateCcw className="w-3.5 h-3.5" aria-hidden />
               Rouvrir pour révision
             </button>
           )}
         </div>
 
-        {versions.length > 0 && (
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: '1px solid var(--admin-border)' }}>
-                {['Version', 'Statut', 'Total TTC', 'Motif', 'Créée par', ''].map((h) => (
-                  <th key={h} className="text-left px-3 py-2 text-[11px] font-medium" style={cellMuted}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {versions.map((v) => (
-                <tr key={v.id} style={{ borderTop: '1px solid var(--admin-border)' }}>
-                  <td className="px-3 py-2 text-[13px] tabular-nums" style={cellText}>
-                    v{v.versionNo}{v.label ? ` — ${v.label}` : ''}
-                  </td>
-                  <td className="px-3 py-2 text-xs" style={cellMuted}>
-                    {v.status === 'approved' ? 'Approuvée' : v.status === 'superseded' ? 'Remplacée' : 'Brouillon'}
-                    {v.approvedByName ? ` · ${v.approvedByName}` : ''}
-                  </td>
-                  <td className="px-3 py-2 text-[13px] tabular-nums" style={cellText}>{formatMoney(v.totalTtc)}</td>
-                  <td className="px-3 py-2 text-xs" style={cellMuted}>{v.changeSummary}</td>
-                  <td className="px-3 py-2 text-xs" style={cellMuted}>
-                    {v.createdByName ?? '—'} · {new Date(v.createdAt).toLocaleDateString('fr-FR')}
-                  </td>
-                  <td className="px-3 py-2">
-                    {canApprove && v.status === 'draft' && !locked && (
-                      <button
-                        onClick={() => versionAction({ action: 'approve', versionId: v.id })}
-                        disabled={loading}
-                        className="text-xs font-medium disabled:opacity-40"
-                        style={{ color: 'var(--green)' }}
-                      >
-                        Approuver
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {/* ── Historique de révision — chronologie, pas un tableau de bord ── */}
+        <div className="pt-1">
+          <h4 className="text-[12px] font-semibold mb-3" style={cellText}>Historique de révision</h4>
+          <RevisionHistory
+            versions={versions}
+            currency={offer.currency}
+            canApprove={canApprove && !locked}
+            busy={loading}
+            onApprove={(versionId) => versionAction({ action: 'approve', versionId })}
+          />
+        </div>
       </div>
+
+      {/*
+        Réouverture d'un engagement commercial : le motif est obligatoire.
+        ISO 9001:2015 §8.2.3.2 demande de conserver l'information documentée sur
+        les modifications apportées aux exigences — le « pourquoi », pas
+        seulement le « quoi ». Un `window.prompt` ne pouvait ni l'imposer ni le
+        rendre lisible.
+      */}
+      <ConfirmModal
+        open={reopenOpen}
+        tone="danger"
+        title="Rouvrir l'offre pour révision"
+        description={
+          <>
+            Cette action déverrouillera le bordereau (FOR-CO-02) et incrémentera le numéro
+            de révision ({approvedRevision ? revisionLabel(approvedRevision.versionNo) : 'Rev 00'} →{' '}
+            {revisionLabel(nextRevisionNo)}). L&apos;historique sera conservé.
+          </>
+        }
+        confirmLabel="Confirmer la révision"
+        loadingLabel="Réouverture…"
+        confirmIcon={<RotateCcw className="w-3.5 h-3.5" aria-hidden />}
+        loading={loading}
+        canConfirm={reopenReason.trim().length > 0}
+        onConfirm={submitReopen}
+        onClose={() => { if (!loading) { setReopenOpen(false); setError(null) } }}
+      >
+        <div className="space-y-1.5">
+          <label htmlFor="reopen-reason" className="block text-[12px] font-medium" style={cellText}>
+            Motif de la révision <span style={{ color: 'var(--admin-red)' }}>*</span>
+          </label>
+          <textarea
+            id="reopen-reason"
+            required
+            rows={3}
+            maxLength={2000}
+            value={reopenReason}
+            onChange={(e) => setReopenReason(e.target.value)}
+            placeholder="Ex. : révision du prix unitaire des palmiers à la demande du client, cf. courriel du 12/03."
+            className={`${inputClass} resize-y`}
+            style={inputStyle}
+          />
+          <p className="text-[11px]" style={cellMuted}>
+            Conservé sur la version remplacée et dans le journal d&apos;audit. {reopenReason.trim().length}/2000
+          </p>
+          {error && reopenOpen && (
+            <p className="text-[12px]" style={{ color: 'var(--admin-red)' }}>{error}</p>
+          )}
+        </div>
+      </ConfirmModal>
     </div>
   )
 }

@@ -4253,12 +4253,22 @@ export const offerVersions = pgTable('offer_versions', {
   createdBy:    uuid('created_by').notNull(),
   approvedBy:   uuid('approved_by'),
   approvedAt:   timestamp('approved_at'),
+  /**
+   * Pourquoi cette version a été remplacée (ISO 9001:2015 §8.2.3.2 —
+   * information documentée sur les modifications des exigences). Renseigné
+   * avec `reopenedBy` / `reopenedAt` au moment de la réouverture, et écrit une
+   * seule fois : le trigger `offer_versions_guard` refuse toute réécriture.
+   */
+  reopenReason: text('reopen_reason'),
+  reopenedBy:   uuid('reopened_by'),
+  reopenedAt:   timestamp('reopened_at'),
 }, (t) => [
   uniqueIndex('offer_versions_offer_no_uidx').on(t.offerId, t.versionNo),
   index('offer_versions_offer_idx').on(t.offerId),
   foreignKey({ columns: [t.offerId],    foreignColumns: [commercialOffers.id] }),
   foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
   foreignKey({ columns: [t.approvedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.reopenedBy], foreignColumns: [users.id] }),
 ])
 
 /**
