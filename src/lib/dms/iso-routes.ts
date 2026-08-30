@@ -45,9 +45,19 @@ export type IsoRouteResolution = {
   href: string | null
   /** Fil d'Ariane affiché sous le résultat de recherche. */
   destination: string
+  /**
+   * Contenant du document lorsqu'il n'a pas de page à lui : « Onglet projet »,
+   * « FOR-CO-01 (Offre) ». `href` mène alors au registre depuis lequel on
+   * ouvre ce contenant, et non directement au document.
+   *
+   * Champ à part, et non parenthèse glissée dans `destination` : l'interface
+   * doit pouvoir présenter l'imbrication comme telle, et un contenant oublié
+   * doit se voir plutôt que se noyer dans une chaîne libre.
+   */
+  within?: string
 }
 
-type RouteEntry = { href: string; destination: string; kind?: IsoRouteKind }
+type RouteEntry = { href: string; destination: string; kind?: IsoRouteKind; within?: string }
 
 const TYPE_ALT = TYPE_CODES.join('|')
 const PROCESS_ALT = PROCESS_CODES.join('|')
@@ -146,13 +156,15 @@ const ROUTES: Record<string, RouteEntry> = {
 
   // ── Commercial ───────────────────────────────────────────────────────────
   'FOR-CO-01': { href: '/admin/commercial/offers',          destination: 'Commercial / Suivi des offres' },
-  'FOR-CO-02': { href: '/admin/commercial/offers',          destination: 'Commercial / Bordereau des prix' },
+  // Le bordereau est une annexe de l'offre : `offer_line_items.offer_id` en
+  // dépend, et il n'existe pas hors d'une offre. On atterrit donc sur FOR-CO-01.
+  'FOR-CO-02': { href: '/admin/commercial/offers',          destination: 'Commercial / Bordereau des prix', within: 'FOR-CO-01 (Offre)' },
   'FOR-CO-03': { href: '/admin/commercial/client-balances', destination: 'Commercial / État de solde client' },
   'LIS-CO-02': { href: '/admin/clients',                    destination: 'Commercial / Clients' },
 
   // ── Étude ────────────────────────────────────────────────────────────────
   'FOR-ET-01': { href: '/admin/etude/study-register',       destination: "Étude / Registre des projets d'étude" },
-  'FOR-ET-02': { href: '/admin/etude/study-register',       destination: 'Étude / Fiche projet' },
+  'FOR-ET-02': { href: '/admin/etude/study-register',       destination: 'Étude / Fiche projet', within: 'Fiche projet' },
   'FOR-ET-03': { href: '/admin/etude/decorative-materials', destination: 'Étude / Matières décoratives' },
   'FOR-ET-05': { href: '/admin/etude/phytosanitary',        destination: 'Étude / Produits phytosanitaires' },
   'FOR-ET-06': { href: '/admin/etude/project-articles',     destination: 'Étude / Articles projet' },
@@ -261,26 +273,26 @@ const ROUTES: Record<string, RouteEntry> = {
   // Ces documents vivent dans l'onglet « Réalisation » d'un projet ; le registre
   // transversal LIS-RE-02 est l'entrée depuis laquelle on ouvre ce projet.
   'LIS-RE-02': { href: '/admin/realisation',                  destination: 'Réalisation / Registre des projets' },
-  'FOR-RE-03': { href: '/admin/realisation',                  destination: 'Réalisation / Fiche équipe projet (onglet projet)' },
-  'FOR-RE-04': { href: '/admin/realisation',                  destination: 'Réalisation / Suivi journalier de chantier (onglet projet)' },
-  'FOR-RE-05': { href: '/admin/realisation',                  destination: 'Réalisation / PV de réception provisoire (onglet projet)' },
-  'FOR-RE-07': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list travaux préliminaires (onglet projet)' },
-  'FOR-RE-08': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list réseaux & maçonnerie (onglet projet)' },
-  'FOR-RE-09': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list plantations (onglet projet)' },
-  'FOR-RE-10': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list engazonnement (onglet projet)' },
-  'FOR-RE-11': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list matière décorative (onglet projet)' },
-  'FOR-RE-12': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list fourniture des plantes (onglet projet)' },
-  'FOR-RE-13': { href: '/admin/realisation',                  destination: 'Réalisation / Attachement de projet (onglet projet)' },
-  'FOR-RE-14': { href: '/admin/realisation',                  destination: 'Réalisation / PV de réception définitive (onglet projet)' },
-  'FOR-RE-15': { href: '/admin/realisation',                  destination: 'Réalisation / Décompte de projet (onglet projet)' },
-  'INS-RE-01': { href: '/admin/realisation',                  destination: 'Réalisation / Instruction projet (check-lists qualité)' },
-  'PLA-RE-03': { href: '/admin/realisation',                  destination: "Réalisation / Plan d'action projet (onglet projet)" },
-  'PLA-RE-05': { href: '/admin/realisation',                  destination: 'Réalisation / Planning Gantt (onglet projet)' },
+  'FOR-RE-03': { href: '/admin/realisation',                  destination: 'Réalisation / Fiche équipe projet', within: 'Onglet projet' },
+  'FOR-RE-04': { href: '/admin/realisation',                  destination: 'Réalisation / Suivi journalier de chantier', within: 'Onglet projet' },
+  'FOR-RE-05': { href: '/admin/realisation',                  destination: 'Réalisation / PV de réception provisoire', within: 'Onglet projet' },
+  'FOR-RE-07': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list travaux préliminaires', within: 'Onglet projet' },
+  'FOR-RE-08': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list réseaux & maçonnerie', within: 'Onglet projet' },
+  'FOR-RE-09': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list plantations', within: 'Onglet projet' },
+  'FOR-RE-10': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list engazonnement', within: 'Onglet projet' },
+  'FOR-RE-11': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list matière décorative', within: 'Onglet projet' },
+  'FOR-RE-12': { href: '/admin/realisation',                  destination: 'Réalisation / Check-list fourniture des plantes', within: 'Onglet projet' },
+  'FOR-RE-13': { href: '/admin/realisation',                  destination: 'Réalisation / Attachement de projet', within: 'Onglet projet' },
+  'FOR-RE-14': { href: '/admin/realisation',                  destination: 'Réalisation / PV de réception définitive', within: 'Onglet projet' },
+  'FOR-RE-15': { href: '/admin/realisation',                  destination: 'Réalisation / Décompte de projet', within: 'Onglet projet' },
+  'INS-RE-01': { href: '/admin/realisation',                  destination: 'Réalisation / Instruction projet — check-lists qualité', within: 'Onglet projet' },
+  'PLA-RE-03': { href: '/admin/realisation',                  destination: "Réalisation / Plan d'action projet", within: 'Onglet projet' },
+  'PLA-RE-05': { href: '/admin/realisation',                  destination: 'Réalisation / Planning Gantt', within: 'Onglet projet' },
   'PLA-RE-02': { href: '/admin/realisation/weekly-schedule',  destination: 'Réalisation / Planning hebdomadaire' },
 
   // ── Entretien ────────────────────────────────────────────────────────────
-  'PLA-RE-01': { href: '/admin/calendrier-entretien', destination: "Entretien / Planning annuel d'entretien" },
-  'PLA-RE-04': { href: '/admin/calendrier-entretien', destination: "Entretien / Plan d'action mensuel" },
+  'PLA-RE-01': { href: '/admin/calendrier-entretien', destination: "Entretien / Planning annuel d'entretien", within: 'Onglet Entretien du projet' },
+  'PLA-RE-04': { href: '/admin/calendrier-entretien', destination: "Entretien / Plan d'action mensuel", within: 'Onglet Entretien du projet' },
 
   // ── Ressources humaines ──────────────────────────────────────────────────
   'FOR-RH-01': { href: '/admin/rh/recruitment',         destination: 'RH / Demandes de recrutement' },
@@ -378,6 +390,7 @@ export function resolveIsoDocumentRoute(input: string | null | undefined): IsoRo
     kind: entry.kind ?? 'operational',
     href: entry.href,
     destination: entry.destination,
+    ...(entry.within ? { within: entry.within } : {}),
   }
 }
 

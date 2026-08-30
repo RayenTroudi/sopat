@@ -62,6 +62,13 @@ export type DmsSearchResult = {
    * métier, dont la puce de type suffit à situer la destination.
    */
   destination: string | null
+  /**
+   * Contenant du document quand il vit à l'intérieur d'une autre page —
+   * « Onglet projet », « FOR-CO-01 (Offre) ». `href` mène au registre depuis
+   * lequel on ouvre ce contenant ; l'interface l'annonce pour que la
+   * destination ne promette pas d'ouvrir le document directement.
+   */
+  within: string | null
 }
 
 export const DMS_SEARCH_ENTITY_LABELS: Record<DmsSearchEntityType, string> = {
@@ -395,6 +402,7 @@ function resolveRows(rows: Row[]): DmsSearchResult[] {
         sublabel:    r.sublabel,
         href:        buildHref(r.entity_type, r.entity_id, r.parent_id),
         destination: null,
+        within:      null,
       })
       continue
     }
@@ -409,6 +417,7 @@ function resolveRows(rows: Row[]): DmsSearchResult[] {
       sublabel:    r.sublabel,
       href:        resolution?.href ?? null,
       destination: resolution?.destination ?? UNMAPPED_DESTINATION,
+      within:      resolution?.within ?? null,
     })
   }
   return out

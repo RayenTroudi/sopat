@@ -45,6 +45,25 @@ function section(title: string) {
   console.log(`\n${title}`)
 }
 
+/**
+ * Destination, fil d'Ariane et contenant attendus pour un document imbriqué.
+ * Vérifie au passage que `destination` ne réintroduit pas la parenthèse que
+ * `within` remplace — c'est la régression que ce champ existe pour empêcher.
+ */
+function expectWithin(code: string, href: string, destination: string, within: string) {
+  const r = resolveIsoDocumentRoute(code)
+  check(
+    `${code} → ${href} ↳ dans ${within}`,
+    !!r && r.href === href && r.destination === destination && r.within === within,
+    `obtenu href=${String(r?.href)} destination=${JSON.stringify(r?.destination)} within=${JSON.stringify(r?.within)}`,
+  )
+  check(
+    `${code} — le fil d’Ariane ne contient plus de parenthèse d’imbrication`,
+    !!r && !/\((onglet|dans |sur )/i.test(r.destination),
+    JSON.stringify(r?.destination),
+  )
+}
+
 /** Destination attendue pour un code, telle que le résolveur doit la rendre. */
 function expectRoute(input: string, href: string | null, kindLabel = '') {
   const r = resolveIsoDocumentRoute(input)
@@ -112,12 +131,28 @@ function resolverTests() {
 
   section('4. Document mis en œuvre à l’intérieur d’une autre page')
 
-  // Les check-lists qualité vivent dans l'onglet « Réalisation » d'un projet :
-  // la destination est le registre réalisation, pas l'index documentaire.
-  expectRoute('FOR-RE-09', '/admin/realisation', 'check-list dans l’onglet projet')
-  expectRoute('INS-RE-01', '/admin/realisation')
-  expectRoute('FOR-ET-02', '/admin/etude/study-register', 'fiche projet dans le registre d’étude')
+  // Ces documents n'ont pas de page à eux : le bordereau vit dans une offre,
+  // les check-lists qualité dans l'onglet « Réalisation » d'un projet. `href`
+  // mène au registre d'où l'on ouvre ce contenant, et `within` le nomme.
+  // L'imbrication est un champ, jamais une parenthèse dans `destination` :
+  // l'interface doit pouvoir la présenter comme telle.
+  expectWithin('FOR-CO-02', '/admin/commercial/offers', 'Commercial / Bordereau des prix', 'FOR-CO-01 (Offre)')
+  expectWithin('FOR-RE-09', '/admin/realisation', 'Réalisation / Check-list plantations', 'Onglet projet')
+  expectWithin('FOR-RE-03', '/admin/realisation', 'Réalisation / Fiche équipe projet', 'Onglet projet')
+  expectWithin('PLA-RE-05', '/admin/realisation', 'Réalisation / Planning Gantt', 'Onglet projet')
+  expectWithin('INS-RE-01', '/admin/realisation', 'Réalisation / Instruction projet — check-lists qualité', 'Onglet projet')
+  expectWithin('FOR-ET-02', '/admin/etude/study-register', 'Étude / Fiche projet', 'Fiche projet')
+  expectWithin('PLA-RE-01', '/admin/calendrier-entretien', "Entretien / Planning annuel d'entretien", 'Onglet Entretien du projet')
+  expectWithin('PLA-RE-04', '/admin/calendrier-entretien', "Entretien / Plan d'action mensuel", 'Onglet Entretien du projet')
+
+  // Une page qui met le document en œuvre directement ne porte pas de contenant.
   expectRoute('ORG-MI-07', '/admin/context', 'politique publiée dans « Contexte »')
+  for (const code of ['FOR-AC-10', 'FOR-CO-01', 'LIS-MI-01', 'LIS-RE-02', 'FOR-RH-14']) {
+    check(`${code} n’a pas de contenant`, resolveIsoDocumentRoute(code)?.within === undefined,
+      `obtenu ${String(resolveIsoDocumentRoute(code)?.within)}`)
+  }
+  check('un code non routé n’a pas de contenant',
+    resolveIsoDocumentRoute('FOR-RH-44')?.within === undefined)
 
   section('5. Documents de référence sans page opérationnelle')
 
@@ -164,6 +199,21 @@ function resolverTests() {
 
   const overlap = Object.keys(INTENTIONALLY_UNMAPPED).filter((c) => c in table)
   check('aucun code n’est à la fois routé et déclaré non routé', overlap.length === 0, overlap.join(', '))
+
+  // L'invariant qui fait tenir la migration : aucune entrée ne doit plus
+  // signaler l'imbrication en prose. Le champ `within` est le seul canal.
+  const inlineHints = Object.entries(table)
+    .filter(([, e]) => /\((onglet|dans |sur )/i.test(e.destination))
+    .map(([code]) => code)
+  check('aucun fil d’Ariane ne code l’imbrication en parenthèse', inlineHints.length === 0,
+    inlineHints.join(', '))
+
+  const withinEntries = Object.entries(table).filter(([, e]) => e.within)
+  check(`${withinEntries.length} codes déclarent un contenant`, withinEntries.length === 19,
+    withinEntries.map(([c]) => c).join(', '))
+
+  const blankWithin = withinEntries.filter(([, e]) => (e.within ?? '').trim() === '')
+  check('aucun contenant vide', blankWithin.length === 0, blankWithin.map(([c]) => c).join(', '))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -203,6 +253,21 @@ async function searchTests() {
       `obtenu ${hit.href === null ? 'null' : hit.href}`,
     )
   }
+
+  // Le contenant doit survivre au trajet base → API → composant : c'est lui qui
+  // empêche le résultat de promettre l'ouverture directe du document.
+  for (const [query, code, within] of [
+    ['FOR-CO-02', 'FOR-CO-02', 'FOR-CO-01 (Offre)'],
+    ['FOR-RE-09', 'FOR-RE-09', 'Onglet projet'],
+    ['PLA-RE-04', 'PLA-RE-04', 'Onglet Entretien du projet'],
+  ] as const) {
+    const hit = find(await searchByDmsCode(query), code)
+    check(`« ${query} » remonte son contenant « ${within} »`, hit?.within === within,
+      `obtenu ${JSON.stringify(hit?.within)}`)
+  }
+  const plain = find(await searchByDmsCode('FOR-AC-10'), 'FOR-AC-10')
+  check('« FOR-AC-10 » n’annonce aucun contenant', plain?.within === null,
+    `obtenu ${JSON.stringify(plain?.within)}`)
 
   section('9. Aucun résultat ne promet LIS-MI-01 à tort')
 

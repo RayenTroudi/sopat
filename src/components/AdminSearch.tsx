@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Loader2 } from 'lucide-react'
+import { Search, Loader2, CornerDownRight } from 'lucide-react'
 import { DMS_SEARCH_ENTITY_LABELS, type DmsSearchResult } from '@/lib/dms/search'
 
 // Recherche globale par code ISO / référence — tape n'importe quel fragment de
@@ -14,6 +14,12 @@ import { DMS_SEARCH_ENTITY_LABELS, type DmsSearchResult } from '@/lib/dms/search
 // qu'aucune page opérationnelle ne met en œuvre. La ligne annonce alors « Page
 // opérationnelle non configurée » et reste inerte, plutôt que de renvoyer vers
 // le registre LIS-MI-01 comme si celui-ci traitait le document.
+//
+// Un résultat peut aussi être navigable sans mener droit au document : le
+// bordereau FOR-CO-02 vit dans une offre, les check-lists de réalisation dans
+// l'onglet d'un projet. `within` porte ce contenant et la ligne l'affiche sous
+// la destination — « ↳ dans FOR-CO-01 (Offre) » — pour que le clic tienne ce
+// qu'il annonce : le registre d'où l'on ouvre le contenant.
 
 export function AdminSearch() {
   const router = useRouter()
@@ -168,6 +174,12 @@ export function AdminSearch() {
                         ) : r.sublabel ? (
                           <p className="text-xs truncate" style={{ color: 'rgba(0,0,0,0.4)' }}>{r.sublabel}</p>
                         ) : null}
+                        {r.within && (
+                          <p className="text-xs truncate flex items-center gap-1" style={{ color: 'rgba(0,0,0,0.35)' }}>
+                            <CornerDownRight aria-hidden style={{ width: '11px', height: '11px', flexShrink: 0 }} />
+                            <span className="truncate">dans {r.within}</span>
+                          </p>
+                        )}
                       </div>
                       <span
                         className="text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full shrink-0"
