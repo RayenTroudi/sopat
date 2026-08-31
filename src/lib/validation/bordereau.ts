@@ -144,6 +144,26 @@ export const bordereauApproveSchema = z
   })
   .strict()
 
+export const bordereauSubmitSchema = z
+  .object({
+    action: z.literal('submit'),
+    versionId: uuid,
+  })
+  .strict()
+
+/**
+ * Refus en revue. Le motif est obligatoire et non vide : un refus sans raison
+ * conservée est une décision qualité perdue (ISO 9001:2015 §8.2.3), et c'est
+ * ce que l'auteur devra lire pour corriger.
+ */
+export const bordereauRejectSchema = z
+  .object({
+    action: z.literal('reject'),
+    versionId: uuid,
+    reason: z.string().trim().min(1, 'Motif de refus obligatoire').max(2000),
+  })
+  .strict()
+
 export const bordereauReopenSchema = z
   .object({
     action: z.literal('reopen'),
@@ -153,9 +173,66 @@ export const bordereauReopenSchema = z
 
 export const bordereauVersionActionSchema = z.union([
   bordereauVersionSchema,
+  bordereauSubmitSchema,
   bordereauApproveSchema,
+  bordereauRejectSchema,
   bordereauReopenSchema,
 ])
+
+// ─── Édition ligne à ligne ───────────────────────────────────────────────────
+//
+// Le corps d'un PUT est l'arbre entier ; celui d'une correction est UNE ligne.
+// Les deux schémas coexistent parce que les deux opérations sont différentes :
+// l'import remplace le document, l'utilisateur corrige un prix.
+
+/** Création d'une ligne — n'importe quel type de nœud, à un parent donné. */
+export const bordereauLineCreateSchema = z
+  .object({
+    parentId: uuid.nullable().optional(),
+    lineType: bordereauLineTypeSchema,
+    sourceCode: optionalText(20),
+    displayCode: optionalText(20),
+    designation: z.string().trim().min(1, 'Désignation obligatoire').max(4000),
+    description: optionalText(20000),
+    norme: optionalText(255),
+    unit: optionalText(20),
+    quantity: amount.nullable().optional(),
+    unitPrice: amount.nullable().optional(),
+  })
+  .strict()
+
+/**
+ * Correction d'une ligne existante.
+ *
+ * Chaque champ est facultatif, et `.strict()` refuse tout le reste : une clé
+ * absente veut dire « ne touche pas », un `null` explicite veut dire « vide ce
+ * champ ». `lineType` n'y figure pas — changer la nature d'une ligne se fait en
+ * la supprimant et en la recréant, ce qui laisse deux traces au lieu d'une
+ * mutation muette. `refine` refuse un corps vide, qui produirait une écriture
+ * et une ligne de journal ne disant rien.
+ */
+export const bordereauLineUpdateSchema = z
+  .object({
+    sourceCode: optionalText(20),
+    displayCode: optionalText(20),
+    designation: z.string().trim().min(1, 'Désignation obligatoire').max(4000).optional(),
+    description: optionalText(20000),
+    norme: optionalText(255),
+    unit: optionalText(20),
+    quantity: amount.nullable().optional(),
+    unitPrice: amount.nullable().optional(),
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, { message: 'Aucune modification fournie' })
+
+/** Déplacement : changement de catégorie et/ou de rang dans la fratrie. */
+export const bordereauLineMoveSchema = z
+  .object({
+    parentId: uuid.nullable(),
+    /** La ligne se place JUSTE AVANT celle-ci ; en queue si absent ou nul. */
+    beforeLineId: uuid.nullable().optional(),
+  })
+  .strict()
 
 /**
  * Confirming a project's contract amount.

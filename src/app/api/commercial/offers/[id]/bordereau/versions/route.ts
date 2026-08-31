@@ -6,7 +6,9 @@ import {
   canEditBordereau,
   createOfferVersion,
   getOfferBordereau,
+  rejectOfferVersion,
   reopenOfferBordereau,
+  submitOfferVersion,
 } from '@/lib/db/bordereau'
 import { bordereauVersionActionSchema } from '@/lib/validation/bordereau'
 
@@ -34,17 +36,30 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 }
 
 /**
- * The three version acts, each audited:
+ * Les cinq actes de version, chacun audité :
  *
- *   create  — snapshots the document as it stands (write roles)
- *   approve — freezes that snapshot and LOCKS the document (admin/direction)
- *   reopen  — unlocks for revision, superseding the approved version without
- *             altering or deleting it (admin/direction)
+ *   create  — fige un instantané du document tel qu'il est (rôles d'écriture)
+ *   submit  — soumet cet instantané à la revue ; le document devient
+ *             non modifiable tant que la revue n'est pas tranchée (rôles
+ *             d'écriture)
+ *   approve — approuve la version soumise et VERROUILLE le document
+ *             (admin / direction)
+ *   reject  — refuse la version soumise, motif obligatoire, et rend le
+ *             document à l'édition (admin / direction)
+ *   reopen  — déverrouille pour révision, en remplaçant la version approuvée
+ *             sans la modifier ni la supprimer (admin / direction)
  *
- * Approval is narrower than editing on purpose: it turns a draft into a
- * commercial commitment and the figure a project's contract amount is then
- * proposed from. The database trigger `offer_versions_guard` enforces the
- * immutability of an approved snapshot independently of this route.
+ * Pourquoi `submit` existe
+ * ------------------------
+ * ISO 9001:2015 §7.5.2 b) demande « la revue ET l'approbation » : deux actes,
+ * pas un. Sans soumission, rien n'attestait que quelqu'un avait regardé le
+ * document avant de l'engager, et un refus ne laissait aucune trace. Le
+ * trigger `offer_versions_guard` refuse `draft → approved` en base, donc le
+ * raccourci n'est pas rattrapable en contournant cette route.
+ *
+ * L'approbation est plus étroite que l'édition à dessein : elle transforme un
+ * brouillon en engagement commercial et en base du montant contractuel proposé
+ * au projet.
  */
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const session = await auth()
@@ -60,27 +75,52 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
 
   const body = parsed.data
 
-  if (body.action === 'create') {
+  // Figer et soumettre appartiennent à l'auteur du document.
+  if (body.action === 'create' || body.action === 'submit') {
     if (!canEditBordereau(session.user.role))
       return NextResponse.json({ error: 'Droits insuffisants' }, { status: 403 })
-    const result = await createOfferVersion(
-      id,
-      { label: body.label ?? null, changeSummary: body.changeSummary },
-      session.user.userId,
-      session.user,
-    )
-    if (!result.success) return NextResponse.json({ error: result.error }, { status: 404 })
-    return NextResponse.json({ ...result, document: await getOfferBordereau(id) }, { status: 201 })
+
+    if (body.action === 'create') {
+      const result = await createOfferVersion(
+        id,
+        { label: body.label ?? null, changeSummary: body.changeSummary },
+        session.user.userId,
+        session.user,
+      )
+      if (!result.success) return NextResponse.json({ error: result.error }, { status: 404 })
+      return NextResponse.json({ ...result, document: await getOfferBordereau(id) }, { status: 201 })
+    }
+
+    const result = await submitOfferVersion(id, body.versionId, session.user.userId, session.user)
+    if (!result.success) return NextResponse.json({ error: result.error }, { status: 409 })
+    return NextResponse.json({ ...result, document: await getOfferBordereau(id) })
   }
 
+  // Trancher la revue et rouvrir un engagement approuvé sont des décisions de
+  // direction : le relecteur ne peut pas être n'importe quel rédacteur.
   if (!canApproveBordereau(session.user.role))
     return NextResponse.json(
-      { error: "Seules la direction et l'administration peuvent approuver ou rouvrir un bordereau" },
+      {
+        error:
+          "Seules la direction et l'administration peuvent approuver, refuser ou rouvrir un bordereau",
+      },
       { status: 403 },
     )
 
   if (body.action === 'approve') {
     const result = await approveOfferVersion(id, body.versionId, session.user.userId, session.user)
+    if (!result.success) return NextResponse.json({ error: result.error }, { status: 409 })
+    return NextResponse.json({ ...result, document: await getOfferBordereau(id) })
+  }
+
+  if (body.action === 'reject') {
+    const result = await rejectOfferVersion(
+      id,
+      body.versionId,
+      body.reason,
+      session.user.userId,
+      session.user,
+    )
     if (!result.success) return NextResponse.json({ error: result.error }, { status: 409 })
     return NextResponse.json({ ...result, document: await getOfferBordereau(id) })
   }

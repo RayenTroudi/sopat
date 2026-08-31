@@ -5,11 +5,12 @@ import { commercialOffers, offerLineItems } from '@/db/schema'
 import { and, count, eq, isNull } from 'drizzle-orm'
 import {
   applyImportToOffer,
-  assertNotLocked,
+  assertEditable,
   canEditBordereau,
   findOfferImport,
   getOfferBordereau,
 } from '@/lib/db/bordereau'
+import { archiveSourceWorkbook } from '@/lib/bordereau-archive'
 import {
   hashWorkbook,
   IMPORT_MAX_BYTES,
@@ -42,6 +43,20 @@ const XLTX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.t
  * bytes. Re-uploading the same file into the same offer is refused with the
  * date and the author of the earlier import, so the same workbook can never
  * produce two commercial documents by accident.
+ *
+ * **Conservation de la source.** Le classeur reçu est archivé tel quel AVANT
+ * toute écriture, et l'archive est référencée par le registre d'imports à côté
+ * de son empreinte : SOPAT juge le classeur d'origine nécessaire au sens
+ * d'ISO 9001:2015 §7.5.3.2, et un total dans l'ERP dont on ne peut plus
+ * produire la source n'est pas une preuve.
+ *
+ * L'archivage est BLOQUANT. S'il échoue, l'import est refusé et rien n'est
+ * écrit. La version précédente poursuivait en laissant la colonne nulle : la
+ * lacune était alors invisible, découverte des mois plus tard en audit, sur le
+ * seul document dont on avait besoin. Un contrôle qui se désactive en silence
+ * ne protège rien. `BORDEREAU_REQUIRE_SOURCE_ARCHIVE=false` lève l'exigence
+ * pour un environnement sans stockage objet, et la lacune est alors DÉCLARÉE
+ * dans les statistiques du registre plutôt que muette.
  */
 export async function POST(req: NextRequest, { params }: RouteParams) {
   const session = await auth()
@@ -119,7 +134,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
   if (mode === 'preview')
     return NextResponse.json({ ...preview, ...context, committed: false })
 
-  const locked = await assertNotLocked(id)
+  const locked = await assertEditable(id)
   if (locked)
     return NextResponse.json({ ...preview, ...context, committed: false, error: locked }, { status: 409 })
 
@@ -157,10 +172,27 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       { status: 409 },
     )
 
+  // Archiver AVANT d'écrire : si la pièce d'origine ne peut pas être conservée,
+  // rien ne doit avoir été inscrit dans le bordereau.
+  const archive = await archiveSourceWorkbook(bytes, fileHash)
+  if (!archive.ok)
+    return NextResponse.json(
+      { ...preview, ...context, committed: false, error: archive.error },
+      { status: 503 },
+    )
+
   await applyImportToOffer(
     id,
     preview,
-    { name: file.name, hash: fileHash, byteSize: file.size },
+    {
+      name: file.name,
+      hash: fileHash,
+      byteSize: file.size,
+      sourceFile: archive.source,
+      // Déclaré dans le registre : « pas d'archive » se lit comme une décision
+      // d'exploitation, pas comme un NULL qu'on ne sait plus interpréter.
+      archiveNote: archive.note,
+    },
     session.user.userId,
     session.user,
   )
@@ -169,6 +201,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     ...preview,
     ...context,
     committed: true,
+    sourceFileArchived: archive.source !== null,
     document: await getOfferBordereau(id),
   })
 }

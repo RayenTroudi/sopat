@@ -4,7 +4,7 @@ import { db } from '@/db'
 import { commercialOffers } from '@/db/schema'
 import { and, eq, isNull } from 'drizzle-orm'
 import {
-  assertNotLocked,
+  assertEditable,
   canEditBordereau,
   getOfferBordereau,
   replaceOfferBordereau,
@@ -56,7 +56,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     .limit(1)
   if (!offer) return NextResponse.json({ error: 'Offre introuvable' }, { status: 404 })
 
-  const locked = await assertNotLocked(id)
+  const locked = await assertEditable(id)
   if (locked) return NextResponse.json({ error: locked }, { status: 409 })
 
   const parsed = bordereauReplaceSchema.safeParse(await req.json().catch(() => null))
@@ -85,7 +85,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Droits insuffisants' }, { status: 403 })
 
   const { id } = await params
-  const locked = await assertNotLocked(id)
+  const locked = await assertEditable(id)
   if (locked) return NextResponse.json({ error: locked }, { status: 409 })
 
   const parsed = bordereauHeaderSchema.safeParse(await req.json().catch(() => null))

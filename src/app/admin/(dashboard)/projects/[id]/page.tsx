@@ -19,6 +19,8 @@ import { ProjectTabs } from './ProjectTabs'
 import { ConceptCard } from '@/components/projects/ConceptCard'
 import { maskClientName } from '@/lib/db/projects'
 import { DeleteProjectButton } from '@/components/projects/DeleteProjectButton'
+import { ContractAmountCard } from '@/components/projects/ContractAmountCard'
+import { canApproveBordereau, getProjectContractAmount } from '@/lib/db/bordereau'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,6 +81,10 @@ export default async function ProjectDetailPage({
     getSupplyRegister(id),
     getProjectPurchaseOrdersForSelect(id),
   ])
+
+  // Prix de vente contractuel — lu par la même fonction que la route API, pour
+  // que la page et l'API ne puissent pas donner deux chiffres différents.
+  const contract = await getProjectContractAmount(id)
 
   // The same predicate the FOR-AC-10 API enforces; the button only mirrors it,
   // the route remains the authority.
@@ -174,6 +180,19 @@ export default async function ProjectDetailPage({
           )}
         </div>
       </div>
+
+      {/*
+        Le montant contractuel (vente) à côté du budget approuvé (coût). Le
+        bordereau approuvé suggère ; un humain confirme. Rien ici n'écrit
+        `approved_budget`, contre lequel toute la consommation est mesurée.
+      */}
+      {contract && (
+        <ContractAmountCard
+          projectId={id}
+          data={contract}
+          canConfirm={canApproveBordereau(session?.user.role ?? '')}
+        />
+      )}
 
       <ConceptCard
         conceptTitle={project.conceptTitle}

@@ -26,7 +26,7 @@ console.log(`Cible : ${target.label}\n`)
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import ExcelJS from 'exceljs'
-import { eq, isNull, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, ne, sql } from 'drizzle-orm'
 import { db } from '../db/index'
 import {
   bordereauTemplateLines,
@@ -37,6 +37,7 @@ import {
   offerPaymentMilestones,
   offerVersions,
   projects,
+  recordAuditLog,
   users,
 } from '../db/schema'
 import {
@@ -62,21 +63,28 @@ import { buildBordereauWorkbook } from '../src/lib/export/bordereau-workbook'
 import {
   applyImportToOffer,
   approveOfferVersion,
-  assertNotLocked,
+  assertEditable,
   BORDEREAU_APPROVE_ROLES,
   BORDEREAU_WRITE_ROLES,
   canApproveBordereau,
   canEditBordereau,
   cloneTemplateIntoOffer,
   confirmContractAmount,
+  createBordereauLine,
   createOfferVersion,
   createTemplateFromPreview,
+  deleteBordereauLine,
   findOfferImport,
   findTemplateImport,
   getActiveBordereauTemplate,
   getOfferBordereau,
+  getProjectContractAmount,
+  moveBordereauLine,
+  rejectOfferVersion,
   reopenOfferBordereau,
   replaceOfferBordereau,
+  submitOfferVersion,
+  updateBordereauLine,
   type BordereauLineRow,
   type TemplateLineRow,
 } from '../src/lib/db/bordereau'
@@ -142,6 +150,21 @@ function check(label: string, ok: boolean, detail = '') {
 function near(a: number | null, b: number | null, eps = 1e-6): boolean {
   if (a === null || b === null) return a === b
   return Math.abs(a - b) < eps
+}
+
+/**
+ * `position` doit rester un ordre de document TOTAL : 0…n−1, sans trou ni
+ * doublon. C'est ce qui rend l'ordre d'impression stable, et l'export en
+ * dépend — deux lignes au même rang s'imprimeraient dans l'ordre que la base
+ * veut bien rendre, c'est-à-dire aucun.
+ */
+async function positionsAreDense(offerId: string): Promise<boolean> {
+  const rows = await db
+    .select({ position: offerLineItems.position })
+    .from(offerLineItems)
+    .where(eq(offerLineItems.offerId, offerId))
+  const seen = rows.map((r) => r.position).sort((a, b) => a - b)
+  return seen.every((p, i) => p === i)
 }
 
 async function count(table: string): Promise<number> {
@@ -474,6 +497,9 @@ async function main() {
       contractAmount: projects.contractAmount,
       contractAmountSuggested: projects.contractAmountSuggested,
       contractAmountSourceOfferId: projects.contractAmountSourceOfferId,
+      // Clé étrangère vers offer_versions : sans elle, le nettoyage ne peut
+      // pas supprimer les versions du test.
+      contractAmountSourceVersionId: projects.contractAmountSourceVersionId,
       contractAmountConfirmedBy: projects.contractAmountConfirmedBy,
       contractAmountConfirmedAt: projects.contractAmountConfirmedAt,
       clientId: projects.clientId,
@@ -670,28 +696,185 @@ async function main() {
     check('la référence projet du classeur reste une donnée de provenance',
       document!.offer.projectReferenceText === null)
 
-    // ═══ 13. Versions: creation, approval, immutability, locking ═══════════
-    console.log('\n13. Versions : création, approbation, immuabilité, verrouillage')
+    // ═══ 12b. Édition ligne à ligne DANS l'ERP ═════════════════════════════
+    //
+    // C'est la promesse du module : le classeur sert à importer et à exporter,
+    // le travail courant se fait ici. On corrige un prix, on ajoute un poste,
+    // on le déplace de catégorie, on le supprime — sans repasser par Excel, et
+    // en conservant l'identifiant de chaque ligne.
+    console.log("\n12b. Édition ligne à ligne dans l'ERP")
+
+    const palmierLine = document!.sections[1].children[0].children
+      .find((l) => l.designation === 'Phoenix canariensis')!
+    const palmierId = palmierLine.id
+    check('la ligne à corriger est bien chiffrée à 1 750,500', near(palmierLine.unitPrice, 1750.5))
+
+    const edited = await updateBordereauLine(offerId, palmierId, { unitPrice: 1800 }, actor)
+    check('le prix unitaire est corrigé dans l-ERP', edited.success === true)
+    document = await getOfferBordereau(offerId)
+    const palmierAfter = document!.sections[1].children[0].children.find((l) => l.id === palmierId)!
+    check("l'identifiant de la ligne est conservé par la correction", palmierAfter.id === palmierId)
+    check('le nouveau prix unitaire est en base', near(palmierAfter.unitPrice, 1800))
+    check('le montant de la ligne est recalculé', near(palmierAfter.total, 7200))
+    // 4×1800 + 2×890,25 = 7200 + 1780,5 = 8980,5 ; + section I 7800 = 16 780,5
+    check('le sous-total de la catégorie suit la correction',
+      near(document!.sections[1].children[0].subtotal, 8980.5),
+      String(document!.sections[1].children[0].subtotal))
+    check('le total général suit la correction',
+      near(document!.totals.totalHtva, 16780.5), String(document!.totals.totalHtva))
+
+    const [priceTrail] = await db
+      .select({ prev: recordAuditLog.previousState, next: recordAuditLog.newState })
+      .from(recordAuditLog)
+      .where(and(eq(recordAuditLog.entityType, 'bordereau_line'), eq(recordAuditLog.entityId, palmierId)))
+      .orderBy(desc(recordAuditLog.occurredAt)).limit(1)
+    check('le journal porte la valeur d-avant et la valeur d-après',
+      near((priceTrail?.prev as { unitPrice?: number } | null)?.unitPrice ?? null, 1750.5) &&
+      near((priceTrail?.next as { unitPrice?: number } | null)?.unitPrice ?? null, 1800),
+      JSON.stringify([priceTrail?.prev, priceTrail?.next]))
+
+    // Une saisie vide n'est PAS un zéro : le poste redevient « non chiffré ».
+    const unpriced = await updateBordereauLine(offerId, palmierId, { unitPrice: null }, actor)
+    check('un prix effacé rend la ligne non chiffrée, pas gratuite', unpriced.success === true)
+    document = await getOfferBordereau(offerId)
+    check('la ligne dépriciée ne vaut pas 0 mais rien',
+      document!.sections[1].children[0].children.find((l) => l.id === palmierId)!.total === null)
+    await updateBordereauLine(offerId, palmierId, { unitPrice: 1750.5 }, actor)
+
+    // Ajout d'un poste dans une catégorie existante, puis déplacement.
+    const conif = document!.sections[1].children[0]
+    const addedLine = await createBordereauLine(
+      offerId,
+      { parentId: conif.id, lineType: 'item', designation: 'Washingtonia robusta', unit: 'P', quantity: 3, unitPrice: 600 },
+      actor.userId, actor,
+    )
+    check('un poste est ajouté depuis l-ERP', addedLine.success === true)
+    const addedId = addedLine.success ? addedLine.lineId : ''
+    document = await getOfferBordereau(offerId)
+    check('le poste ajouté est rattaché à la catégorie choisie',
+      document!.sections[1].children[0].children.some((l) => l.id === addedId))
+    check('le total suit l-ajout', near(document!.totals.totalHtva, 16582.5 + 1800),
+      String(document!.totals.totalHtva))
+
+    const sectionIId = document!.sections[0].id
+    const movedLine = await moveBordereauLine(offerId, addedId, { parentId: sectionIId }, actor)
+    check('le poste change de section', movedLine.success === true)
+    document = await getOfferBordereau(offerId)
+    check('le poste déplacé est sous sa nouvelle section',
+      document!.sections[0].children.some((l) => l.id === addedId))
+    check('il a quitté son ancienne catégorie',
+      !document!.sections[1].children[0].children.some((l) => l.id === addedId))
+    check('le total général est inchangé par un simple déplacement',
+      near(document!.totals.totalHtva, 16582.5 + 1800), String(document!.totals.totalHtva))
+    check('les rangs restent un ordre de document total et sans doublon',
+      await positionsAreDense(offerId))
+
+    // Un cycle rendrait l'arbre irreconstructible : refusé.
+    const cyclic = await moveBordereauLine(offerId, sectionIId, { parentId: sectionIId }, actor)
+    check('une ligne ne peut pas devenir son propre parent', cyclic.success === false)
+
+    // Portée : une ligne d'une AUTRE offre n'est pas atteignable.
+    const [otherOffer] = await db
+      .select({ id: commercialOffers.id }).from(commercialOffers)
+      .where(and(isNull(commercialOffers.deletedAt), ne(commercialOffers.id, offerId))).limit(1)
+    if (otherOffer) {
+      const crossDelete = await deleteBordereauLine(otherOffer.id, palmierId, actor)
+      check("une ligne n'est pas supprimable via une autre offre", crossDelete.success === false)
+      const crossUpdate = await updateBordereauLine(otherOffer.id, palmierId, { unitPrice: 1 }, actor)
+      check("une ligne n'est pas modifiable via une autre offre", crossUpdate.success === false)
+      document = await getOfferBordereau(offerId)
+      check('la ligne visée est intacte',
+        near(document!.sections[1].children[0].children.find((l) => l.id === palmierId)?.unitPrice ?? null, 1750.5))
+    }
+
+    const removed = await deleteBordereauLine(offerId, addedId, actor)
+    check('le poste ajouté est supprimé', removed.success === true)
+    document = await getOfferBordereau(offerId)
+    check('le total revient à sa valeur d-avant l-ajout',
+      near(document!.totals.totalHtva, 16582.5), String(document!.totals.totalHtva))
+    check('la suppression laisse une trace avec les chiffres de la ligne',
+      (await db.select({ n: sql<number>`count(*)::int` }).from(recordAuditLog)
+        .where(and(eq(recordAuditLog.entityType, 'bordereau_line'),
+                   eq(recordAuditLog.entityId, addedId),
+                   eq(recordAuditLog.action, 'deleted'))))[0].n === 1)
+
+    // ═══ 13. Cycle de vie : brouillon → revue → refus → approbation ════════
+    console.log('\n13. Cycle de vie : brouillon, revue, refus, approbation, verrouillage')
 
     const v1 = await createOfferVersion(offerId, { changeSummary: 'Version initiale' }, actor.userId, actor)
     check('une version est créée', v1.success === true && v1.versionNo === 1)
-    const versionId = v1.success ? v1.versionId : ''
+    const v1Id = v1.success ? v1.versionId : ''
 
-    const [snapshot] = await db.select().from(offerVersions).where(eq(offerVersions.id, versionId))
+    const [snapshot] = await db.select().from(offerVersions).where(eq(offerVersions.id, v1Id))
     check('la version fige le TTC', near(num(snapshot.totalTtc), 19733.175), String(snapshot.totalTtc))
     check('la version fige le nombre de lignes', snapshot.lineCount === 5)
     check('la version contient un instantané complet du document',
       JSON.stringify(snapshot.snapshot).includes('Phoenix canariensis'))
 
-    check('un document non approuvé est modifiable', (await assertNotLocked(offerId)) === null)
+    check('un brouillon reste modifiable', (await assertEditable(offerId)) === null)
+
+    // Approuver sans revue est refusé — en code ET en base.
+    const straightToApproval = await approveOfferVersion(offerId, v1Id, actor.userId, actor)
+    check("un brouillon ne peut pas être approuvé sans revue", straightToApproval.success === false,
+      JSON.stringify(straightToApproval))
+    let dbRefusesShortcut = false
+    try {
+      await db.update(offerVersions).set({ status: 'approved' }).where(eq(offerVersions.id, v1Id))
+    } catch { dbRefusesShortcut = true }
+    check('la base refuse elle aussi le raccourci brouillon → approuvée', dbRefusesShortcut)
+
+    const submitted = await submitOfferVersion(offerId, v1Id, actor.userId, actor)
+    check('la version est soumise à la revue', submitted.success === true)
+    check('le document est gelé pendant la revue',
+      (await assertEditable(offerId))?.includes('revue') === true,
+      String(await assertEditable(offerId)))
+    const frozenEdit = await updateBordereauLine(offerId, palmierId, { unitPrice: 9999 }, actor)
+    // Le registre n'est pas la couche qui porte le gel : c'est `assertEditable`,
+    // appelé par la route. On vérifie donc le verrou, pas un refus du registre.
+    check("le registre n'invente pas de verrou : c'est la route qui l'applique",
+      frozenEdit.success === true)
+    await updateBordereauLine(offerId, palmierId, { unitPrice: 1750.5 }, actor)
+
+    const rejected = await rejectOfferVersion(offerId, v1Id, 'Prix palmiers à revoir', actor.userId, actor)
+    check('la version soumise est refusée', rejected.success === true)
+    const [afterReject] = await db.select().from(offerVersions).where(eq(offerVersions.id, v1Id))
+    check('la version refusée conserve son statut', afterReject.status === 'rejected')
+    check('le motif du refus est conservé sur la version',
+      afterReject.rejectionReason === 'Prix palmiers à revoir')
+    check('le relecteur et l-horodatage du refus sont tracés',
+      afterReject.reviewedBy === actor.userId && afterReject.reviewedAt instanceof Date)
+    check('une version refusée n-est pas supprimée : elle reste dans l-historique',
+      (await getOfferBordereau(offerId))!.versions.some((v) => v.id === v1Id))
+    check('le refus rend le document à l-édition', (await assertEditable(offerId)) === null)
+
+    let rejectedIsTerminal = false
+    try {
+      await db.update(offerVersions).set({ status: 'submitted' }).where(eq(offerVersions.id, v1Id))
+    } catch { rejectedIsTerminal = true }
+    check('une version refusée ne peut pas être resoumise', rejectedIsTerminal)
+
+    let motifRefusImmutable = false
+    try {
+      await db.update(offerVersions)
+        .set({ rejectionReason: 'motif réécrit' }).where(eq(offerVersions.id, v1Id))
+    } catch { motifRefusImmutable = true }
+    check('la base refuse de réécrire un motif de refus', motifRefusImmutable)
+
+    // Correction, puis nouvelle version : le cycle complet reste lisible.
+    const v2 = await createOfferVersion(offerId, { changeSummary: 'Prix palmiers corrigés' }, actor.userId, actor)
+    check('une version corrigée est figée', v2.success === true && v2.versionNo === 2)
+    const versionId = v2.success ? v2.versionId : ''
+    await submitOfferVersion(offerId, versionId, actor.userId, actor)
 
     const approved = await approveOfferVersion(offerId, versionId, actor.userId, actor)
-    check('la version est approuvée', approved.success === true)
+    check('la version soumise est approuvée', approved.success === true, JSON.stringify(approved))
     document = await getOfferBordereau(offerId)
     check('le document est verrouillé', document!.locked === true)
     check('le verrouillage est horodaté', document!.offer.lockedAt !== null)
     check('une modification est refusée sur un document approuvé',
-      (await assertNotLocked(offerId))?.includes('verrouillé') === true)
+      (await assertEditable(offerId))?.includes('verrouillé') === true)
+    check('l-auto-revue est signalée, pas masquée',
+      document!.versions.find((v) => v.id === versionId)?.selfReviewed === true)
 
     let immutableSnapshot = false
     try {
@@ -710,35 +893,6 @@ async function main() {
       await db.update(offerVersions).set({ status: 'draft' }).where(eq(offerVersions.id, versionId))
     } catch { noDowngrade = true }
     check('une version approuvée ne peut pas redevenir un brouillon', noDowngrade)
-
-    const reopened = await reopenOfferBordereau(offerId, 'Révision du prix des palmiers', actor.userId, actor)
-    check('la réouverture réussit', reopened.success === true)
-    document = await getOfferBordereau(offerId)
-    check('le document est déverrouillé', document!.locked === false)
-    const [afterReopen] = await db.select().from(offerVersions).where(eq(offerVersions.id, versionId))
-    check('la version approuvée est marquée « remplacée », jamais supprimée',
-      afterReopen?.status === 'superseded')
-    check('son montant approuvé reste lisible tel qu-il a été signé',
-      near(num(afterReopen.totalTtc), 19733.175), String(afterReopen.totalTtc))
-
-    // Le motif de réouverture est porté par la version remplacée, pas seulement
-    // par le journal : ISO 9001:2015 §8.2.3.2 le veut avec l'enregistrement.
-    check('le motif de réouverture est conservé sur la version remplacée',
-      afterReopen?.reopenReason === 'Révision du prix des palmiers',
-      String(afterReopen?.reopenReason))
-    check('la réouverture est horodatée et signée',
-      afterReopen?.reopenedBy === actor.userId && afterReopen?.reopenedAt instanceof Date,
-      `${String(afterReopen?.reopenedBy)} / ${String(afterReopen?.reopenedAt)}`)
-    check('le motif remonte dans l-historique de révision',
-      document!.versions.find((v) => v.id === versionId)?.reopenReason === 'Révision du prix des palmiers')
-
-    let motifImmutable = false
-    try {
-      await db.update(offerVersions)
-        .set({ reopenReason: 'motif réécrit après coup' })
-        .where(eq(offerVersions.id, versionId))
-    } catch { motifImmutable = true }
-    check('la base refuse de réécrire un motif de réouverture', motifImmutable)
 
     // ═══ 14. Contract amount — approvedBudget untouched ════════════════════
     console.log('\n14. Montant contractuel : le budget approuvé reste intact')
@@ -768,6 +922,85 @@ async function main() {
     check('l-utilisateur et l-horodatage de la confirmation sont tracés',
       afterContract.confirmedBy === actor.userId && afterContract.confirmedAt !== null)
     check('l-offre à l-origine du montant est nommée', afterContract.sourceOffer === offerId)
+
+    // La VERSION, pas seulement l'offre : c'est la réponse d'auditeur à
+    // « sur quelle base ce chantier a-t-il été chiffré ? » (ISO 9001 §8.5.2).
+    const [versionStamp] = await db
+      .select({ v: projects.contractAmountSourceVersionId })
+      .from(projects).where(eq(projects.id, project.id))
+    check('la version figée à l-origine du montant est nommée', versionStamp.v === versionId,
+      `${String(versionStamp.v)} ≠ ${versionId}`)
+
+    const contractRead = await getProjectContractAmount(project.id)
+    check('la lecture unique expose la révision d-origine',
+      contractRead?.contractAmountSourceVersionNo === 2,
+      String(contractRead?.contractAmountSourceVersionNo))
+    check('elle expose le budget de coût à côté, sans le confondre',
+      contractRead?.approvedBudget === numOrNull(budgetBefore))
+
+    // ═══ 14b. Intégrité historique : V2 ne réécrit pas ce qui a servi ══════
+    console.log("\n14b. Intégrité historique : une révision ne réécrit pas le passé")
+
+    const reopened = await reopenOfferBordereau(offerId, 'Révision du prix des palmiers', actor.userId, actor)
+    check('la réouverture réussit', reopened.success === true)
+    document = await getOfferBordereau(offerId)
+    check('le document est déverrouillé', document!.locked === false)
+    const [afterReopen] = await db.select().from(offerVersions).where(eq(offerVersions.id, versionId))
+    check('la version approuvée est marquée « remplacée », jamais supprimée',
+      afterReopen?.status === 'superseded')
+    check('son montant approuvé reste lisible tel qu-il a été signé',
+      near(num(afterReopen.totalTtc), 19733.175), String(afterReopen.totalTtc))
+    check('le motif de réouverture est conservé sur la version remplacée',
+      afterReopen?.reopenReason === 'Révision du prix des palmiers',
+      String(afterReopen?.reopenReason))
+    check('la réouverture est horodatée et signée',
+      afterReopen?.reopenedBy === actor.userId && afterReopen?.reopenedAt instanceof Date,
+      `${String(afterReopen?.reopenedBy)} / ${String(afterReopen?.reopenedAt)}`)
+    check('le motif remonte dans l-historique de révision',
+      document!.versions.find((v) => v.id === versionId)?.reopenReason === 'Révision du prix des palmiers')
+
+    let motifImmutable = false
+    try {
+      await db.update(offerVersions)
+        .set({ reopenReason: 'motif réécrit après coup' })
+        .where(eq(offerVersions.id, versionId))
+    } catch { motifImmutable = true }
+    check('la base refuse de réécrire un motif de réouverture', motifImmutable)
+
+    // Le scénario du client : le prix change en V3, le chantier ne bouge pas.
+    await updateBordereauLine(offerId, palmierId, { unitPrice: 2000 }, actor)
+    const v3 = await createOfferVersion(offerId, { changeSummary: 'Palmiers à 2 000' }, actor.userId, actor)
+    const v3Id = v3.success ? v3.versionId : ''
+    await submitOfferVersion(offerId, v3Id, actor.userId, actor)
+    await approveOfferVersion(offerId, v3Id, actor.userId, actor)
+
+    const [v2Frozen] = await db.select().from(offerVersions).where(eq(offerVersions.id, versionId))
+    check('la version qui a servi de base au contrat est inchangée par la suivante',
+      near(num(v2Frozen.totalTtc), 19733.175), String(v2Frozen.totalTtc))
+    check("l'instantané de la version approuvée garde l'ancien prix",
+      JSON.stringify(v2Frozen.snapshot).includes('1750.5'))
+
+    const [projectAfterV3] = await db
+      .select({
+        amount: projects.contractAmount,
+        version: projects.contractAmountSourceVersionId,
+      })
+      .from(projects).where(eq(projects.id, project.id))
+    check('le montant contractuel du chantier ne suit pas la nouvelle version',
+      near(num(projectAfterV3.amount), 19500), String(projectAfterV3.amount))
+    check('il continue de désigner la version sur laquelle il a été décidé',
+      projectAfterV3.version === versionId)
+
+    // ═══ 14c. Le bordereau n'entre pas dans la dépense réelle ══════════════
+    console.log("\n14c. Le bordereau n'est pas une dépense")
+    const spendAfterEverything = await getProjectSpend(project.id)
+    check('la consommation budgétaire est identique avant / après tout ce test',
+      spendAfterEverything.spent === spendBefore.spent,
+      `${spendBefore.spent} → ${spendAfterEverything.spent}`)
+    check('aucun bon de commande n-a été créé par le bordereau',
+      spendAfterEverything.poTotal === spendBefore.poTotal)
+    check('aucune dépense n-a été créée par le bordereau',
+      spendAfterEverything.expensesTotal === spendBefore.expensesTotal)
 
     const spendAfter = await getProjectSpend(project.id)
     check('la consommation budgétaire du projet est inchangée',
@@ -898,6 +1131,7 @@ async function main() {
       contractAmount: project.contractAmount,
       contractAmountSuggested: project.contractAmountSuggested,
       contractAmountSourceOfferId: project.contractAmountSourceOfferId,
+      contractAmountSourceVersionId: project.contractAmountSourceVersionId,
       contractAmountConfirmedBy: project.contractAmountConfirmedBy,
       contractAmountConfirmedAt: project.contractAmountConfirmedAt,
     }).where(eq(projects.id, project.id))
@@ -936,6 +1170,7 @@ async function main() {
     await db.execute(sql`
       DELETE FROM record_audit_log
        WHERE (entity_type = 'commercial_offer' AND entity_id = ${offerId}::uuid)
+          OR (entity_type = 'bordereau_line' AND metadata->>'offerId' = ${offerId})
           OR (entity_type = 'project_contract_amount' AND entity_id = ${project.id}::uuid
               AND occurred_at > now() - interval '1 hour')
           ${templateId ? sql`OR (entity_type = 'bordereau_template' AND entity_id = ${templateId}::uuid)` : sql``}
@@ -976,6 +1211,7 @@ async function main() {
       contractAmount: projects.contractAmount,
       contractAmountSuggested: projects.contractAmountSuggested,
       contractAmountSourceOfferId: projects.contractAmountSourceOfferId,
+      contractAmountSourceVersionId: projects.contractAmountSourceVersionId,
       contractAmountConfirmedBy: projects.contractAmountConfirmedBy,
     })
     .from(projects).where(eq(projects.id, project.id))
@@ -986,6 +1222,7 @@ async function main() {
     restored.contractAmount === project.contractAmount &&
     restored.contractAmountSuggested === project.contractAmountSuggested &&
     restored.contractAmountSourceOfferId === project.contractAmountSourceOfferId &&
+    restored.contractAmountSourceVersionId === project.contractAmountSourceVersionId &&
     restored.contractAmountConfirmedBy === project.contractAmountConfirmedBy,
     `${project.contractAmount} → ${restored.contractAmount}`)
 

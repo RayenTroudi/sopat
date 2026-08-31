@@ -1,7 +1,12 @@
 import { auth } from '@/lib/auth'
 import { redirect, notFound } from 'next/navigation'
 import { getOfferById, OFFER_STATUS_LABELS, type OfferStatus } from '@/lib/db/commercial'
-import { canApproveBordereau, canEditBordereau, getOfferBordereau } from '@/lib/db/bordereau'
+import {
+  canApproveBordereau,
+  canEditBordereau,
+  getBordereauTemplateSummary,
+  getOfferBordereau,
+} from '@/lib/db/bordereau'
 import Link from 'next/link'
 import OfferStatusPanel from './OfferStatusPanel'
 import BordereauPanel from './BordereauPanel'
@@ -21,7 +26,12 @@ export default async function OfferDetailPage({
   const row = await getOfferById(id)
   if (!row) notFound()
   const { offer, clientCompany } = row
-  const bordereau = await getOfferBordereau(id)
+  // Le modèle vierge est lu en résumé — sans ses 266 lignes, qui ne servent
+  // qu'au clonage et n'ont rien à faire dans le rendu d'une page.
+  const [bordereau, template] = await Promise.all([
+    getOfferBordereau(id),
+    getBordereauTemplateSummary(),
+  ])
 
   const fields: { label: string; value: string | null }[] = [
     { label: 'Client', value: clientCompany ?? offer.clientName },
@@ -85,6 +95,7 @@ export default async function OfferDetailPage({
           document={bordereau}
           canEdit={canEditBordereau(session.user.role)}
           canApprove={canApproveBordereau(session.user.role)}
+          template={template}
         />
       )}
 

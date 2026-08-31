@@ -4,14 +4,40 @@
     {
       "name": "sopat-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000
     },
     {
       "name": "sopat-mobile-web",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8091", "--directory", "D:/sopatMobile/sopat_ocr/build/web"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8091",
+        "--directory",
+        "D:/sopatMobile/sopat_ocr/build/web"
+      ],
       "port": 8091
+    },
+    {
+      "name": "sopat-qms-verify",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/dev-qms-verify.mjs"
+      ],
+      "port": 3010
+    },
+    {
+      "name": "sopat-qms-verify-no-archive",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/dev-qms-verify.mjs",
+        "--no-archive"
+      ],
+      "port": 3011
     }
   ]
 }

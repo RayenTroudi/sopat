@@ -4,7 +4,7 @@ import { db } from '@/db'
 import { commercialOffers, offerLineItems } from '@/db/schema'
 import { and, count, eq, isNull } from 'drizzle-orm'
 import {
-  assertNotLocked,
+  assertEditable,
   canEditBordereau,
   cloneTemplateIntoOffer,
   getActiveBordereauTemplate,
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     .limit(1)
   if (!offer) return NextResponse.json({ error: 'Offre introuvable' }, { status: 404 })
 
-  const locked = await assertNotLocked(id)
+  const locked = await assertEditable(id)
   if (locked) return NextResponse.json({ error: locked }, { status: 409 })
 
   const body = (await req.json().catch(() => ({}))) as { confirmReplace?: boolean }

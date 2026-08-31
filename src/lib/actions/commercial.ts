@@ -1,18 +1,12 @@
 'use server'
 
 import { db } from '@/db'
-import { commercialOffers, offerLineItems } from '@/db/schema'
+import { commercialOffers } from '@/db/schema'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
-import { eq, sql } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { getNextOfferReference, type OfferStatus } from '@/lib/db/commercial'
-import {
-  assertNotLocked,
-  canEditBordereau,
-  getDefaultVatRate,
-  syncOfferTotals,
-} from '@/lib/db/bordereau'
-import { lineTotal } from '@/lib/bordereau-calc'
+import { canEditBordereau, getDefaultVatRate } from '@/lib/db/bordereau'
 
 /** The offer module's existing write list, unchanged. */
 function canManageOffers(role: string) {
@@ -117,82 +111,23 @@ export async function updateOffer(
 }
 
 /**
- * Ajoute une ligne au bordereau, sous une section ou une catégorie choisie.
+ * Les server actions `addOfferLineItem` / `deleteOfferLineItem` ont été
+ * retirées au profit de `/api/commercial/offers/[id]/bordereau/lines`.
  *
- * `parentId` absent = ligne à la racine, ce qui est exactement la forme plate
- * que le module produisait avant FOR-CO-02 : les offres existantes continuent
- * de fonctionner sans changer de comportement.
+ * Elles portaient deux défauts que leur signature masquait :
+ *
+ * 1. `deleteOfferLineItem(lineId, offerId)` vérifiait le verrou de `offerId`
+ *    mais supprimait `lineId` SANS contrôler qu'il appartenait à cette offre.
+ *    N'importe quel rédacteur pouvait donc supprimer une ligne de n'importe
+ *    quelle offre — y compris approuvée et verrouillée — en citant l'offre
+ *    déverrouillée de son choix.
+ * 2. `addOfferLineItem` acceptait un `parentId` arbitraire, sans vérifier qu'il
+ *    désignait un nœud de la même offre ni qu'il pouvait porter un enfant.
+ *
+ * La route les remplace : l'identifiant de l'offre est dans la clause WHERE de
+ * chaque écriture, le parent est validé, et chaque modification est journalisée
+ * avec sa valeur d'avant et sa valeur d'après.
  */
-export async function addOfferLineItem(data: {
-  offerId: string
-  parentId?: string | null
-  designation: string
-  description?: string | null
-  norme?: string | null
-  unit?: string
-  quantity: string
-  unitPrice: string
-}) {
-  const session = await auth()
-  if (!session) return { success: false, error: 'Non autorisé' }
-  if (!canManageOffers(session.user.role))
-    return { success: false, error: 'Accès non autorisé' }
-
-  const locked = await assertNotLocked(data.offerId)
-  if (locked) return { success: false, error: locked }
-
-  const quantity = Number(data.quantity)
-  const unitPrice = Number(data.unitPrice)
-  if (!Number.isFinite(quantity) || !Number.isFinite(unitPrice) || quantity < 0 || unitPrice < 0)
-    return { success: false, error: 'Quantité ou prix unitaire invalide' }
-
-  const [{ nextPosition }] = await db
-    .select({
-      nextPosition: sql<number>`coalesce(max(${offerLineItems.position}), -1) + 1`,
-    })
-    .from(offerLineItems)
-    .where(eq(offerLineItems.offerId, data.offerId))
-
-  const total = lineTotal(quantity, unitPrice)
-  await db.insert(offerLineItems).values({
-    offerId: data.offerId,
-    parentId: data.parentId || null,
-    lineType: 'item',
-    position: Number(nextPosition),
-    designation: data.designation,
-    description: data.description || null,
-    norme: data.norme || null,
-    unit: data.unit || 'U',
-    quantity: String(quantity),
-    unitPrice: String(unitPrice),
-    total: total === null ? null : total.toFixed(3),
-    createdBy: session.user.userId,
-  })
-  await syncOfferTotals(db, data.offerId)
-  revalidatePath(`/admin/commercial/offers/${data.offerId}`)
-  revalidatePath('/admin/commercial/offers')
-  return { success: true }
-}
-
-/**
- * Supprime une ligne et, par cascade, tout ce qu'elle porte : supprimer une
- * catégorie emporte ses lignes, ce que la hiérarchie rend explicite.
- */
-export async function deleteOfferLineItem(lineId: string, offerId: string) {
-  const session = await auth()
-  if (!session) return { success: false, error: 'Non autorisé' }
-  if (!canManageOffers(session.user.role))
-    return { success: false, error: 'Accès non autorisé' }
-
-  const locked = await assertNotLocked(offerId)
-  if (locked) return { success: false, error: locked }
-
-  await db.delete(offerLineItems).where(eq(offerLineItems.id, lineId))
-  await syncOfferTotals(db, offerId)
-  revalidatePath(`/admin/commercial/offers/${offerId}`)
-  revalidatePath('/admin/commercial/offers')
-  return { success: true }
-}
 
 export async function deleteOffer(id: string) {
   const session = await auth()

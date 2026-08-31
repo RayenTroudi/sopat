@@ -24,7 +24,9 @@ export function generateSignedUploadParams(folder: string) {
 
 export async function uploadBufferToCloudinary(
   buffer: Buffer,
-  opts: { folder: string; publicId?: string; format?: 'pdf' | 'jpg' | 'png' },
+  // `xlsx` : archivage du classeur source d'un bordereau FOR-CO-02, conservé
+  // tel qu'il a été reçu (ISO 9001:2015 §7.5.3.2).
+  opts: { folder: string; publicId?: string; format?: 'pdf' | 'jpg' | 'png' | 'xlsx' },
 ): Promise<{ publicId: string; url: string; secureUrl: string; bytes: number; format: string }> {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(

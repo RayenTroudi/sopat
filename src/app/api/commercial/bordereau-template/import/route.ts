@@ -11,6 +11,7 @@ import {
   parseBordereauWorkbook,
   type BordereauImportPreview,
 } from '@/lib/import/bordereau-import'
+import { archiveSourceWorkbook } from '@/lib/bordereau-archive'
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const XLTX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.template'
@@ -28,6 +29,12 @@ const XLTX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.t
  *
  * Preview-then-commit, and idempotent on the file's SHA-256: the same workbook
  * can never produce two template revisions.
+ *
+ * Le classeur officiel est archivé comme celui d'un bordereau chiffré, et pour
+ * une raison distincte : il ne prouve pas un montant, il prouve QUELLE RÉVISION
+ * du formulaire la structure vient. Un modèle dont on ne peut plus produire le
+ * formulaire d'origine ne permet pas de justifier la forme des devis qui en
+ * descendent. L'archivage est donc bloquant ici aussi.
  */
 export async function POST(req: NextRequest) {
   const session = await auth()
@@ -111,9 +118,22 @@ export async function POST(req: NextRequest) {
       { status: 409 },
     )
 
+  const archive = await archiveSourceWorkbook(bytes, fileHash)
+  if (!archive.ok)
+    return NextResponse.json(
+      { ...preview, ...context, committed: false, error: archive.error },
+      { status: 503 },
+    )
+
   const result = await createTemplateFromPreview(
     preview,
-    { name: file.name, hash: fileHash, byteSize: file.size },
+    {
+      name: file.name,
+      hash: fileHash,
+      byteSize: file.size,
+      sourceFile: archive.source,
+      archiveNote: archive.note,
+    },
     session.user.userId,
     session.user,
   )
@@ -122,6 +142,7 @@ export async function POST(req: NextRequest) {
     ...preview,
     ...context,
     committed: true,
+    sourceFileArchived: archive.source !== null,
     ...result,
     template: await getActiveBordereauTemplate(),
   })

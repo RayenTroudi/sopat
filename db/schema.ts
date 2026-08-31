@@ -515,6 +515,14 @@ export const projects = pgTable('projects', {
   /** What the won offer proposed, kept beside what was actually confirmed. */
   contractAmountSuggested: decimal('contract_amount_suggested', { precision: 14, scale: 3 }),
   contractAmountSourceOfferId: uuid('contract_amount_source_offer_id'),
+  /**
+   * La VERSION immuable du bordereau dont le chiffre est tiré (migration 0037).
+   * L'offre seule ne suffit pas : elle a pu être rouverte et révisée depuis.
+   * Sans ce pointeur, « quelle version de FOR-CO-02 a servi de base au contrat
+   * de ce chantier ? » n'a pas de réponse — c'est l'identification et la
+   * traçabilité d'ISO 9001:2015 §8.5.2.
+   */
+  contractAmountSourceVersionId: uuid('contract_amount_source_version_id'),
   contractAmountConfirmedBy: uuid('contract_amount_confirmed_by'),
   contractAmountConfirmedAt: timestamp('contract_amount_confirmed_at'),
   ...timestamps,
@@ -4224,10 +4232,23 @@ export const offerPaymentMilestones = pgTable('offer_payment_milestones', {
   foreignKey({ columns: [t.clientAccountEntryId], foreignColumns: [clientAccountEntries.id] }),
 ])
 
+/**
+ * Cycle de vie d'une version FOR-CO-02 (migration 0037).
+ *
+ *   draft → submitted → approved → superseded
+ *              ↓
+ *           rejected  (terminal)
+ *
+ * `submitted` et `rejected` séparent la REVUE de l'APPROBATION, les deux actes
+ * distincts que demande ISO 9001:2015 §7.5.2 b). Les transitions sont imposées
+ * par le trigger `offer_versions_guard`, pas seulement par le code applicatif.
+ */
 export const offerVersionStatusEnum = pgEnum('offer_version_status', [
   'draft',
   'approved',
   'superseded',
+  'submitted',
+  'rejected',
 ])
 
 /**
@@ -4262,13 +4283,30 @@ export const offerVersions = pgTable('offer_versions', {
   reopenReason: text('reopen_reason'),
   reopenedBy:   uuid('reopened_by'),
   reopenedAt:   timestamp('reopened_at'),
+  /**
+   * Soumission pour revue (migration 0037). Écrit une seule fois : le trigger
+   * refuse toute réécriture, sans quoi la trace vaudrait moins que son absence.
+   */
+  submittedBy:  uuid('submitted_by'),
+  submittedAt:  timestamp('submitted_at'),
+  /** Décision de revue — renseignée à l'approbation comme au refus. */
+  reviewedBy:   uuid('reviewed_by'),
+  reviewedAt:   timestamp('reviewed_at'),
+  /** Motif du refus (ISO 9001:2015 §8.2.3). Non nul si et seulement si `rejected`. */
+  rejectionReason: text('rejection_reason'),
 }, (t) => [
   uniqueIndex('offer_versions_offer_no_uidx').on(t.offerId, t.versionNo),
   index('offer_versions_offer_idx').on(t.offerId),
-  foreignKey({ columns: [t.offerId],    foreignColumns: [commercialOffers.id] }),
-  foreignKey({ columns: [t.createdBy],  foreignColumns: [users.id] }),
-  foreignKey({ columns: [t.approvedBy], foreignColumns: [users.id] }),
-  foreignKey({ columns: [t.reopenedBy], foreignColumns: [users.id] }),
+  // Une seule version en revue à la fois : deux soumissions concurrentes
+  // rendraient indéterminé ce que le relecteur approuve.
+  uniqueIndex('offer_versions_one_submitted_uidx')
+    .on(t.offerId).where(sql`status = 'submitted'`),
+  foreignKey({ columns: [t.offerId],     foreignColumns: [commercialOffers.id] }),
+  foreignKey({ columns: [t.createdBy],   foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.approvedBy],  foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.reopenedBy],  foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.submittedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.reviewedBy],  foreignColumns: [users.id] }),
 ])
 
 /**
@@ -4288,7 +4326,18 @@ export const offerImports = pgTable('offer_imports', {
   stats:      jsonb('stats'),
   importedBy: uuid('imported_by').notNull(),
   importedAt: timestamp('imported_at').notNull().defaultNow(),
+  /**
+   * Le classeur d'origine, archivé tel qu'il a été reçu (migration 0037).
+   * ISO 9001:2015 §7.5.3.2 — maîtrise de l'information documentée d'origine
+   * externe. `fileHash` prouve que l'archive est l'octet-pour-octet importé.
+   * Nullable : un import antérieur à 0037, ou un archivage en échec, ne doit
+   * pas faire perdre l'import lui-même.
+   */
+  sourceFileUrl:      text('source_file_url'),
+  sourceFilePublicId: varchar('source_file_public_id', { length: 255 }),
+  sourceFileStoredAt: timestamp('source_file_stored_at'),
 }, (t) => [
+  index('offer_imports_offer_idx').on(t.offerId, t.importedAt),
   uniqueIndex('offer_imports_offer_hash_uidx')
     .on(t.offerId, t.fileHash).where(sql`offer_id IS NOT NULL`),
   uniqueIndex('offer_imports_template_hash_uidx')

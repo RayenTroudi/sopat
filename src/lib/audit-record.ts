@@ -34,6 +34,14 @@ export type AuditEntityType =
   | 'meeting_action_item'
   /** FOR-CO-02 : le bordereau des prix, édité comme un document entier. */
   | 'commercial_offer'
+  /**
+   * FOR-CO-02 : UNE ligne du bordereau. Entité distincte de l'offre parce que
+   * l'édition ligne à ligne est désormais le mode de travail normal dans l'ERP :
+   * « prix unitaire 450 → 480 » doit se lire sur la ligne concernée, avec sa
+   * valeur d'avant et sa valeur d'après, et pas seulement comme un compteur de
+   * lignes sur le document entier (ISO 9001:2015 §7.5.3.2 c).
+   */
+  | 'bordereau_line'
   /** Le catalogue FOR-CO-02 vierge, importé depuis le formulaire officiel. */
   | 'bordereau_template'
   /**
@@ -49,6 +57,10 @@ export type AuditAction =
   | 'approved'
   | 'rejected'
   | 'deleted'
+  /** Soumission pour revue : l'acte que §7.5.2 b) distingue de l'approbation. */
+  | 'submitted'
+  /** Déplacement d'une ligne dans l'arbre du document (changement de catégorie). */
+  | 'moved'
   /** NC / CAPA lifecycle: status transitions are quality decisions in their own right. */
   | 'status_changed'
   | 'closed'

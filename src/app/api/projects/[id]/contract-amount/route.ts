@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { db } from '@/db'
-import { commercialOffers, projects } from '@/db/schema'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { commercialOffers } from '@/db/schema'
+import { and, eq, isNull } from 'drizzle-orm'
 import { assertProjectAccess } from '@/lib/db/projects'
 import {
   canApproveBordereau,
   confirmContractAmount,
-  getContractAmountProposal,
+  getProjectContractAmount,
 } from '@/lib/db/bordereau'
-import { numOrNull } from '@/lib/bordereau-calc'
 import { contractAmountSchema } from '@/lib/validation/bordereau'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -33,47 +32,13 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
       { status: access.error === 'NOT_FOUND' ? 404 : 403 },
     )
 
-  const [project] = await db
-    .select({
-      contractAmount: projects.contractAmount,
-      contractAmountSuggested: projects.contractAmountSuggested,
-      contractAmountSourceOfferId: projects.contractAmountSourceOfferId,
-      contractAmountConfirmedAt: projects.contractAmountConfirmedAt,
-      approvedBudget: projects.approvedBudget,
-      currency: projects.currency,
-    })
-    .from(projects)
-    .where(and(eq(projects.id, id), isNull(projects.deletedAt)))
-    .limit(1)
-  if (!project) return NextResponse.json({ error: 'Projet introuvable' }, { status: 404 })
+  // Même lecture que la page projet : deux implémentations finiraient par
+  // diverger, et c'est exactement l'écart que `project-spend.ts` a dû corriger
+  // ailleurs dans cette application.
+  const contract = await getProjectContractAmount(id)
+  if (!contract) return NextResponse.json({ error: 'Projet introuvable' }, { status: 404 })
 
-  // The most recently decided won-and-approved offer for this project. At most
-  // one may be approved at a time, so this is unambiguous.
-  const [won] = await db
-    .select({ id: commercialOffers.id })
-    .from(commercialOffers)
-    .where(
-      and(
-        eq(commercialOffers.projectId, id),
-        eq(commercialOffers.status, 'gagnee'),
-        isNull(commercialOffers.deletedAt),
-      ),
-    )
-    .orderBy(desc(commercialOffers.updatedAt))
-    .limit(1)
-
-  const proposal = won ? await getContractAmountProposal(won.id) : null
-
-  return NextResponse.json({
-    contractAmount: numOrNull(project.contractAmount),
-    contractAmountSuggested: numOrNull(project.contractAmountSuggested),
-    contractAmountSourceOfferId: project.contractAmountSourceOfferId,
-    contractAmountConfirmedAt: project.contractAmountConfirmedAt,
-    /** Read-only here, and deliberately: a selling price never writes it. */
-    approvedBudget: numOrNull(project.approvedBudget),
-    currency: project.currency,
-    proposal,
-  })
+  return NextResponse.json(contract)
 }
 
 /**

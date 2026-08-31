@@ -25,6 +25,14 @@ export type DmsSearchEntityType =
   | 'stakeholder'
   | 'environmental_aspect'
   | 'commercial_offer'
+  /**
+   * Une LIGNE de bordereau FOR-CO-02 — « Palmier Phoenix », « II.1 », « ART-001 ».
+   * Le code du formulaire menait déjà au registre des offres, mais le contenu
+   * du bordereau, lui, restait invisible : chercher une prestation chiffrée ne
+   * ramenait rien. Traçabilité §8.5.2 : on doit pouvoir partir d'un article et
+   * remonter à l'offre, donc au projet.
+   */
+  | 'offer_line_item'
   | 'delivery_note'
   | 'management_review'
   | 'meeting_minutes'
@@ -85,6 +93,7 @@ export const DMS_SEARCH_ENTITY_LABELS: Record<DmsSearchEntityType, string> = {
   stakeholder:              'Partie intéressée',
   environmental_aspect:     'Aspect environnemental',
   commercial_offer:         'Offre commerciale',
+  offer_line_item:          'Ligne de bordereau',
   delivery_note:            'Bon de livraison',
   management_review:        'Revue de direction',
   meeting_minutes:          'PV de réunion',
@@ -127,6 +136,9 @@ function buildHref(entityType: DmsSearchEntityType, entityId: string, parentId: 
     case 'stakeholder':            return `/admin/stakeholders/${entityId}`
     case 'environmental_aspect':   return `/admin/environment/aspects/${entityId}`
     case 'commercial_offer':       return `/admin/commercial/offers/${entityId}`
+    // La ligne n'a pas de page : elle vit dans le bordereau de son offre, qui
+    // est la destination utile. `parentId` porte donc l'offre, pas la ligne.
+    case 'offer_line_item':        return parentId ? `/admin/commercial/offers/${parentId}` : '/admin/commercial/offers'
     case 'delivery_note':          return `/admin/achat/delivery-notes/${entityId}`
     case 'management_review':      return `/admin/management-reviews/${entityId}`
     case 'meeting_minutes':        return `/admin/meetings/${entityId}`
@@ -203,6 +215,18 @@ const SEARCH_SOURCES: SearchSource[] = [
     label: 'aspect', sublabel: 'activity', where: NOT_DELETED },
   { entityType: 'commercial_offer', table: 'commercial_offers', codes: ['reference'],
     label: 'project_title', sublabel: 'client_name', where: NOT_DELETED },
+  // Les en-têtes (section, catégorie) sont exclus : ce sont des intitulés de
+  // regroupement, pas des prestations, et les remonter noierait les postes
+  // réellement chiffrables sous des « FOURNITURE DES VEGETAUX » répétés.
+  { entityType: 'offer_line_item', table: 'offer_line_items',
+    codes: ['source_code', 'display_code'],
+    label: 'designation', sublabel: 'unit', text: ['description', 'norme'],
+    parentId: 'offer_id',
+    // Une offre supprimée logiquement disparaît du registre : ses lignes
+    // doivent disparaître avec elle, sinon la recherche ressuscite un document
+    // que le module commercial considère comme retiré.
+    where: "line_type IN ('item', 'spec') "
+      + 'AND offer_id IN (SELECT id FROM commercial_offers WHERE deleted_at IS NULL)' },
   { entityType: 'delivery_note', table: 'delivery_notes', codes: ['reference'],
     label: 'counterparty', sublabel: 'note_type::text', where: NOT_DELETED },
   { entityType: 'management_review', table: 'management_reviews', codes: ['reference'],
