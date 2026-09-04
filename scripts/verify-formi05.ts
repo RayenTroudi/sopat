@@ -22,7 +22,7 @@ import { db } from '../db/index'
 import { nonConformances, correctiveActions, users, documents, dmsDocumentLinks, recordAuditLog } from '../db/schema'
 import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm'
 import {
-  createNc, getNcById, updateNcFields, updateNcStatus, createCapa, updateCapa,
+  createNc, getNcById, updateNonConformance, createCapa, updateCapa,
   listNcsForRegisterExport, listNcs, getNcAuditTrail, checkNcClosePrerequisites,
 } from '../src/lib/db/iso'
 import type { AuditActor } from '../src/lib/audit-record'
@@ -120,12 +120,13 @@ async function main() {
   check('CAPA progress stored', c.progressStatus === '70%')
 
   console.log('\n5. Field edits reach the database')
-  await updateNcFields(created.id, {
+  await updateNonConformance(created.id, {
     impact: 'Impact révisé',
     correctionProgress: 0.9,
     isOpportunity: true,
     opportunityDesignation: 'A améliorer',
     riskDesignation: null,
+    changeReason: 'Correction de la qualification après analyse (test)',
   }, actor)
   const edited = (await getNcById(created.id))!
   check('impact updated', edited.impact === 'Impact révisé')
@@ -135,14 +136,20 @@ async function main() {
 
   console.log('\n6. Closure record survives later edits')
   const firstClosure = new Date('2025-06-01T00:00:00.000Z')
-  await updateNcStatus(created.id, 'closed', admin.id, { closedAt: firstClosure, actor })
+  await updateNonConformance(created.id, {
+    status: 'closed', closedAt: firstClosure,
+    changeReason: 'Clôture initiale (test)',
+  }, actor)
   const closed = (await getNcById(created.id))!
   check('closedAt set on first closure', closed.closedAt?.toISOString().startsWith('2025-06-01') ?? false)
   const originalCloser = closed.closedById
 
   // Re-saving an already-closed NC (e.g. editing the root cause) must not
   // re-stamp the closure with today's date and the current editor.
-  await updateNcStatus(created.id, 'closed', admin.id, { rootCause: 'Cause révisée', actor })
+  await updateNonConformance(created.id, {
+    status: 'closed', rootCause: 'Cause révisée',
+    changeReason: 'Précision de la cause racine (test)',
+  }, actor)
   const resaved = (await getNcById(created.id))!
   check('closedAt NOT re-stamped on re-save', resaved.closedAt?.toISOString().startsWith('2025-06-01') ?? false,
     `got ${resaved.closedAt?.toISOString()}`)
@@ -150,7 +157,10 @@ async function main() {
   check('rootCause still updated', resaved.rootCause === 'Cause révisée')
 
   // Reopening must clear the closure.
-  await updateNcStatus(created.id, 'in_progress', admin.id, { actor })
+  await updateNonConformance(created.id, {
+    status: 'in_progress',
+    changeReason: 'Réouverture pour action complémentaire (test)',
+  }, actor)
   const reopened = (await getNcById(created.id))!
   check('reopening clears closedAt', reopened.closedAt === null)
   check('reopening clears closedBy', reopened.closedById === null)
@@ -212,7 +222,7 @@ async function main() {
   check('trail records who acted', !!edit?.actorName)
   check('trail records the role at the time', !!edit?.actorRole)
   const unchangedBefore = trail.length
-  await updateNcFields(created.id, { impact: 'Impact révisé' }, actor)
+  await updateNonConformance(created.id, { impact: 'Impact révisé' }, actor)
   const trailAfter = await getNcAuditTrail(created.id)
   check('a no-op re-save adds no entry', trailAfter.length === unchangedBefore,
     `${unchangedBefore} -> ${trailAfter.length}`)
@@ -314,35 +324,80 @@ async function main() {
   check('no support-process fiche received a guessed phase', Number(mappedWrong) === 0, `got ${mappedWrong}`)
 
   console.log('\n14. recordOrigin is not reachable through the data-layer update path')
-  await updateNcFields(created.id, { impact: 'Contrôle origine' } as Parameters<typeof updateNcFields>[1])
+  await updateNonConformance(created.id, {
+    impact: 'Contrôle origine',
+    changeReason: 'Sonde de contrôle (test)',
+  } as Parameters<typeof updateNonConformance>[1], actor)
   const stillPlatform = (await getNcById(created.id))!
   check('a new NC stays recordOrigin=platform', stillPlatform.recordOrigin === 'platform',
     stillPlatform.recordOrigin)
 
-  console.log('\n15. Closure rule cannot be bypassed through any exposed path')
-  // The gate lives in the PATCH route. The only other writer of `status` is
-  // updateNcStatus, whose sole production caller is that same gated route.
-  // updateNcFields must therefore be unable to move an NC to a closed state.
-  const [preBypass] = await db.select({ status: nonConformances.status })
-    .from(nonConformances).where(eq(nonConformances.id, created.id))
-  await updateNcFields(created.id, {
-    status: 'closed', closedAt: new Date(), closedBy: admin.id, impact: 'Sonde de contournement',
-  } as unknown as Parameters<typeof updateNcFields>[1])
-  const [postBypass] = await db.select({
-    status: nonConformances.status, closedAt: nonConformances.closedAt,
-  }).from(nonConformances).where(eq(nonConformances.id, created.id))
-  check('updateNcFields cannot set status', postBypass.status === preBypass.status,
-    `${preBypass.status} -> ${postBypass.status}`)
-  check('updateNcFields cannot stamp a closure date', postBypass.closedAt === null,
-    String(postBypass.closedAt))
-  const [bypassCheck] = await db.select({ impact: nonConformances.impact })
-    .from(nonConformances).where(eq(nonConformances.id, created.id))
+  // recordOrigin n'existe pas dans UpdateNcInput et le SET est construit champ
+  // par champ : le passer en trop ne peut pas l'écrire.
+  await updateNonConformance(created.id, {
+    recordOrigin: 'imported', importedFrom: 'sonde', impact: 'Contrôle origine 2',
+    changeReason: 'Sonde de contournement recordOrigin (test)',
+  } as unknown as Parameters<typeof updateNonConformance>[1], actor)
+  const originProbe = (await getNcById(created.id))!
+  check('recordOrigin cannot be forced through the update path',
+    originProbe.recordOrigin === 'platform', originProbe.recordOrigin)
   check('the legitimate field in the same call still applied',
-    bypassCheck.impact === 'Sonde de contournement', bypassCheck.impact ?? '')
+    originProbe.impact === 'Contrôle origine 2', originProbe.impact ?? '')
 
-  // And the gate itself still refuses this NC.
-  const stillBlocked = await checkNcClosePrerequisites(created.id, admin.id, 'closed')
-  check('the closure gate still refuses it', stillBlocked.ok === false, stillBlocked.reason ?? '')
+  console.log('\n15. A commitment cannot be moved silently on an engaged fiche')
+  // La fiche est rouverte (in_progress) depuis l'étape 6, donc engagée.
+  const [engaged] = await db.select({
+    status: nonConformances.status, revisionNumber: nonConformances.revisionNumber,
+  }).from(nonConformances).where(eq(nonConformances.id, created.id))
+  check('the test fiche is engaged', engaged.status !== 'open', engaged.status)
+
+  const refused = await updateNonConformance(created.id, {
+    correctionDeadlinePlanned: new Date('2026-12-31T00:00:00.000Z'),
+  }, actor)
+  check('moving a deadline without a motif is refused', refused.ok === false,
+    refused.ok ? 'accepted' : '')
+  check('the refusal is a 422, not a crash',
+    refused.ok === false && refused.status === 422)
+  check('the refusal cites the ISO clause',
+    refused.ok === false && refused.error.includes('7.5.3.2'), refused.ok ? '' : refused.error)
+
+  const [afterRefusal] = await db.select({
+    deadline: nonConformances.correctionDeadlinePlanned,
+    revisionNumber: nonConformances.revisionNumber,
+  }).from(nonConformances).where(eq(nonConformances.id, created.id))
+  check('the refused deadline was NOT written',
+    afterRefusal.deadline?.toISOString().startsWith('2026-12-31') !== true,
+    String(afterRefusal.deadline))
+  check('a refused edit does not consume a revision',
+    afterRefusal.revisionNumber === engaged.revisionNumber,
+    `${engaged.revisionNumber} -> ${afterRefusal.revisionNumber}`)
+
+  const accepted = await updateNonConformance(created.id, {
+    correctionDeadlinePlanned: new Date('2026-12-31T00:00:00.000Z'),
+    changeReason: 'Report demandé par le client, validé en revue (test)',
+  }, actor)
+  check('the same edit with a motif is accepted', accepted.ok === true)
+  check('the revision number incremented',
+    accepted.ok === true && accepted.revisionNumber === engaged.revisionNumber + 1,
+    accepted.ok ? String(accepted.revisionNumber) : '')
+  check('the edit is flagged as a revision', accepted.ok === true && accepted.revised === true)
+
+  const [stamped] = await db.select({
+    updatedBy: nonConformances.updatedBy, revisionNumber: nonConformances.revisionNumber,
+  }).from(nonConformances).where(eq(nonConformances.id, created.id))
+  check('updated_by records who moved the deadline', stamped.updatedBy === admin.id)
+  check('revision_number persisted', stamped.revisionNumber === engaged.revisionNumber + 1)
+
+  const revisionTrail = await getNcAuditTrail(created.id)
+  const revEntry = revisionTrail.find((e) => e.action === 'revised')
+  check('the revision is journalled as "revised"', !!revEntry)
+  const revMeta = (revEntry?.metadata ?? {}) as Record<string, unknown>
+  check('the motif is journalled in metadata.changeReason',
+    typeof revMeta.changeReason === 'string' && revMeta.changeReason.includes('Report demandé'),
+    String(revMeta.changeReason))
+  check('the moved deadline is spelled out in metadata.criticalChange',
+    typeof revMeta.criticalChange === 'string' && revMeta.criticalChange.includes('date prevue'),
+    String(revMeta.criticalChange))
 
   // ── Cleanup ────────────────────────────────────────────────────────────────
   const codes = [created.dmsDocumentCode, capa.dmsDocumentCode].filter(Boolean) as string[]

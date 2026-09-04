@@ -32,6 +32,17 @@ export type AuditEntityType =
   /** FOR-MI-04 : PV de réunion, y compris ceux produits par l'assistant IA. */
   | 'meeting_minute'
   | 'meeting_action_item'
+  /**
+   * FOR-MI-04 : UN participant d'une réunion. Entité à part entière parce que
+   * retirer quelqu'un de la liste de présence d'un PV validé change qui est
+   * réputé avoir pris les décisions — cela doit se lire ligne par ligne.
+   */
+  | 'meeting_participant'
+  /**
+   * FOR-MI-04 : UNE ligne de l'ordre du jour, soit un point prévu et ce qui a
+   * réellement été traité dessus.
+   */
+  | 'meeting_agenda_item'
   /** FOR-CO-02 : le bordereau des prix, édité comme un document entier. */
   | 'commercial_offer'
   /**
@@ -64,6 +75,17 @@ export type AuditEntityType =
   | 'document_review'
   /** FOR-MI-01 : UNE ligne de la grille, soit un document revu et sa decision. */
   | 'document_review_line'
+  /**
+   * FOR-MI-02 : le rapport annuel de veille normative et reglementaire. Meme
+   * regle que FOR-MI-01 — modifier un rapport clos exige un motif, conserve
+   * ici dans `metadata.changeReason` (ISO 9001:2015 §7.5.3.2 c).
+   */
+  | 'regulatory_watch_report'
+  /**
+   * FOR-MI-02 : UNE ligne de la grille, soit un texte consulte, son degre
+   * d'application et l'evaluation de conformite qui en decoule.
+   */
+  | 'regulatory_watch_line'
 
 export type AuditAction =
   | 'created'

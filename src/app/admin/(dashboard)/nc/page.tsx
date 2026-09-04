@@ -1,6 +1,9 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { listNcs, getActiveUsers, type NcStatus, type NcProcess } from '@/lib/db/iso'
+import {
+  listNcs, getActiveUsers, getNcRegisterStats,
+  type NcStatus, type NcProcess,
+} from '@/lib/db/iso'
 import { getAllProjects } from '@/lib/db/projects'
 import { NcPageClient } from './NcPageClient'
 
@@ -21,10 +24,13 @@ export default async function NCPage({ searchParams }: { searchParams: SearchPar
   const projectId = typeof sp.projectId === 'string' ? sp.projectId : undefined
   const search    = typeof sp.search    === 'string' ? sp.search    : undefined
 
-  const [{ rows, total }, users, { rows: allProjects }] = await Promise.all([
+  // Le tableau de bord porte sur tout le registre, pas sur la page affichee :
+  // il est agrege en base et non compte sur `rows`, qui est pagine et filtre.
+  const [{ rows, total }, users, { rows: allProjects }, stats] = await Promise.all([
     listNcs({ status, process, projectId, search }),
     getActiveUsers(),
     getAllProjects({ pageSize: 200 }),
+    getNcRegisterStats(),
   ])
 
   const projects = allProjects.map((p) => ({ id: p.id, name: p.name, reference: p.reference }))
@@ -36,6 +42,7 @@ export default async function NCPage({ searchParams }: { searchParams: SearchPar
     <NcPageClient
       initialRows={rows}
       total={total}
+      stats={stats}
       users={users}
       projects={projects}
       currentUserId={session.user.userId}

@@ -21,6 +21,9 @@
     "migrate:040": "npx tsx --env-file=.env db/seeds/apply-migration-040-iso-reference.ts",
     "test:audit-programs": "npx tsx --env-file=.env scripts/verify-audit-programs.ts",
     "migrate:042": "npx tsx --env-file=.env db/seeds/apply-migration-042-docreview-edit-control.ts",
+    "migrate:043": "npx tsx --env-file=.env db/seeds/apply-migration-043-regwatch-report-grid.ts",
+    "migrate:044": "npx tsx --env-file=.env db/seeds/apply-migration-044-meeting-minutes-structure.ts",
+    "migrate:045": "npx tsx --env-file=.env db/seeds/apply-migration-045-nc-edit-control.ts",
     "migrate:041": "npx tsx --env-file=.env db/seeds/apply-migration-041-clause-scope.ts",
     "test:excel-reconciliation": "npx tsx --env-file=.env scripts/verify-excel-reconciliation.ts",
     "test:audit-traceability": "npx tsx --env-file=.env scripts/verify-audit-traceability.ts"

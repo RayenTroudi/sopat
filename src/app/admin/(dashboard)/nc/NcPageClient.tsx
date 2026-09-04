@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Search, AlertTriangle, ArrowRight, AlertCircle, Loader2, TrendingUp, TrendingDown, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { NcListItem } from '@/lib/db/iso'
+import type { NcListItem, NcRegisterStats } from '@/lib/db/iso'
 import { Button } from '@/components/ui/button'
 import ExportExcelButton from '@/components/ExportExcelButton'
 import { Badge } from '@/components/ui/badge'
@@ -15,6 +15,64 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { TableSkeleton } from '@/components/ui/TableSkeleton'
 import { DeleteModal } from '@/components/ui/DeleteModal'
 import { DeleteButton } from '@/components/ui/DeleteButton'
+
+/**
+ * Une des quatre repartitions du tableau de bord FOR-MI-05. Le pourcentage est
+ * derive du total du registre, jamais lu depuis une colonne stockee.
+ */
+function Distribution({
+  title, entries, total, label, active, onSelect,
+}: {
+  title: string
+  entries: { key: string; count: number }[]
+  total: number
+  label: (key: string) => string
+  active?: string
+  onSelect?: (key: string) => void
+}) {
+  if (entries.length === 0) return null
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+      <div className="flex items-baseline justify-between mb-2">
+        <p className="text-xs font-medium" style={{ color: 'var(--admin-text-muted)' }}>{title}</p>
+        <p className="text-[11px] tabular-nums" style={{ color: 'var(--admin-text-muted)' }}>
+          {total} fiche{total > 1 ? 's' : ''}
+        </p>
+      </div>
+      <ul className="space-y-1.5">
+        {entries.map(({ key, count }) => {
+          const pct = Math.round((count / total) * 100)
+          const isActive = active === key
+          const row = (
+            <>
+              <div className="flex items-baseline justify-between gap-2 text-xs">
+                <span className="truncate" style={{ color: 'var(--admin-text)' }}>{label(key)}</span>
+                <span className="tabular-nums shrink-0" style={{ color: 'var(--admin-text-muted)' }}>
+                  {count} · {pct}%
+                </span>
+              </div>
+              <div className="h-1 mt-1 rounded-full overflow-hidden" style={{ background: 'var(--admin-border)' }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${pct}%`, background: isActive ? 'var(--admin-text)' : 'var(--admin-accent)' }}
+                />
+              </div>
+            </>
+          )
+          return (
+            <li key={key}>
+              {onSelect ? (
+                <button onClick={() => onSelect(key)} className="w-full text-left">{row}</button>
+              ) : (
+                row
+              )}
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
 
 // ─── Labels & Colors ──────────────────────────────────────────────────────────
 
@@ -65,6 +123,12 @@ type Project = { id: string; name: string; reference: string }
 
 type Props = {
   initialRows:     NcListItem[]
+  /**
+   * Repartitions du tableau de bord en tete de FOR-MI-05, calculees en base sur
+   * l'ensemble du registre. Aucun total agrege n'est stocke : le classeur Excel
+   * en gardait, la plateforme les recalcule.
+   */
+  stats:           NcRegisterStats
   total:           number
   users:           User[]
   projects:        Project[]
@@ -113,7 +177,7 @@ const EMPTY_FORM: FormState = {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function NcPageClient({ initialRows, total, users, projects, currentUserId, currentUserName, isAdmin }: Props) {
+export function NcPageClient({ initialRows, stats, total, users, projects, currentUserId, currentUserName, isAdmin }: Props) {
   const [rows, setRows]               = useState(initialRows)
   const [showForm, setShowForm]       = useState(false)
   const [filterStatus, setFilterStatus]   = useState('')
@@ -136,11 +200,8 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
   const riskCount      = rows.filter((r) => r.isRisk).length
   const opportunityCount = rows.filter((r) => r.isOpportunity).length
 
-  // NC by source
-  const bySource: Record<string, number> = {}
-  rows.forEach((r) => { if (r.ncSource) bySource[r.ncSource] = (bySource[r.ncSource] ?? 0) + 1 })
-
-  // NC by dept
+  // Le departement reste compte sur la page : c'est un filtre de navigation, pas
+  // une des quatre repartitions du formulaire.
   const byDept: Record<string, number> = {}
   rows.forEach((r) => { if (r.dept) byDept[r.dept] = (byDept[r.dept] ?? 0) + 1 })
 
@@ -256,26 +317,35 @@ export function NcPageClient({ initialRows, total, users, projects, currentUserI
         ))}
       </div>
 
-      {/* Source distribution */}
-      {Object.keys(bySource).length > 0 && (
-        <div className="rounded-xl border p-3" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-          <p className="text-xs font-medium mb-2" style={{ color: 'var(--admin-text-muted)' }}>Répartition par source</p>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(bySource).map(([src, cnt]) => (
-              <button
-                key={src}
-                onClick={() => { setFilterSource(src === filterSource ? '' : src); setTimeout(() => void loadNcs(), 0) }}
-                className={cn('text-xs px-2.5 py-1 rounded-full border transition-colors', filterSource === src ? 'font-semibold' : '')}
-                style={{
-                  borderColor: 'var(--admin-border)',
-                  background: filterSource === src ? 'var(--admin-text)' : 'var(--admin-bg)',
-                  color: filterSource === src ? 'var(--admin-surface)' : 'var(--admin-text)',
-                }}
-              >
-                {NC_SOURCE_LABELS[src] ?? src} · {cnt}
-              </button>
-            ))}
-          </div>
+      {/* Tableau de bord FOR-MI-05 : type, source, processus, mois */}
+      {stats.total > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <Distribution
+            title="Répartition par type de NC"
+            entries={stats.byType}
+            total={stats.total}
+            label={(k) => NC_TYPE_LABELS[k] ?? k}
+          />
+          <Distribution
+            title="Répartition par source de NC"
+            entries={stats.bySource}
+            total={stats.total}
+            label={(k) => NC_SOURCE_LABELS[k] ?? k}
+            active={filterSource}
+            onSelect={(k) => { setFilterSource(k === filterSource ? '' : k); setTimeout(() => void loadNcs(), 0) }}
+          />
+          <Distribution
+            title="Répartition par processus"
+            entries={stats.byProcess}
+            total={stats.total}
+            label={(k) => PROCESS_LABELS[k] ?? k}
+          />
+          <Distribution
+            title="Répartition par mois"
+            entries={stats.byMonth}
+            total={stats.total}
+            label={(k) => k}
+          />
         </div>
       )}
 

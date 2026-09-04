@@ -1,7 +1,8 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { getRegulatoryWatchEntries } from '@/lib/db/regulatory-watch'
+import { getRegulatoryWatchEntries, getRegulatoryWatchReports, REG_WATCH_REPORT_STATUS_LABELS } from '@/lib/db/regulatory-watch'
 import Link from 'next/link'
+import NewWatchReportButton from './NewWatchReportButton'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Veille Réglementaire | SOPAT Admin' }
@@ -17,7 +18,11 @@ export default async function RegulatoryWatchPage({
   if (!session) redirect('/login')
 
   const status = typeof sp.status === 'string' ? sp.status : undefined
-  const entries = await getRegulatoryWatchEntries(status)
+  const [entries, reports] = await Promise.all([
+    getRegulatoryWatchEntries(status),
+    getRegulatoryWatchReports(),
+  ])
+  const currentYear = new Date().getFullYear()
 
   const applicable = entries.filter(({ entry }) => entry.status === 'applicable').length
   const enVeille = entries.filter(({ entry }) => entry.status === 'en_veille').length
@@ -30,16 +35,69 @@ export default async function RegulatoryWatchPage({
             Veille Réglementaire
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            LIS-MI-07 — Registre des exigences légales et réglementaires
+            FOR-MI-02 / PRC-MI-05 — Rapports de veille et registre des exigences
           </p>
         </div>
-        <Link
-          href="/admin/regulatory-watch/new"
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
-          style={{ background: 'var(--green)', color: 'var(--ivory)' }}
-        >
-          + Nouveau texte
-        </Link>
+        <div className="flex items-center gap-2">
+          <NewWatchReportButton year={currentYear} />
+          <Link
+            href="/admin/regulatory-watch/new"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3 py-1.5 rounded shrink-0 transition-opacity hover:opacity-90"
+            style={{ background: 'var(--green)', color: 'var(--ivory)' }}
+          >
+            + Nouveau texte
+          </Link>
+        </div>
+      </div>
+
+      {/* Les rapports annuels FOR-MI-02 : c'est l'enregistrement que le pilote
+          clôt et signe ; le registre plat en dessous reste la vue par texte. */}
+      <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+        <div className="px-5 py-3" style={{ borderBottom: '1px solid var(--admin-border)' }}>
+          <h2 className="text-[13px] font-semibold" style={{ color: 'var(--admin-text)' }}>
+            Rapports de veille (FOR-MI-02)
+          </h2>
+        </div>
+        <table className="w-full text-sm">
+          <tbody>
+            {reports.map(({ report }) => (
+              <tr key={report.id} style={{ borderTop: '1px solid var(--admin-border)' }} className="hover:bg-[var(--admin-bg)] transition-colors">
+                <td className="px-5 py-3 w-40">
+                  <Link href={`/admin/regulatory-watch/reports/${report.id}`} className="hover:opacity-70 transition-opacity">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded font-mono" style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>
+                      {report.reference}
+                    </span>
+                  </Link>
+                  {report.revisionNumber > 1 && (
+                    <span className="ml-1.5 text-[10px]" style={{ color: 'var(--admin-text-muted)' }}>
+                      rév. {report.revisionNumber}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-[13px] w-20" style={{ color: 'var(--admin-text)' }}>{report.year}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                  {REG_WATCH_REPORT_STATUS_LABELS[report.status]}
+                </td>
+                <td className="px-5 py-3 text-right">
+                  <Link
+                    href={`/admin/regulatory-watch/reports/${report.id}`}
+                    className="px-2 py-0.5 rounded border text-[11px] font-medium"
+                    style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                  >
+                    Éditer
+                  </Link>
+                </td>
+              </tr>
+            ))}
+            {reports.length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm" style={{ color: 'var(--admin-text-muted)' }}>
+                  Aucun rapport de veille. Ouvrez celui de {currentYear} pour commencer la grille.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
       <div className="grid grid-cols-3 gap-4">

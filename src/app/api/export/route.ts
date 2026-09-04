@@ -6,9 +6,15 @@ import { getClientBalances, getClientAccountEntries, ENTRY_TYPE_LABELS, type Cli
 import { getExtraExpenses, getDeliveryNotes, EXPENSE_STATUS_LABELS, NOTE_TYPE_LABELS } from '@/lib/db/achat'
 import { getEnvironmentalAspects, AES_CONDITION_LABELS, AES_STATUS_LABELS } from '@/lib/db/environmental-aspects'
 import { getManagementReviews } from '@/lib/db/management-reviews'
-import { getMeetings } from '@/lib/db/meetings'
+import {
+  getMeetings,
+  getMeetingAgendaForExport,
+  getMeetingActionsForExport,
+  MEETING_STATUS_LABELS,
+} from '@/lib/db/meetings'
 import { getDocumentReviews, getDocumentReviewLinesForExport, DOC_REVIEW_STATUS_LABELS } from '@/lib/db/document-reviews'
 import { getOrganizationalKnowledge, KNOWLEDGE_STATUS_LABELS } from '@/lib/db/organizational-knowledge'
+import { getRegulatoryWatchReports, getRegulatoryWatchLinesForExport, REG_WATCH_REPORT_STATUS_LABELS } from '@/lib/db/regulatory-watch'
 import { listNcsForRegisterExport, listAudits, type NcStatus, type AuditStatus } from '@/lib/db/iso'
 import { getRisksOpportunities } from '@/lib/db/risks-opportunities'
 import { getStakeholders } from '@/lib/db/stakeholders'
@@ -264,26 +270,83 @@ const REGISTERS: Record<string, RegisterDef> = {
     department: 'Management Qualité & Environnement',
     filename: 'pv-de-reunion',
     async build() {
-      const rows = await getMeetings()
-      return [{
-        name: 'PV',
-        columns: [
-          { header: 'Référence', key: 'reference' },
-          { header: 'Date', key: 'meetingDate', format: 'date' },
-          { header: 'Type', key: 'meetingType' },
-          { header: 'Lieu', key: 'location' },
-          { header: 'Participants', key: 'participants', width: 40 },
-          { header: 'Décisions', key: 'decisions', width: 50 },
-        ],
-        rows: rows.map(({ meeting }) => ({
-          reference: meeting.reference,
-          meetingDate: meeting.meetingDate,
-          meetingType: meeting.meetingType,
-          location: meeting.location,
-          participants: meeting.participants,
-          decisions: meeting.decisions,
-        })),
-      }]
+      // Trois feuilles parce que le formulaire officiel porte trois blocs
+      // distincts : sans l'ordre du jour et le plan d'action, le classeur
+      // exporté ne serait pas le document que l'auditeur a en main.
+      const [rows, agenda, actions] = await Promise.all([
+        getMeetings(),
+        getMeetingAgendaForExport(),
+        getMeetingActionsForExport(),
+      ])
+      return [
+        {
+          name: 'PV',
+          columns: [
+            { header: 'Référence', key: 'reference' },
+            { header: 'Date', key: 'meetingDate', format: 'date' },
+            { header: 'Type', key: 'meetingType' },
+            { header: 'Projet associé', key: 'projectName', width: 30 },
+            { header: 'Lieu', key: 'location' },
+            { header: 'Statut', key: 'status' },
+            { header: 'Révision', key: 'revisionNumber' },
+            { header: 'Décisions', key: 'decisions', width: 50 },
+            { header: 'Recommandations', key: 'recommendations', width: 50 },
+          ],
+          rows: rows.map(({ meeting, projectName }) => ({
+            reference: meeting.reference,
+            meetingDate: meeting.meetingDate,
+            meetingType: meeting.meetingType,
+            projectName,
+            location: meeting.location,
+            status: MEETING_STATUS_LABELS[meeting.status] ?? meeting.status,
+            revisionNumber: meeting.revisionNumber,
+            decisions: meeting.decisions,
+            recommendations: meeting.recommendations,
+          })),
+        },
+        {
+          name: 'Ordre du jour',
+          columns: [
+            { header: 'PV', key: 'meetingReference' },
+            { header: 'Date', key: 'meetingDate', format: 'date' },
+            { header: 'N°', key: 'no' },
+            { header: 'Ordre de jour prévu', key: 'plannedItem', width: 45 },
+            { header: 'Points traités', key: 'discussedPoints', width: 45 },
+          ],
+          rows: agenda.map((a) => ({
+            meetingReference: a.meetingReference,
+            meetingDate: a.meetingDate,
+            no: a.sortOrder + 1,
+            plannedItem: a.plannedItem,
+            discussedPoints: a.discussedPoints,
+          })),
+        },
+        {
+          name: "Plan d'action",
+          columns: [
+            { header: 'PV', key: 'meetingReference' },
+            { header: 'Date', key: 'meetingDate', format: 'date' },
+            { header: 'N°', key: 'no' },
+            { header: 'Action', key: 'description', width: 45 },
+            { header: 'Responsable(s)', key: 'responsible', width: 25 },
+            { header: 'Délai prévu', key: 'targetDate', format: 'date' },
+            { header: 'Délai réalisé', key: 'actualDate', format: 'date' },
+            { header: 'Suivi', key: 'followUp', width: 30 },
+            { header: 'Commentaire(s)', key: 'comments', width: 40 },
+          ],
+          rows: actions.map((a) => ({
+            meetingReference: a.meetingReference,
+            meetingDate: a.meetingDate,
+            no: a.sortOrder + 1,
+            description: a.description,
+            responsible: a.responsible,
+            targetDate: a.targetDate,
+            actualDate: a.actualDate,
+            followUp: a.followUp,
+            comments: a.comments,
+          })),
+        },
+      ]
     },
   },
   'document-reviews': {
@@ -343,6 +406,54 @@ const REGISTERS: Record<string, RegisterDef> = {
           riskReviewDescription: l.riskReviewDescription,
           comments: l.comments,
         })),
+      }]
+    },
+  },
+  'regulatory-watch': {
+    roles: ['admin', 'direction'],
+    title: 'Rapports de veille normative et réglementaire (FOR-MI-02)',
+    department: 'Management Qualité & Environnement',
+    filename: 'veille-normative-reglementaire',
+    async build() {
+      const reports = await getRegulatoryWatchReports()
+      return [{
+        name: 'Rapports',
+        columns: [
+          { header: 'Référence', key: 'reference' },
+          { header: 'Année', key: 'year', format: 'number' },
+          { header: 'Statut', key: 'status' },
+          { header: 'Révision', key: 'revisionNumber', format: 'number' },
+          { header: 'Clôturé le', key: 'completedAt', format: 'date' },
+          { header: 'Créé par', key: 'creatorName' },
+        ],
+        rows: reports.map(({ report, creatorName }) => ({
+          reference: report.reference,
+          year: report.year,
+          status: REG_WATCH_REPORT_STATUS_LABELS[report.status],
+          revisionNumber: report.revisionNumber,
+          completedAt: report.completedAt,
+          creatorName,
+        })),
+      }, {
+        // La grille du formulaire officiel, dans l'ordre de ses 13 colonnes.
+        name: 'Veille',
+        columns: [
+          { header: 'Rapport', key: 'reportReference' },
+          { header: 'Date', key: 'watchDate', format: 'date' },
+          { header: 'Type', key: 'watchType' },
+          { header: 'Axe', key: 'axis' },
+          { header: 'Document (Référence)', key: 'reference' },
+          { header: 'Contenu', key: 'content', width: 40 },
+          { header: 'Version / Edition', key: 'version' },
+          { header: 'Document ou site de consultation', key: 'consultationSource', width: 40 },
+          { header: 'Résultats', key: 'results', width: 40 },
+          { header: 'Evaluation du degré d’application', key: 'applicationLevel', width: 30 },
+          { header: 'Evaluation de la conformité', key: 'conformityAssessment', width: 30 },
+          { header: 'Risque associé', key: 'associatedRisk', width: 30 },
+          { header: 'Processus Rattaché', key: 'processCode' },
+          { header: 'Commentaires', key: 'comments', width: 40 },
+        ],
+        rows: await getRegulatoryWatchLinesForExport(),
       }]
     },
   },

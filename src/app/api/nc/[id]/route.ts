@@ -2,14 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import {
   getNcById,
-  updateNcStatus,
-  updateNcPhotos,
-  updateNcFields,
+  updateNonConformance,
   softDeleteNc,
   checkNcClosePrerequisites,
   assertNcWriteAccess,
-  type NcStatus,
 } from '@/lib/db/iso'
+import { getRecordAuditTrail } from '@/lib/audit'
 import { z } from 'zod'
 
 type RouteParams = { params: Promise<{ id: string }> }
@@ -52,6 +50,12 @@ const updateSchema = z.object({
   needsSecondCapa:            z.boolean().optional().nullable(),
   assignedTo:                 z.string().uuid().optional().nullable(),
   deadline:                   z.string().datetime().optional().nullable(),
+  /**
+   * Non requis ici par Zod : c'est le service qui l'exige, parce que
+   * l'obligation depend du statut courant en base et des champs reellement
+   * modifies, pas de la charge utile.
+   */
+  changeReason:               z.string().max(2000).optional(),
 })
 
 export async function GET(_req: NextRequest, { params }: RouteParams) {
@@ -63,7 +67,9 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
   const { id } = await params
   const nc = await getNcById(id)
   if (!nc) return NextResponse.json({ error: 'NC introuvable' }, { status: 404 })
-  return NextResponse.json(nc)
+
+  const trail = await getRecordAuditTrail('non_conformance', id)
+  return NextResponse.json({ ...nc, auditTrail: trail })
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
@@ -88,7 +94,8 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     return NextResponse.json({ error: 'Données invalides', details: parsed.error.flatten() }, { status: 400 })
   }
 
-  const newStatus = parsed.data.status
+  const d = parsed.data
+  const newStatus = d.status
 
   // ISO independence: the person who detected the NC cannot set it to 'verified'
   if (newStatus === 'verified' && session.user.userId === nc.detectedById) {
@@ -108,15 +115,9 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     }
   }
 
-  if (parsed.data.beforePhotoAssetId !== undefined || parsed.data.afterPhotoAssetId !== undefined) {
-    await updateNcPhotos(id, {
-      beforePhotoAssetId: parsed.data.beforePhotoAssetId,
-      afterPhotoAssetId:  parsed.data.afterPhotoAssetId,
-    })
-  }
-
-  // Editable fields (admin/direction only)
-  const d = parsed.data
+  // Les champs du registre restent réservés à l'équipe qualité ; le détecteur et
+  // l'assigné peuvent faire avancer le statut et joindre des photos, pas
+  // réécrire la qualification de l'écart.
   const fieldEditKeys = ['description','ncType','ncSource','dept','ownerType','processAffected',
     'auditorName','detectorName','detectorEmail','referenceDoc','impact','immediateCorrection',
     'derogationAuth','rebut','correctionResponsible','correctionDeadlinePlanned',
@@ -125,59 +126,67 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     'clientResponse','clientResponseRef','isRisk','isOpportunity','riskDesignation',
     'opportunityDesignation','needsSecondCapa','assignedTo','deadline'] as const
   const hasFieldEdit = fieldEditKeys.some(k => d[k] !== undefined)
+  const isAdminOrDirection = session.user.role === 'admin' || session.user.role === 'direction'
 
-  if (hasFieldEdit) {
-    const isAdminOrDirection = session.user.role === 'admin' || session.user.role === 'direction'
-    if (!isAdminOrDirection) {
-      return NextResponse.json({ error: 'Seuls les administrateurs peuvent modifier les champs de la NC' }, { status: 403 })
-    }
-    await updateNcFields(id, {
-      ...(d.description             !== undefined && { description: d.description }),
-      ...(d.ncType                  !== undefined && { ncType: d.ncType }),
-      ...(d.ncSource                !== undefined && { ncSource: d.ncSource }),
-      ...(d.dept                    !== undefined && { dept: d.dept }),
-      ...(d.ownerType               !== undefined && { ownerType: d.ownerType }),
-      ...(d.processAffected         !== undefined && { processAffected: d.processAffected }),
-      ...(d.auditorName             !== undefined && { auditorName: d.auditorName }),
-      ...(d.detectorName            !== undefined && { detectorName: d.detectorName }),
-      ...(d.detectorEmail           !== undefined && { detectorEmail: d.detectorEmail }),
-      ...(d.referenceDoc            !== undefined && { referenceDoc: d.referenceDoc }),
-      ...(d.impact                  !== undefined && { impact: d.impact }),
-      ...(d.immediateCorrection     !== undefined && { immediateCorrection: d.immediateCorrection }),
-      ...(d.derogationAuth          !== undefined && { derogationAuth: d.derogationAuth }),
-      ...(d.rebut                   !== undefined && { rebut: d.rebut }),
-      ...(d.correctionResponsible   !== undefined && { correctionResponsible: d.correctionResponsible }),
-      ...(d.correctionDeadlinePlanned !== undefined && { correctionDeadlinePlanned: d.correctionDeadlinePlanned ? new Date(d.correctionDeadlinePlanned) : null }),
-      ...(d.correctionDeadlineActual  !== undefined && { correctionDeadlineActual:  d.correctionDeadlineActual  ? new Date(d.correctionDeadlineActual)  : null }),
-      ...(d.correctionDeadlinePlannedText !== undefined && { correctionDeadlinePlannedText: d.correctionDeadlinePlannedText }),
-      ...(d.correctionDeadlineActualText  !== undefined && { correctionDeadlineActualText: d.correctionDeadlineActualText }),
-      ...(d.correctionProgress      !== undefined && { correctionProgress: d.correctionProgress }),
-      ...(d.correctionStatus        !== undefined && { correctionStatus: d.correctionStatus }),
-      ...(d.evalDatePlanned         !== undefined && { evalDatePlanned: d.evalDatePlanned ? new Date(d.evalDatePlanned) : null }),
-      ...(d.evalDateActual          !== undefined && { evalDateActual:  d.evalDateActual  ? new Date(d.evalDateActual)  : null }),
-      ...(d.clientResponse          !== undefined && { clientResponse: d.clientResponse }),
-      ...(d.clientResponseRef       !== undefined && { clientResponseRef: d.clientResponseRef }),
-      ...(d.isRisk                  !== undefined && { isRisk: d.isRisk }),
-      ...(d.isOpportunity           !== undefined && { isOpportunity: d.isOpportunity }),
-      ...(d.riskDesignation         !== undefined && { riskDesignation: d.riskDesignation }),
-      ...(d.opportunityDesignation  !== undefined && { opportunityDesignation: d.opportunityDesignation }),
-      ...(d.needsSecondCapa         !== undefined && { needsSecondCapa: d.needsSecondCapa }),
-      ...(d.assignedTo              !== undefined && { assignedTo: d.assignedTo }),
-      ...(d.deadline                !== undefined && { deadline: d.deadline ? new Date(d.deadline) : null }),
-    }, session.user)
+  if (hasFieldEdit && !isAdminOrDirection) {
+    return NextResponse.json({ error: 'Seuls les administrateurs peuvent modifier les champs de la NC' }, { status: 403 })
   }
 
-  if (newStatus !== undefined || d.rootCause !== undefined) {
-    await updateNcStatus(
-      id,
-      (newStatus ?? nc.status) as NcStatus,
-      session.user.userId,
-      { rootCause: d.rootCause ?? undefined, actor: session.user }
-    )
+  const toDate = (v: string | null | undefined) =>
+    v === undefined ? undefined : v === null ? null : new Date(v)
+
+  // Un seul appel, donc une seule transaction : en-tête, correction immédiate,
+  // causes, évaluation, clôture et photos ne peuvent plus diverger.
+  const result = await updateNonConformance(id, {
+    ...(d.description             !== undefined && { description: d.description }),
+    ...(d.ncType                  !== undefined && { ncType: d.ncType }),
+    ...(d.ncSource                !== undefined && { ncSource: d.ncSource }),
+    ...(d.dept                    !== undefined && { dept: d.dept }),
+    ...(d.ownerType               !== undefined && { ownerType: d.ownerType }),
+    ...(d.processAffected         !== undefined && { processAffected: d.processAffected }),
+    ...(d.auditorName             !== undefined && { auditorName: d.auditorName }),
+    ...(d.detectorName            !== undefined && { detectorName: d.detectorName }),
+    ...(d.detectorEmail           !== undefined && { detectorEmail: d.detectorEmail }),
+    ...(d.referenceDoc            !== undefined && { referenceDoc: d.referenceDoc }),
+    ...(d.impact                  !== undefined && { impact: d.impact }),
+    ...(d.rootCause               !== undefined && { rootCause: d.rootCause }),
+    ...(d.immediateCorrection     !== undefined && { immediateCorrection: d.immediateCorrection }),
+    ...(d.derogationAuth          !== undefined && { derogationAuth: d.derogationAuth }),
+    ...(d.rebut                   !== undefined && { rebut: d.rebut }),
+    ...(d.correctionResponsible   !== undefined && { correctionResponsible: d.correctionResponsible }),
+    ...(d.correctionDeadlinePlanned !== undefined && { correctionDeadlinePlanned: toDate(d.correctionDeadlinePlanned) }),
+    ...(d.correctionDeadlineActual  !== undefined && { correctionDeadlineActual:  toDate(d.correctionDeadlineActual) }),
+    ...(d.correctionDeadlinePlannedText !== undefined && { correctionDeadlinePlannedText: d.correctionDeadlinePlannedText }),
+    ...(d.correctionDeadlineActualText  !== undefined && { correctionDeadlineActualText: d.correctionDeadlineActualText }),
+    ...(d.correctionProgress      !== undefined && { correctionProgress: d.correctionProgress }),
+    ...(d.correctionStatus        !== undefined && { correctionStatus: d.correctionStatus }),
+    ...(d.evalDatePlanned         !== undefined && { evalDatePlanned: toDate(d.evalDatePlanned) }),
+    ...(d.evalDateActual          !== undefined && { evalDateActual:  toDate(d.evalDateActual) }),
+    ...(d.clientResponse          !== undefined && { clientResponse: d.clientResponse }),
+    ...(d.clientResponseRef       !== undefined && { clientResponseRef: d.clientResponseRef }),
+    ...(d.isRisk                  !== undefined && { isRisk: d.isRisk }),
+    ...(d.isOpportunity           !== undefined && { isOpportunity: d.isOpportunity }),
+    ...(d.riskDesignation         !== undefined && { riskDesignation: d.riskDesignation }),
+    ...(d.opportunityDesignation  !== undefined && { opportunityDesignation: d.opportunityDesignation }),
+    ...(d.needsSecondCapa         !== undefined && { needsSecondCapa: d.needsSecondCapa }),
+    ...(d.assignedTo              !== undefined && { assignedTo: d.assignedTo }),
+    ...(d.deadline                !== undefined && { deadline: toDate(d.deadline) }),
+    ...(d.beforePhotoAssetId      !== undefined && { beforePhotoAssetId: d.beforePhotoAssetId }),
+    ...(d.afterPhotoAssetId       !== undefined && { afterPhotoAssetId: d.afterPhotoAssetId }),
+    ...(newStatus                 !== undefined && { status: newStatus }),
+    ...(d.changeReason            !== undefined && { changeReason: d.changeReason }),
+  }, session.user)
+
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status })
   }
 
   const updated = await getNcById(id)
-  return NextResponse.json(updated)
+  return NextResponse.json({
+    ...updated,
+    revisionNumber: result.revisionNumber,
+    revised:        result.revised,
+  })
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteParams) {

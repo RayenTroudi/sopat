@@ -88,7 +88,7 @@ export default function NewRegulatoryEntryPage() {
             <input name="publicationDate" type="date" className={inputClass} style={inputStyle} />
           </div>
           <div>
-            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Date d'entrée en vigueur</label>
+            <label className={labelClass} style={{ color: 'var(--admin-text-muted)' }}>Date d&apos;entrée en vigueur</label>
             <input name="effectiveDate" type="date" className={inputClass} style={inputStyle} />
           </div>
         </div>

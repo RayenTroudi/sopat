@@ -28,7 +28,7 @@ import { eq, and, inArray, like, sql, isNotNull } from 'drizzle-orm'
 import {
   createAuditProgram, createNcFromAuditFinding, getNcOriginFinding,
   getAuditProgramById, upsertAuditProgramItems, checkNcClosePrerequisites,
-  getNcById, createCapa, updateCapa, updateNcStatus,
+  getNcById, createCapa, updateCapa, updateNonConformance,
 } from '../src/lib/db/iso'
 import type { AuditActor } from '../src/lib/audit-record'
 import { ncFromFindingSchema } from '../src/lib/validation/project-docs'
@@ -280,7 +280,10 @@ async function main() {
       const gateOk = await checkNcClosePrerequisites(raised.ncId, admin.id, 'closed')
       check('closure permitted once evidence + verification exist', gateOk.ok === true,
         gateOk.reason ?? '')
-      await updateNcStatus(raised.ncId, 'closed', admin.id, { actor })
+      await updateNonConformance(raised.ncId, {
+        status: 'closed',
+        changeReason: 'Clôture après vérification d\'efficacité (test e2e)',
+      }, actor)
       const closed = (await getNcById(raised.ncId))!
       check('NC closed through the normal path', closed.status === 'closed', closed.status)
       check('closure date recorded', closed.closedAt !== null)

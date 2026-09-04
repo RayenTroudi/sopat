@@ -299,6 +299,10 @@ export type NcDetail = {
   riskDesignation: string | null
   opportunityDesignation: string | null
   needsSecondCapa: boolean | null
+  /** Rev. 1 = version d'origine ; incremente a chaque revision motivee. */
+  revisionNumber: number
+  /** Dernier auteur d'une modification, distinct du createur. */
+  updatedById: string | null
   recordOrigin: string
   importedFrom: string | null
   importedAt: Date | null
@@ -394,6 +398,8 @@ export async function getNcById(id: string): Promise<NcDetail | null> {
       riskDesignation:           nonConformances.riskDesignation,
       opportunityDesignation:    nonConformances.opportunityDesignation,
       needsSecondCapa:           nonConformances.needsSecondCapa,
+      revisionNumber:            nonConformances.revisionNumber,
+      updatedById:               nonConformances.updatedBy,
       recordOrigin:              nonConformances.recordOrigin,
       importedFrom:              nonConformances.importedFrom,
       importedAt:                nonConformances.importedAt,
@@ -603,174 +609,263 @@ export async function createNc(input: {
   })
 }
 
-export async function updateNcStatus(
+/**
+ * Champs dont la modification engage la qualite : une echeance, un responsable,
+ * la qualification de l'ecart ou son impact. Ce sont eux, et pas la correction
+ * d'une faute de frappe dans la description, qui declenchent l'obligation de
+ * motif - le libelle sert a ecrire le motif en clair dans le journal.
+ */
+const NC_CRITICAL_FIELDS: Record<string, string> = {
+  status:                        'Statut',
+  ncType:                        'Type de NC',
+  ncSource:                      'Source de NC',
+  impact:                        'Impact de la non-conformite',
+  assignedTo:                    'Responsable de la fiche',
+  deadline:                      'Echeance',
+  correctionResponsible:         'Correction - responsable',
+  correctionDeadlinePlanned:     'Correction - date prevue',
+  correctionDeadlinePlannedText: 'Correction - date prevue',
+  correctionDeadlineActual:      'Correction - date realisee',
+  correctionDeadlineActualText:  'Correction - date realisee',
+  evalDatePlanned:               "Evaluation d'efficacite - date prevue",
+  evalDateActual:                "Evaluation d'efficacite - date realisee",
+  needsSecondCapa:               "Necessite d'une deuxieme action corrective",
+}
+
+/**
+ * Une fiche « open » vient d'etre ouverte et se corrige librement. Des qu'elle
+ * est engagee - instruction en cours, cloturee ou verifiee - des engagements ont
+ * ete pris devant quelqu'un, et les defaire sans motif est exactement ce que
+ * l'ISO 9001:2015 §7.5.3.2 c) interdit.
+ */
+const NC_ENGAGED_STATUSES = new Set<string>(['in_progress', 'closed', 'verified'])
+
+/** Resume lisible des engagements deplaces, pour le journal d'audit. */
+function describeCriticalChange(
+  previous: Record<string, unknown>,
+  next: Record<string, unknown>,
+): string | null {
+  const seen = new Set<string>()
+  const parts: string[] = []
+  for (const key of Object.keys(next)) {
+    const label = NC_CRITICAL_FIELDS[key]
+    if (!label || seen.has(label)) continue
+    seen.add(label)
+    parts.push(`${label} : ${previous[key] ?? '-'} -> ${next[key] ?? '-'}`)
+  }
+  return parts.length ? parts.join(' ; ') : null
+}
+
+export type UpdateNcInput = {
+  description?:               string
+  ncType?:                    string | null
+  ncSource?:                  string | null
+  dept?:                      string | null
+  ownerType?:                 string | null
+  processAffected?:           string | null
+  auditorName?:               string | null
+  detectorName?:              string | null
+  detectorEmail?:             string | null
+  referenceDoc?:              string | null
+  impact?:                    string | null
+  rootCause?:                 string | null
+  immediateCorrection?:       string | null
+  derogationAuth?:            boolean | null
+  rebut?:                     boolean | null
+  correctionResponsible?:     string | null
+  correctionDeadlinePlanned?: Date | null
+  correctionDeadlineActual?:  Date | null
+  correctionDeadlinePlannedText?: string | null
+  correctionDeadlineActualText?:  string | null
+  correctionProgress?:        number | null
+  correctionStatus?:          string | null
+  evalDatePlanned?:           Date | null
+  evalDateActual?:            Date | null
+  clientResponse?:            string | null
+  clientResponseRef?:         string | null
+  isRisk?:                    boolean | null
+  isOpportunity?:             boolean | null
+  riskDesignation?:           string | null
+  opportunityDesignation?:    string | null
+  needsSecondCapa?:           boolean | null
+  assignedTo?:                string | null
+  deadline?:                  Date | null
+  status?:                    NcStatus
+  beforePhotoAssetId?:        string
+  afterPhotoAssetId?:         string
+  /**
+   * Date de cloture explicite. Non exposee par le schema Zod de la route : sert
+   * aux scripts de reprise de donnees a restituer la date reelle de cloture
+   * d'une fiche historique plutot que celle de l'import.
+   */
+  closedAt?:                  Date
+  /** Obligatoire des qu'un champ critique bouge sur une fiche engagee. */
+  changeReason?:              string
+}
+
+export type UpdateNcResult =
+  | { ok: true; revisionNumber: number; revised: boolean }
+  | { ok: false; status: 404 | 422; error: string }
+
+/**
+ * Modifie une fiche NC/PNC/reclamation (FOR-MI-05) : identification, correction
+ * immediate, analyse des causes, evaluation, reponse client et cloture dans un
+ * seul appel, donc une seule transaction.
+ *
+ * Avant, la route enchainait trois ecritures independantes (photos, champs,
+ * statut) : une panne au milieu laissait la fiche a moitie modifiee, et le
+ * journal d'audit etait insere hors transaction - une NC pouvait donc bouger
+ * sans laisser de trace. Tout est desormais atomique avec `recordAudit`.
+ */
+export async function updateNonConformance(
   id: string,
-  status: NcStatus,
-  actorId: string,
-  opts?: { rootCause?: string; closedAt?: Date; actor?: AuditActor }
-) {
-  const now = new Date()
-  const [current] = await db
-    .select({
-      status: nonConformances.status,
-      closedAt: nonConformances.closedAt,
-      rootCause: nonConformances.rootCause,
-    })
+  input: UpdateNcInput,
+  actor: AuditActor,
+): Promise<UpdateNcResult> {
+  const [before] = await db
+    .select()
     .from(nonConformances)
-    .where(eq(nonConformances.id, id))
+    .where(and(eq(nonConformances.id, id), isNull(nonConformances.deletedAt)))
     .limit(1)
+  if (!before) return { ok: false, status: 404, error: 'NC introuvable' }
+
+  const now = new Date()
+  const status = input.status ?? (before.status as NcStatus)
+
+  // Champs journalisables : les photos sont des pieces jointes, pas des donnees
+  // du registre, et n'entrent pas dans le diff.
+  const candidate: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined) continue
+    if (key === 'beforePhotoAssetId' || key === 'afterPhotoAssetId' || key === 'changeReason') continue
+    candidate[key] = value
+  }
+
+  const changed = diffFields(before as Record<string, unknown>, candidate)
+
+  const engaged = NC_ENGAGED_STATUSES.has(before.status)
+  const criticalChange = changed
+    ? describeCriticalChange(changed.previous, changed.next)
+    : null
+  const reason = input.changeReason?.trim() ?? ''
+
+  if (engaged && criticalChange && reason.length === 0) {
+    return {
+      ok: false,
+      status: 422,
+      error:
+        'Cette fiche est engagee : un motif est obligatoire pour modifier une echeance, '
+        + "un responsable ou la qualification de l'ecart (ISO 9001:2015 §7.5.3.2).",
+    }
+  }
+
+  const revised = Boolean(engaged && criticalChange)
+  const nextRevision = revised ? before.revisionNumber + 1 : before.revisionNumber
 
   const isClosing = status === 'closed' || status === 'verified'
-  const wasClosed = current?.status === 'closed' || current?.status === 'verified'
+  const wasClosed = before.status === 'closed' || before.status === 'verified'
   // Preserve the original closure record: re-saving an already-closed NC (e.g.
-  // editing its root cause, or moving closed → verified) must not re-stamp
+  // editing its root cause, or moving closed -> verified) must not re-stamp
   // closedAt/closedBy with today's date and the current editor. ISO 9001
   // traceability requires the first closure to survive later edits.
-  const keepExistingClosure = isClosing && wasClosed && current?.closedAt != null
+  const keepExistingClosure = isClosing && wasClosed && before.closedAt != null
 
+  const f = input
   await db.transaction(async (tx) => {
     await tx
       .update(nonConformances)
       .set({
-        status,
-        rootCause: opts?.rootCause,
-        ...(isClosing
-          ? keepExistingClosure
-            ? (opts?.closedAt ? { closedAt: opts.closedAt } : {})
-            : { closedAt: opts?.closedAt ?? now, closedBy: actorId }
-          : { closedAt: null, closedBy: null }),
-        updatedAt: now,
+        ...(f.description             !== undefined && { description: f.description }),
+        ...(f.ncType                  !== undefined && { ncType: f.ncType as typeof nonConformances.$inferInsert['ncType'] }),
+        ...(f.ncSource                !== undefined && { ncSource: f.ncSource as NcSource }),
+        ...(f.dept                    !== undefined && { dept: f.dept as NcDept }),
+        ...(f.ownerType               !== undefined && { ownerType: f.ownerType as typeof nonConformances.$inferInsert['ownerType'] }),
+        ...(f.processAffected         !== undefined && { processAffected: f.processAffected as typeof nonConformances.$inferInsert['processAffected'] }),
+        ...(f.auditorName             !== undefined && { auditorName: f.auditorName }),
+        ...(f.detectorName            !== undefined && { detectorName: f.detectorName }),
+        ...(f.detectorEmail           !== undefined && { detectorEmail: f.detectorEmail }),
+        ...(f.referenceDoc            !== undefined && { referenceDoc: f.referenceDoc }),
+        ...(f.impact                  !== undefined && { impact: f.impact }),
+        ...(f.rootCause               !== undefined && { rootCause: f.rootCause }),
+        ...(f.immediateCorrection     !== undefined && { immediateCorrection: f.immediateCorrection }),
+        ...(f.derogationAuth          !== undefined && { derogationAuth: f.derogationAuth }),
+        ...(f.rebut                   !== undefined && { rebut: f.rebut }),
+        ...(f.correctionResponsible   !== undefined && { correctionResponsible: f.correctionResponsible }),
+        ...(f.correctionDeadlinePlanned !== undefined && { correctionDeadlinePlanned: f.correctionDeadlinePlanned }),
+        ...(f.correctionDeadlineActual  !== undefined && { correctionDeadlineActual: f.correctionDeadlineActual }),
+        ...(f.correctionDeadlinePlannedText !== undefined && { correctionDeadlinePlannedText: f.correctionDeadlinePlannedText }),
+        ...(f.correctionDeadlineActualText  !== undefined && { correctionDeadlineActualText: f.correctionDeadlineActualText }),
+        ...(f.correctionProgress      !== undefined && { correctionProgress: f.correctionProgress }),
+        ...(f.correctionStatus        !== undefined && { correctionStatus: f.correctionStatus }),
+        ...(f.evalDatePlanned         !== undefined && { evalDatePlanned: f.evalDatePlanned }),
+        ...(f.evalDateActual          !== undefined && { evalDateActual: f.evalDateActual }),
+        ...(f.clientResponse          !== undefined && { clientResponse: f.clientResponse }),
+        ...(f.clientResponseRef       !== undefined && { clientResponseRef: f.clientResponseRef }),
+        ...(f.isRisk                  !== undefined && { isRisk: f.isRisk }),
+        ...(f.isOpportunity           !== undefined && { isOpportunity: f.isOpportunity }),
+        ...(f.riskDesignation         !== undefined && { riskDesignation: f.riskDesignation }),
+        ...(f.opportunityDesignation  !== undefined && { opportunityDesignation: f.opportunityDesignation }),
+        ...(f.needsSecondCapa         !== undefined && { needsSecondCapa: f.needsSecondCapa }),
+        ...(f.assignedTo              !== undefined && { assignedTo: f.assignedTo }),
+        ...(f.deadline                !== undefined && { deadline: f.deadline }),
+        ...(f.beforePhotoAssetId      !== undefined && { beforePhotoAssetId: f.beforePhotoAssetId }),
+        ...(f.afterPhotoAssetId       !== undefined && { afterPhotoAssetId: f.afterPhotoAssetId }),
+        ...(f.status !== undefined && {
+          status,
+          ...(isClosing
+            ? keepExistingClosure
+              ? (f.closedAt ? { closedAt: f.closedAt } : {})
+              : { closedAt: f.closedAt ?? now, closedBy: actor.userId }
+            : { closedAt: null, closedBy: null }),
+        }),
+        revisionNumber: nextRevision,
+        updatedBy:      actor.userId,
+        updatedAt:      now,
       })
       .where(eq(nonConformances.id, id))
 
-    if (!opts?.actor) return
-    const changed = diffFields(
-      { status: current?.status ?? null, rootCause: current?.rootCause ?? null },
-      { status, ...(opts.rootCause !== undefined && { rootCause: opts.rootCause }) },
-    )
+    // Un re-enregistrement sans changement ne doit pas enterrer les vraies
+    // modifications sous du bruit.
     if (!changed) return
-    // A status transition is a quality decision, so it is named as such rather
-    // than folded into a generic "updated" entry.
+
+    // Une transition de statut est une decision qualite : elle est nommee comme
+    // telle plutot que fondue dans un « updated » generique.
     const action =
-      status === current?.status ? 'updated'
-      : status === 'verified'    ? 'verified'
-      : isClosing                ? 'closed'
-      : wasClosed                ? 'reopened'
+      revised                                                    ? 'revised'
+      : input.status === undefined || status === before.status   ? 'updated'
+      : status === 'verified'                                    ? 'verified'
+      : isClosing                                                ? 'closed'
+      : wasClosed                                                ? 'reopened'
       : 'status_changed'
+
     await recordAudit(tx, {
       entityType: 'non_conformance',
       entityId:   id,
       action,
-      actor:      opts.actor,
-      previousState: changed.previous,
-      newState:      changed.next,
-      metadata: { closurePreserved: keepExistingClosure },
+      actor,
+      previousState: { ...changed.previous, revisionNumber: before.revisionNumber },
+      newState:      { ...changed.next,     revisionNumber: nextRevision },
+      metadata: {
+        reference:      before.reference,
+        statusAtChange: before.status,
+        changeReason:   reason || null,
+        // Diff des engagements en clair : comparer deux blobs JSON est
+        // precisement la friction qui laisse passer une echeance repoussee.
+        ...(criticalChange ? { criticalChange } : {}),
+        closurePreserved: keepExistingClosure,
+        revisionNumber:   nextRevision,
+      },
     })
   })
-}
 
-export async function updateNcFields(
-  id: string,
-  fields: {
-    description?:               string
-    ncType?:                    string | null
-    ncSource?:                  string | null
-    dept?:                      string | null
-    ownerType?:                 string | null
-    processAffected?:           string | null
-    auditorName?:               string | null
-    detectorName?:              string | null
-    detectorEmail?:             string | null
-    referenceDoc?:              string | null
-    impact?:                    string | null
-    immediateCorrection?:       string | null
-    derogationAuth?:            boolean | null
-    rebut?:                     boolean | null
-    correctionResponsible?:     string | null
-    correctionDeadlinePlanned?: Date | null
-    correctionDeadlineActual?:  Date | null
-    correctionDeadlinePlannedText?: string | null
-    correctionDeadlineActualText?:  string | null
-    correctionProgress?:        number | null
-    correctionStatus?:          string | null
-    evalDatePlanned?:           Date | null
-    evalDateActual?:            Date | null
-    clientResponse?:            string | null
-    isRisk?:                    boolean | null
-    isOpportunity?:             boolean | null
-    riskDesignation?:           string | null
-    opportunityDesignation?:    string | null
-    needsSecondCapa?:           boolean | null
-    assignedTo?:                string | null
-    deadline?:                  Date | null
-    rootCause?:                 string | null
-  },
-  /** ISO 9001 traceability — omitted only by data-migration scripts. */
-  actor?: AuditActor,
-) {
-  const [before] = actor
-    ? await db.select().from(nonConformances).where(eq(nonConformances.id, id)).limit(1)
-    : [null]
-
-  await db
-    .update(nonConformances)
-    .set({
-      ...(fields.description             !== undefined && { description: fields.description }),
-      ...(fields.ncType                  !== undefined && { ncType: fields.ncType as typeof nonConformances.$inferInsert['ncType'] }),
-      ...(fields.ncSource                !== undefined && { ncSource: fields.ncSource as NcSource }),
-      ...(fields.dept                    !== undefined && { dept: fields.dept as NcDept }),
-      ...(fields.ownerType               !== undefined && { ownerType: fields.ownerType as typeof nonConformances.$inferInsert['ownerType'] }),
-      ...(fields.processAffected         !== undefined && { processAffected: fields.processAffected as typeof nonConformances.$inferInsert['processAffected'] }),
-      ...(fields.auditorName             !== undefined && { auditorName: fields.auditorName }),
-      ...(fields.detectorName            !== undefined && { detectorName: fields.detectorName }),
-      ...(fields.detectorEmail           !== undefined && { detectorEmail: fields.detectorEmail }),
-      ...(fields.referenceDoc            !== undefined && { referenceDoc: fields.referenceDoc }),
-      ...(fields.impact                  !== undefined && { impact: fields.impact }),
-      ...(fields.immediateCorrection     !== undefined && { immediateCorrection: fields.immediateCorrection }),
-      ...(fields.derogationAuth          !== undefined && { derogationAuth: fields.derogationAuth }),
-      ...(fields.rebut                   !== undefined && { rebut: fields.rebut }),
-      ...(fields.correctionResponsible   !== undefined && { correctionResponsible: fields.correctionResponsible }),
-      ...(fields.correctionDeadlinePlanned !== undefined && { correctionDeadlinePlanned: fields.correctionDeadlinePlanned }),
-      ...(fields.correctionDeadlineActual  !== undefined && { correctionDeadlineActual: fields.correctionDeadlineActual }),
-      ...(fields.correctionDeadlinePlannedText !== undefined && { correctionDeadlinePlannedText: fields.correctionDeadlinePlannedText }),
-      ...(fields.correctionDeadlineActualText  !== undefined && { correctionDeadlineActualText: fields.correctionDeadlineActualText }),
-      ...(fields.correctionProgress        !== undefined && { correctionProgress: fields.correctionProgress }),
-      ...(fields.correctionStatus        !== undefined && { correctionStatus: fields.correctionStatus }),
-      ...(fields.evalDatePlanned         !== undefined && { evalDatePlanned: fields.evalDatePlanned }),
-      ...(fields.evalDateActual          !== undefined && { evalDateActual: fields.evalDateActual }),
-      ...(fields.clientResponse          !== undefined && { clientResponse: fields.clientResponse }),
-      ...(fields.isRisk                  !== undefined && { isRisk: fields.isRisk }),
-      ...(fields.isOpportunity           !== undefined && { isOpportunity: fields.isOpportunity }),
-      ...(fields.riskDesignation         !== undefined && { riskDesignation: fields.riskDesignation }),
-      ...(fields.opportunityDesignation  !== undefined && { opportunityDesignation: fields.opportunityDesignation }),
-      ...(fields.needsSecondCapa         !== undefined && { needsSecondCapa: fields.needsSecondCapa }),
-      ...(fields.assignedTo              !== undefined && { assignedTo: fields.assignedTo }),
-      ...(fields.deadline                !== undefined && { deadline: fields.deadline }),
-      ...(fields.rootCause               !== undefined && { rootCause: fields.rootCause }),
-      updatedAt: new Date(),
-    })
-    .where(eq(nonConformances.id, id))
-
-  if (!actor || !before) return
-  // Only the fields that actually moved are journalled, so an unchanged
-  // re-submit does not bury real edits in noise.
-  const changed = diffFields(before as Record<string, unknown>, fields as Record<string, unknown>)
-  if (!changed) return
-  await recordAudit(db, {
-    entityType: 'non_conformance',
-    entityId:   id,
-    action:     'updated',
-    actor,
-    previousState: changed.previous,
-    newState:      changed.next,
-    metadata: { reference: before.reference, statusAtChange: before.status },
-  })
+  return { ok: true, revisionNumber: nextRevision, revised }
 }
 
 export async function softDeleteNc(id: string, actorId: string, actor?: AuditActor): Promise<boolean> {
-  const result = await db
+  return db.transaction(async (tx) => {
+  const result = await tx
     .update(nonConformances)
-    .set({ deletedAt: new Date() })
+    .set({ deletedAt: new Date(), updatedBy: actorId })
     .where(and(eq(nonConformances.id, id), isNull(nonConformances.deletedAt)))
     .returning({
       id: nonConformances.id,
@@ -780,9 +875,9 @@ export async function softDeleteNc(id: string, actorId: string, actor?: AuditAct
     })
   if (result.length === 0) return false
   const code = result[0].dmsDocumentCode
-  if (code) await obsoleteDmsDocument(db, code, actorId)
+  if (code) await obsoleteDmsDocument(tx, code, actorId)
   if (actor) {
-    await recordAudit(db, {
+    await recordAudit(tx, {
       entityType: 'non_conformance',
       entityId:   id,
       action:     'deleted',
@@ -793,14 +888,16 @@ export async function softDeleteNc(id: string, actorId: string, actor?: AuditAct
     })
   }
   return true
+  })
 }
 
 export async function softDeleteCapa(
   id: string, ncId: string, actorId: string, actor?: AuditActor,
 ): Promise<boolean> {
-  const result = await db
+  return db.transaction(async (tx) => {
+  const result = await tx
     .update(correctiveActions)
-    .set({ status: 'closed' })
+    .set({ status: 'closed', updatedBy: actorId })
     .where(and(eq(correctiveActions.id, id), eq(correctiveActions.ncId, ncId)))
     .returning({
       id: correctiveActions.id,
@@ -809,9 +906,9 @@ export async function softDeleteCapa(
     })
   if (result.length === 0) return false
   const code = result[0].dmsDocumentCode
-  if (code) await obsoleteDmsDocument(db, code, actorId)
+  if (code) await obsoleteDmsDocument(tx, code, actorId)
   if (actor) {
-    await recordAudit(db, {
+    await recordAudit(tx, {
       entityType: 'corrective_action',
       entityId:   id,
       action:     'deleted',
@@ -821,6 +918,7 @@ export async function softDeleteCapa(
     })
   }
   return true
+  })
 }
 
 export async function softDeleteAudit(id: string, actorId: string): Promise<boolean> {
@@ -833,20 +931,6 @@ export async function softDeleteAudit(id: string, actorId: string): Promise<bool
   const code = result[0].dmsDocumentCode
   if (code) await obsoleteDmsDocument(db, code, actorId)
   return true
-}
-
-export async function updateNcPhotos(
-  id: string,
-  photos: { beforePhotoAssetId?: string; afterPhotoAssetId?: string }
-) {
-  await db
-    .update(nonConformances)
-    .set({
-      ...(photos.beforePhotoAssetId !== undefined && { beforePhotoAssetId: photos.beforePhotoAssetId }),
-      ...(photos.afterPhotoAssetId !== undefined && { afterPhotoAssetId: photos.afterPhotoAssetId }),
-      updatedAt: new Date(),
-    })
-    .where(eq(nonConformances.id, id))
 }
 
 // ─── CAPA ─────────────────────────────────────────────────────────────────────
@@ -928,6 +1012,53 @@ export async function createCapa(input: {
   })
 }
 
+/**
+ * Champs d'une action corrective dont la modification defait un engagement pris.
+ * Repousser `deadlinePlanned` est le geste que l'ISO 9001 demande de tracer.
+ */
+const CAPA_CRITICAL_FIELDS: Record<string, string> = {
+  actionDescription:   "Libelle de l'action",
+  responsibleId:       'Responsable',
+  responsibleName:     'Responsable',
+  deadlinePlanned:     'Date prevue',
+  deadlinePlannedText: 'Date prevue',
+  deadlineActual:      'Date realisee',
+  deadlineActualText:  'Date realisee',
+  evalDatePlanned:     "Date d'evaluation prevue",
+  evalDatePlannedText: "Date d'evaluation prevue",
+  evalDateActual:      "Date d'evaluation realisee",
+  evalDateActualText:  "Date d'evaluation realisee",
+  status:              'Statut',
+}
+
+function describeCapaCriticalChange(
+  previous: Record<string, unknown>,
+  next: Record<string, unknown>,
+): string | null {
+  const seen = new Set<string>()
+  const parts: string[] = []
+  for (const key of Object.keys(next)) {
+    const label = CAPA_CRITICAL_FIELDS[key]
+    if (!label || seen.has(label)) continue
+    seen.add(label)
+    parts.push(`${label} : ${previous[key] ?? '-'} -> ${next[key] ?? '-'}`)
+  }
+  return parts.length ? parts.join(' ; ') : null
+}
+
+export type UpdateCapaResult =
+  | { ok: true; capa: typeof correctiveActions.$inferSelect; revisionNumber: number; revised: boolean }
+  | { ok: false; status: 404 | 422; error: string }
+
+/**
+ * Modifie une action corrective. La mutation et son journal sont dans la meme
+ * transaction : avant, l'ecriture etait validee puis `recordAudit` inseree a
+ * part, si bien qu'une echeance pouvait etre repoussee sans trace si le journal
+ * echouait.
+ *
+ * Une AC deja engagee (en cours, cloturee ou verifiee) exige un motif pour tout
+ * changement d'echeance, de responsable ou de statut.
+ */
 export async function updateCapa(
   capaId: string,
   input: {
@@ -949,64 +1080,175 @@ export async function updateCapa(
     verifiedBy?:        string
     closedAt?:          Date
     notes?:             string
+    /** Obligatoire des qu'un champ critique bouge sur une AC engagee. */
+    changeReason?:      string
   },
   /** ISO 9001 traceability — omitted only by data-migration scripts. */
   actor?: AuditActor,
-) {
+): Promise<UpdateCapaResult> {
   const now = new Date()
-  const [before] = actor
-    ? await db.select().from(correctiveActions).where(eq(correctiveActions.id, capaId)).limit(1)
-    : [null]
+  const [before] = await db
+    .select().from(correctiveActions).where(eq(correctiveActions.id, capaId)).limit(1)
+  if (!before) return { ok: false, status: 404, error: 'Action corrective introuvable' }
 
-  const [updated] = await db
-    .update(correctiveActions)
-    .set({
-      ...(input.actionDescription !== undefined && { actionDescription: input.actionDescription }),
-      ...(input.responsibleId     !== undefined && { responsibleId: input.responsibleId }),
-      ...(input.responsibleName   !== undefined && { responsibleName: input.responsibleName }),
-      ...(input.deadlinePlanned   !== undefined && { deadlinePlanned: input.deadlinePlanned, deadline: input.deadlinePlanned }),
-      ...(input.deadlineActual    !== undefined && { deadlineActual: input.deadlineActual }),
-      ...(input.deadlinePlannedText !== undefined && { deadlinePlannedText: input.deadlinePlannedText }),
-      ...(input.deadlineActualText  !== undefined && { deadlineActualText: input.deadlineActualText }),
-      ...(input.evalDatePlanned   !== undefined && { evalDatePlanned: input.evalDatePlanned }),
-      ...(input.evalDateActual    !== undefined && { evalDateActual: input.evalDateActual }),
-      ...(input.evalDatePlannedText !== undefined && { evalDatePlannedText: input.evalDatePlannedText }),
-      ...(input.evalDateActualText  !== undefined && { evalDateActualText: input.evalDateActualText }),
-      ...(input.progressStatus    !== undefined && { progressStatus: input.progressStatus }),
-      ...(input.status            !== undefined && { status: input.status }),
-      ...(input.evidenceAssetId   !== undefined && { evidenceAssetId: input.evidenceAssetId }),
-      ...(input.effectivenessVerified !== undefined && { effectivenessVerified: input.effectivenessVerified }),
-      ...(input.notes             !== undefined && { notes: input.notes }),
-      verifiedAt: input.effectivenessVerified ? now : undefined,
-      closedAt:   input.status === 'closed' ? (input.closedAt ?? now) : undefined,
-      updatedAt:  now,
-    })
-    .where(eq(correctiveActions.id, capaId))
-    .returning()
+  const candidate: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined || key === 'changeReason' || key === 'verifiedBy') continue
+    candidate[key] = value
+  }
+  const changed = diffFields(before as Record<string, unknown>, candidate)
 
-  if (actor && before) {
-    const changed = diffFields(before as Record<string, unknown>, input as Record<string, unknown>)
-    if (changed) {
-      // Effectiveness verification is the ISO-critical transition, so it is
-      // named rather than reported as a generic update.
-      const action = input.effectivenessVerified && !before.effectivenessVerified
-        ? 'verified'
-        : input.status === 'closed' && before.status !== 'closed'
-          ? 'closed'
-          : 'updated'
-      await recordAudit(db, {
-        entityType: 'corrective_action',
-        entityId:   capaId,
-        action,
-        actor,
-        previousState: changed.previous,
-        newState:      changed.next,
-        metadata: { ncId: before.ncId },
-      })
+  const engaged = before.status !== 'open' || before.effectivenessVerified
+  const criticalChange = changed
+    ? describeCapaCriticalChange(changed.previous, changed.next)
+    : null
+  const reason = input.changeReason?.trim() ?? ''
+
+  if (actor && engaged && criticalChange && reason.length === 0) {
+    return {
+      ok: false,
+      status: 422,
+      error:
+        'Cette action corrective est engagee : un motif est obligatoire pour modifier '
+        + 'son echeance, son responsable ou son statut (ISO 9001:2015 §7.5.3.2).',
     }
   }
 
-  return updated
+  const revised = Boolean(actor && engaged && criticalChange)
+  const nextRevision = revised ? before.revisionNumber + 1 : before.revisionNumber
+
+  let updated!: typeof correctiveActions.$inferSelect
+  await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(correctiveActions)
+      .set({
+        ...(input.actionDescription !== undefined && { actionDescription: input.actionDescription }),
+        ...(input.responsibleId     !== undefined && { responsibleId: input.responsibleId }),
+        ...(input.responsibleName   !== undefined && { responsibleName: input.responsibleName }),
+        ...(input.deadlinePlanned   !== undefined && { deadlinePlanned: input.deadlinePlanned, deadline: input.deadlinePlanned }),
+        ...(input.deadlineActual    !== undefined && { deadlineActual: input.deadlineActual }),
+        ...(input.deadlinePlannedText !== undefined && { deadlinePlannedText: input.deadlinePlannedText }),
+        ...(input.deadlineActualText  !== undefined && { deadlineActualText: input.deadlineActualText }),
+        ...(input.evalDatePlanned   !== undefined && { evalDatePlanned: input.evalDatePlanned }),
+        ...(input.evalDateActual    !== undefined && { evalDateActual: input.evalDateActual }),
+        ...(input.evalDatePlannedText !== undefined && { evalDatePlannedText: input.evalDatePlannedText }),
+        ...(input.evalDateActualText  !== undefined && { evalDateActualText: input.evalDateActualText }),
+        ...(input.progressStatus    !== undefined && { progressStatus: input.progressStatus }),
+        ...(input.status            !== undefined && { status: input.status }),
+        ...(input.evidenceAssetId   !== undefined && { evidenceAssetId: input.evidenceAssetId }),
+        ...(input.effectivenessVerified !== undefined && { effectivenessVerified: input.effectivenessVerified }),
+        ...(input.notes             !== undefined && { notes: input.notes }),
+        verifiedAt: input.effectivenessVerified ? now : undefined,
+        verifiedBy: input.effectivenessVerified ? input.verifiedBy : undefined,
+        closedAt:   input.status === 'closed' ? (input.closedAt ?? now) : undefined,
+        revisionNumber: nextRevision,
+        ...(actor && { updatedBy: actor.userId }),
+        updatedAt:  now,
+      })
+      .where(eq(correctiveActions.id, capaId))
+      .returning()
+    updated = row
+
+    if (!actor || !changed) return
+
+    // Effectiveness verification is the ISO-critical transition, so it is
+    // named rather than reported as a generic update.
+    const action =
+      input.effectivenessVerified && !before.effectivenessVerified ? 'verified'
+      : input.status === 'closed' && before.status !== 'closed'    ? 'closed'
+      : revised                                                     ? 'revised'
+      : 'updated'
+
+    await recordAudit(tx, {
+      entityType: 'corrective_action',
+      entityId:   capaId,
+      action,
+      actor,
+      previousState: { ...changed.previous, revisionNumber: before.revisionNumber },
+      newState:      { ...changed.next,     revisionNumber: nextRevision },
+      metadata: {
+        ncId:           before.ncId,
+        changeReason:   reason || null,
+        ...(criticalChange ? { criticalChange } : {}),
+        revisionNumber: nextRevision,
+      },
+    })
+  })
+
+  return { ok: true, capa: updated, revisionNumber: nextRevision, revised }
+}
+
+/**
+ * Le tableau de bord en tete de FOR-MI-05 (repartition par type, source,
+ * processus et mois) est recalcule ici a partir des lignes du registre.
+ *
+ * Volontairement une agregation SQL et non un comptage cote client : la liste
+ * est paginee, donc compter les lignes affichees donnerait la repartition de la
+ * page courante et non celle du registre. Aucun total n'est stocke - le
+ * formulaire Excel le faisait, la plateforme ne doit pas.
+ */
+export type NcRegisterStats = {
+  total: number
+  byType:    { key: string; count: number }[]
+  bySource:  { key: string; count: number }[]
+  byProcess: { key: string; count: number }[]
+  byMonth:   { key: string; count: number }[]
+}
+
+const NC_MONTHS = [
+  'Janvier', 'Fevrier', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Aout', 'Septembre', 'Octobre', 'Novembre', 'Decembre',
+]
+
+export async function getNcRegisterStats(): Promise<NcRegisterStats> {
+  const rows = await db
+    .select({
+      ncType:    nonConformances.ncType,
+      ncSource:  nonConformances.ncSource,
+      process:   nonConformances.processAffected,
+      ncMonth:   nonConformances.ncMonth,
+      detectedAt: nonConformances.detectedAt,
+    })
+    .from(nonConformances)
+    .where(isNull(nonConformances.deletedAt))
+
+  const tally = (pick: (r: (typeof rows)[number]) => string | null) => {
+    const acc = new Map<string, number>()
+    for (const r of rows) {
+      const k = pick(r)
+      if (!k) continue
+      acc.set(k, (acc.get(k) ?? 0) + 1)
+    }
+    return [...acc.entries()]
+      .map(([key, count]) => ({ key, count }))
+      .sort((a, b) => b.count - a.count)
+  }
+
+  // Le registre historique porte un libelle de mois saisi a la main ; les fiches
+  // creees sur la plateforme n'en ont pas et le mois se deduit de la date.
+  const byMonthMap = new Map<string, number>()
+  for (const r of rows) {
+    const label = r.ncMonth?.trim() || NC_MONTHS[new Date(r.detectedAt).getMonth()]
+    if (!label) continue
+    byMonthMap.set(label, (byMonthMap.get(label) ?? 0) + 1)
+  }
+  // Le registre historique ecrit « Fevrier » ou « Fevrier » selon la saisie :
+  // on compare sans accents plutot que d'imposer une orthographe.
+  const fold = (v: string) =>
+    v.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim()
+  const monthIndex = (label: string) =>
+    NC_MONTHS.findIndex((m) => fold(m) === fold(label))
+
+  return {
+    total:     rows.length,
+    byType:    tally((r) => r.ncType),
+    bySource:  tally((r) => r.ncSource),
+    byProcess: tally((r) => r.process),
+    // Chronologique et non par volume : c'est une saisonnalite qui se lit.
+    byMonth:   [...byMonthMap.entries()]
+      .map(([key, count]) => ({ key, count }))
+      .sort((a, b) => monthIndex(a.key) - monthIndex(b.key)),
+  }
 }
 
 export type NcRegisterRow = NcDetail
@@ -1063,6 +1305,9 @@ export async function getNcAuditTrail(ncId: string) {
       actorRole:     recordAuditLog.actorRoleSnapshot,
       previousState: recordAuditLog.previousState,
       newState:      recordAuditLog.newState,
+      // Porte le motif de modification et le resume des engagements deplaces :
+      // sans elle l'historique affiche qu'une echeance a bouge, jamais pourquoi.
+      metadata:      recordAuditLog.metadata,
       occurredAt:    recordAuditLog.occurredAt,
     })
     .from(recordAuditLog)

@@ -32,7 +32,7 @@ import { and, eq, sql } from 'drizzle-orm'
 import {
   createAuditProgram, getAuditProgramById, upsertAuditProgramItems,
   createNcFromAuditFinding, getNcOriginFinding, createCapa, updateCapa,
-  checkNcClosePrerequisites, updateNcStatus, getNcById,
+  checkNcClosePrerequisites, updateNonConformance, getNcById,
 } from '../src/lib/db/iso'
 import { getAnnualCoverage, getAuditClauseCoverage } from '../src/lib/db/iso-reference'
 
@@ -147,7 +147,10 @@ async function main() {
   const allowed = await checkNcClosePrerequisites(ncId, auditor.id, 'closed')
   check('la clôture est permise une fois preuve et vérification enregistrées',
     allowed.ok === true, allowed.reason ?? '')
-  await updateNcStatus(ncId, 'closed', auditor.id, { actor })
+  await updateNonConformance(ncId, {
+    status: 'closed',
+    changeReason: 'Clôture après vérification d\'efficacité (test de traçabilité)',
+  }, actor)
   const nc = await getNcById(ncId)
   check('la non-conformité est clôturée', nc?.status === 'closed', String(nc?.status))
   check('la vérification d\'efficacité est persistée',

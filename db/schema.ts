@@ -377,6 +377,12 @@ export const feedbackChannelEnum = pgEnum('feedback_channel', [
   'autre',
 ])
 
+export const documentReviewStatusEnum = pgEnum('document_review_status', [
+  'planned',
+  'in_progress',
+  'completed',
+])
+
 export const regulatoryStatusEnum = pgEnum('regulatory_status', [
   'applicable',
   'non_applicable',
@@ -1015,6 +1021,18 @@ export const nonConformances = pgTable('non_conformances', {
   ...timestamps,
   deletedAt: timestamp('deleted_at'),
   createdBy: uuid('created_by').notNull(),
+  /**
+   * Dernier auteur d'une modification. `createdBy` dit qui a ouvert la fiche ;
+   * sans cette colonne le registre ne disait jamais qui avait ensuite déplacé
+   * une échéance ou changé un responsable.
+   */
+  updatedBy: uuid('updated_by'),
+  /**
+   * Rev. 1 = version d'origine. Incrémente à chaque modification d'un champ
+   * critique (échéance, responsable, type, impact) sur une fiche déjà engagée,
+   * avec motif obligatoire — ISO 9001:2015 §7.5.3.2 c).
+   */
+  revisionNumber: integer('revision_number').notNull().default(1),
 }, (t) => [
   index('nc_project_id_idx').on(t.projectId),
   index('nc_status_idx').on(t.status),
@@ -1026,6 +1044,7 @@ export const nonConformances = pgTable('non_conformances', {
   foreignKey({ columns: [t.assignedTo], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.closedBy], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
 ])
 
 /**
@@ -1079,6 +1098,14 @@ export const correctiveActions = pgTable('corrective_actions', {
   importedAt: timestamp('imported_at'),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
+  /** Voir nonConformances.updatedBy. */
+  updatedBy: uuid('updated_by'),
+  /**
+   * Rev. 1 = version d'origine. Repousser l'échéance d'une action corrective
+   * est précisément le geste que la norme demande de tracer, et il se fait ici,
+   * pas sur la NC.
+   */
+  revisionNumber: integer('revision_number').notNull().default(1),
 }, (t) => [
   index('capa_nc_id_idx').on(t.ncId),
   index('capa_status_idx').on(t.status),
@@ -1087,6 +1114,7 @@ export const correctiveActions = pgTable('corrective_actions', {
   foreignKey({ columns: [t.responsibleId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.verifiedBy], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
 ])
 
 /**
@@ -2652,10 +2680,61 @@ export const staffSuggestions = pgTable('staff_suggestions', {
 
 // ─── Regulatory Watch (LIS-MI-07) ────────────────────────────────────────────
 
+/**
+ * FOR-MI-02 « Rapport de veille normative et réglementaire ».
+ *
+ * Le formulaire officiel est annuel : un en-tête « Année » au-dessus de la
+ * grille des textes consultés. Le registre `regulatory_watch` était plat, sans
+ * ce regroupement — donc sans le rapport que le pilote clôt et signe.
+ */
+export const regulatoryWatchReports = pgTable('regulatory_watch_reports', {
+  id:             uuid('id').primaryKey().defaultRandom(),
+  reference:      varchar('reference', { length: 30 }).notNull().unique(),
+  /** En-tête « Année » du formulaire. */
+  year:           integer('year').notNull(),
+  /**
+   * Réutilise l'enum posé par FOR-MI-01 : le parcours planifié → en cours →
+   * terminé est identique, et un second enum aux mêmes valeurs finirait par
+   * diverger.
+   */
+  status:         documentReviewStatusEnum('status').notNull().default('planned'),
+  /**
+   * Rev. 1 = version d'origine. Incrémente à chaque modification d'un rapport
+   * déjà terminé : ISO 9001:2015 §7.5.3.2 c) veut qu'un enregistrement qualité
+   * clos ne puisse pas être réécrit en silence. Le motif est porté par
+   * record_audit_log.metadata, avec l'avant/après.
+   */
+  revisionNumber: integer('revision_number').notNull().default(1),
+  completedAt:    timestamp('completed_at'),
+  completedBy:    uuid('completed_by'),
+  updatedBy:      uuid('updated_by'),
+  deletedAt:      timestamp('deleted_at'),
+  ...timestamps,
+  createdBy:      uuid('created_by').notNull(),
+}, (t) => [
+  index('regulatory_watch_reports_year_idx').on(t.year),
+  index('regulatory_watch_reports_status_idx').on(t.status),
+  foreignKey({ columns: [t.createdBy],   foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy],   foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.completedBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * Une entrée de veille — et, quand elle est rattachée à un rapport, UNE ligne
+ * de la grille FOR-MI-02. Les colonnes reprennent le formulaire officiel dans
+ * son ordre : Date, Type, Axe, Document (Référence), Contenu, Version/Edition,
+ * Document ou site de consultation, Résultats, Evaluation du degré
+ * d'application, Evaluation de la conformité, Risque associé, Processus
+ * Rattaché, Commentaires.
+ *
+ * `reportId` est nullable : le registre autonome reste utilisable sans rapport.
+ */
 export const regulatoryWatch = pgTable('regulatory_watch', {
   id: uuid('id').primaryKey().defaultRandom(),
+  reportId: uuid('report_id'),
+  /** Colonne « Document (Référence) ». */
   reference: varchar('reference', { length: 50 }),
-  title: varchar('title', { length: 500 }).notNull(),
+  title: varchar('title', { length: 500 }),
   domain: varchar('domain', { length: 100 }),
   issuingBody: varchar('issuing_body', { length: 255 }),
   publicationDate: date('publication_date'),
@@ -2663,13 +2742,42 @@ export const regulatoryWatch = pgTable('regulatory_watch', {
   status: regulatoryStatusEnum('status').notNull().default('applicable'),
   complianceNotes: text('compliance_notes'),
   nextReviewDate: date('next_review_date'),
+  /** Colonne « Date » — la date de consultation, distincte des dates du texte. */
+  watchDate: date('watch_date'),
+  /** Colonne « Type » (norme, décret, arrêté, loi…). */
+  watchType: varchar('watch_type', { length: 120 }),
+  /** Colonne « Axe ». */
+  axis: varchar('axis', { length: 120 }),
+  /** Colonne « Contenu ». */
+  content: text('content'),
+  /** Colonne « Version / Edition ». */
+  version: varchar('version', { length: 60 }),
+  /** Colonne « Document ou site de consultation ». */
+  consultationSource: text('consultation_source'),
+  /** Colonne « Résultats ». */
+  results: text('results'),
+  /** Colonne « Evaluation du degré d'application ». */
+  applicationLevel: text('application_level'),
+  /** Colonne « Evaluation de la conformité ». */
+  conformityAssessment: text('conformity_assessment'),
+  /** Colonne « Risque associé ». */
+  associatedRisk: text('associated_risk'),
+  /** Colonne « Processus Rattaché ». */
+  processCode: ncDeptEnum('process_code'),
+  /** Colonne « Commentaires ». */
+  comments: text('comments'),
+  sortOrder: integer('sort_order').notNull().default(0),
+  updatedBy: uuid('updated_by'),
   deletedAt: timestamp('deleted_at'),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
   index('regulatory_watch_status_idx').on(t.status),
   index('regulatory_watch_domain_idx').on(t.domain),
+  index('regulatory_watch_report_idx').on(t.reportId),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.reportId],  foreignColumns: [regulatoryWatchReports.id] }),
 ])
 
 // ─── Waste Tracking (FOR-MI-11) ───────────────────────────────────────────────
@@ -3793,6 +3901,12 @@ export const meetingMinutes = pgTable('meeting_minutes', {
   meetingDate:     date('meeting_date').notNull(),
   meetingType:     varchar('meeting_type', { length: 100 }),
   location:        varchar('location', { length: 255 }),
+  /**
+   * Capture libre historique, encore écrite par l'assistant IA. La saisie
+   * structurée du formulaire vit désormais dans `meetingParticipants` /
+   * `meetingAgendaItems` : ces colonnes restent pour ne rien perdre de
+   * l'existant, elles ne sont plus la source de vérité du FOR-MI-04.
+   */
   participants:    text('participants'),
   absentees:       text('absentees'),
   agenda:          text('agenda'),
@@ -3802,6 +3916,30 @@ export const meetingMinutes = pgTable('meeting_minutes', {
   deletedAt:       timestamp('deleted_at'),
   ...timestamps,
   createdBy:       uuid('created_by').notNull(),
+
+  // ── FOR-MI-04 : en-tête du formulaire et contrôle documentaire ─────────────
+  /** « Projet associé » : le PV rejoint l'arborescence projet. */
+  projectId:       uuid('project_id'),
+  /**
+   * Réutilise l'enum de FOR-MI-01 : un second enum aux mêmes valeurs finirait
+   * par diverger. `completed` = PV validé, donc verrouillé : toute
+   * modification ultérieure devient une révision motivée.
+   */
+  status:          documentReviewStatusEnum('status').notNull().default('in_progress'),
+  /**
+   * Rev. 1 = version d'origine. Incrémente à chaque modification d'un PV déjà
+   * terminé : ISO 9001:2015 §7.5.3.2 c) veut qu'un engagement pris en réunion
+   * ne puisse pas être réécrit en silence. Le motif est porté par
+   * record_audit_log.metadata.changeReason, avec l'avant/après.
+   */
+  revisionNumber:  integer('revision_number').notNull().default(1),
+  completedAt:     timestamp('completed_at'),
+  completedBy:     uuid('completed_by'),
+  updatedBy:       uuid('updated_by'),
+  /** Bandeau « Recommandations » du formulaire. */
+  recommendations: text('recommendations'),
+  /** Cellule « Heure: » qui accompagne la date de la prochaine réunion. */
+  nextMeetingTime: varchar('next_meeting_time', { length: 10 }),
 
   // ── Assistant de réunion IA ────────────────────────────────────────────────
   // Colonnes additives, nullables, source par défaut 'manual' : les PV
@@ -3831,7 +3969,65 @@ export const meetingMinutes = pgTable('meeting_minutes', {
   index('meeting_minutes_date_idx').on(t.meetingDate),
   index('meeting_minutes_source_idx').on(t.source),
   index('meeting_minutes_ai_status_idx').on(t.aiStatus),
+  index('meeting_minutes_project_idx').on(t.projectId),
+  index('meeting_minutes_status_idx').on(t.status),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.projectId], foreignColumns: [projects.id] }),
+  foreignKey({ columns: [t.completedBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * FOR-MI-04, bloc « Participant(s): Nom, prénom et poste ».
+ *
+ * Une relation et non une colonne texte : le PV doit pouvoir répondre à
+ * « à quelles réunions cette personne a-t-elle participé ? », ce qu'une
+ * chaîne libre ne permet pas. `userId` reste nullable — un client ou un
+ * sous-traitant est un participant de plein droit sans compte SOPAT.
+ */
+export const meetingParticipants = pgTable('meeting_participants', {
+  id:         uuid('id').primaryKey().defaultRandom(),
+  meetingId:  uuid('meeting_id').notNull(),
+  fullName:   varchar('full_name', { length: 255 }).notNull(),
+  position:   varchar('position', { length: 255 }),
+  userId:     uuid('user_id'),
+  present:    boolean('present').notNull().default(true),
+  sortOrder:  integer('sort_order').notNull().default(0),
+  deletedAt:  timestamp('deleted_at'),
+  createdBy:  uuid('created_by').notNull(),
+  updatedBy:  uuid('updated_by'),
+  ...timestamps,
+}, (t) => [
+  index('meeting_participants_meeting_idx').on(t.meetingId),
+  index('meeting_participants_user_idx').on(t.userId),
+  foreignKey({ columns: [t.meetingId], foreignColumns: [meetingMinutes.id] }),
+  foreignKey({ columns: [t.userId],    foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * FOR-MI-04, grille « N° | Ordre de jour prévu | Points traités ».
+ *
+ * Les deux colonnes vivent sur la même ligne parce que c'est leur mise en
+ * regard qui fait le PV : ce qui était prévu, et ce qui a réellement été
+ * traité. Les séparer en deux blocs de texte perdrait l'appariement.
+ */
+export const meetingAgendaItems = pgTable('meeting_agenda_items', {
+  id:              uuid('id').primaryKey().defaultRandom(),
+  meetingId:       uuid('meeting_id').notNull(),
+  plannedItem:     text('planned_item'),
+  discussedPoints: text('discussed_points'),
+  sortOrder:       integer('sort_order').notNull().default(0),
+  deletedAt:       timestamp('deleted_at'),
+  createdBy:       uuid('created_by').notNull(),
+  updatedBy:       uuid('updated_by'),
+  ...timestamps,
+}, (t) => [
+  index('meeting_agenda_items_meeting_idx').on(t.meetingId),
+  foreignKey({ columns: [t.meetingId], foreignColumns: [meetingMinutes.id] }),
+  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
 ])
 
 export const meetingActionItems = pgTable('meeting_action_items', {
@@ -3856,6 +4052,21 @@ export const meetingActionItems = pgTable('meeting_action_items', {
   // webhook rejoué ou une régénération ne duplique rien. NULL pour les actions
   // saisies à la main, que Postgres ne considère jamais comme dupliquées.
   dedupeKey:   varchar('dedupe_key', { length: 64 }),
+
+  // ── FOR-MI-04 : colonnes du plan d'action du formulaire ───────────────────
+  /**
+   * « Délai Réalisé ». Distinct de `completedAt`, qui horodate le clic
+   * « marquer réalisée » dans l'outil : confondre les deux ferait perdre la
+   * date que le responsable a effectivement annoncée en réunion.
+   */
+  actualDate:  date('actual_date'),
+  /** « Suivi » : l'avancement tel qu'il est écrit dans le formulaire. */
+  followUp:    text('follow_up'),
+  comments:    text('comments'),
+  sortOrder:   integer('sort_order').notNull().default(0),
+  /** « Never delete records » : une action retirée du plan reste consultable. */
+  deletedAt:   timestamp('deleted_at'),
+  updatedBy:   uuid('updated_by'),
 }, (t) => [
   index('meeting_action_items_meeting_idx').on(t.meetingId),
   index('meeting_action_items_assignee_idx').on(t.assigneeId),
@@ -3863,6 +4074,7 @@ export const meetingActionItems = pgTable('meeting_action_items', {
   foreignKey({ columns: [t.meetingId], foreignColumns: [meetingMinutes.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.assigneeId], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy], foreignColumns: [users.id] }),
 ])
 
 /**
@@ -4217,12 +4429,6 @@ export const offerLineItems = pgTable('offer_line_items', {
 ])
 
 // ─── Revue documentaire périodique (FOR-MI-01 / PRC-MI-01) ───────────────────
-
-export const documentReviewStatusEnum = pgEnum('document_review_status', [
-  'planned',
-  'in_progress',
-  'completed',
-])
 
 export const documentReviews = pgTable('document_reviews', {
   id:               uuid('id').primaryKey().defaultRandom(),

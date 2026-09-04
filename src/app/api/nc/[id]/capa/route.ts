@@ -52,6 +52,8 @@ const updateSchema = z.object({
   evidenceAssetId:       z.string().uuid().optional(),
   effectivenessVerified: z.boolean().optional(),
   notes:                 z.string().optional(),
+  /** Exige par le service des qu'un champ critique bouge sur une AC engagee. */
+  changeReason:          z.string().max(2000).optional(),
 })
 
 const toDate = (v: string | null | undefined) =>
@@ -105,7 +107,7 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       )
     }
 
-    const updated = await updateCapa(d.capaId, {
+    const result = await updateCapa(d.capaId, {
       actionDescription:     d.actionDescription,
       responsibleId:         d.responsibleId,
       responsibleName:       d.responsibleName,
@@ -123,8 +125,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       effectivenessVerified: d.effectivenessVerified,
       verifiedBy:            d.effectivenessVerified ? session.user.userId : undefined,
       notes:                 d.notes,
+      changeReason:          d.changeReason,
     }, session.user)
-    return NextResponse.json(updated)
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
+    }
+    return NextResponse.json({
+      ...result.capa,
+      revisionNumber: result.revisionNumber,
+      revised:        result.revised,
+    })
   }
 
   // ── Create path ─────────────────────────────────────────────────────────────

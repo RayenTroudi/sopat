@@ -59,6 +59,8 @@ type AuditEntry = {
   actorRole:     string
   previousState: unknown
   newState:      unknown
+  /** Porte `changeReason` et `criticalChange` — le pourquoi, pas seulement le quoi. */
+  metadata:      unknown
   occurredAt:    Date
 }
 
@@ -76,7 +78,7 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   created: 'Création', updated: 'Modification', deleted: 'Suppression',
   imported: 'Reprise du registre historique', reclassified: 'Reclassement',
   status_changed: 'Changement de statut', closed: 'Clôture',
-  reopened: 'Réouverture', verified: 'Vérification',
+  reopened: 'Réouverture', verified: 'Vérification', revised: 'Révision',
   approved: 'Approbation', rejected: 'Rejet',
 }
 const AUDIT_ENTITY_LABELS: Record<string, string> = {
@@ -163,6 +165,16 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
   const [edit, setEdit]             = useState<EditState>(() => editStateFrom(initialNc))
   const [editSaving, setEditSaving] = useState(false)
   const [editError, setEditError]   = useState('')
+  // Motif de modification : exigé par le serveur dès qu'un engagement bouge sur
+  // une fiche déjà instruite. Le champ est toujours offert, jamais deviné.
+  const [changeReason, setChangeReason] = useState('')
+
+  /**
+   * Une fiche « open » se corrige librement. Dès qu'elle est instruite, clôturée
+   * ou vérifiée, des engagements ont été pris et le serveur exige un motif pour
+   * les défaire (ISO 9001:2015 §7.5.3.2 c).
+   */
+  const isEngaged = nc.status !== 'open'
 
   async function reload() {
     const res = await fetch(`/api/nc/${nc.id}`)
@@ -219,12 +231,14 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
         riskDesignation:        edit.isRisk ? orNull(edit.riskDesignation) : null,
         opportunityDesignation: edit.isOpportunity ? orNull(edit.opportunityDesignation) : null,
         needsSecondCapa: edit.needsSecondCapa,
+        changeReason: changeReason.trim() || undefined,
       }),
     })
     const data = await res.json() as NcDetail & { error?: string }
     if (!res.ok) { setEditError(data.error ?? 'Erreur'); setEditSaving(false); return }
     setNc(data)
     setEditing(false)
+    setChangeReason('')
     setEditSaving(false)
   }
 
@@ -235,7 +249,11 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
     const res = await fetch(`/api/nc/${nc.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status, rootCause: rootCause || undefined }),
+      body: JSON.stringify({
+        status,
+        rootCause: rootCause || undefined,
+        changeReason: changeReason.trim() || undefined,
+      }),
     })
     const data = await res.json() as NcDetail & { error?: string }
     if (!res.ok) { setStatusError(data.error ?? 'Erreur'); setStatusLoading(false); return }
@@ -582,6 +600,30 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
               </div>
             </div>
 
+            <SectionRule label="Motif de la modification" />
+            <div className="space-y-1.5">
+              <p className="text-xs" style={{ color: 'var(--admin-text-muted)' }}>
+                {isEngaged
+                  ? 'Cette fiche est engagée. Modifier une échéance, un responsable, le type '
+                    + 'ou l\'impact exige un motif : il est conservé au journal et la fiche passe '
+                    + `en révision ${(nc.revisionNumber ?? 1) + 1}.`
+                  : 'Facultatif tant que la fiche est ouverte — il devient obligatoire dès qu\'elle '
+                    + 'est instruite.'}
+              </p>
+              <textarea
+                value={changeReason}
+                onChange={(e) => setChangeReason(e.target.value)}
+                rows={2}
+                placeholder="Report demandé par le client, validé en revue du 12/03…"
+                className="w-full text-sm rounded-lg border px-3 py-2"
+                style={{
+                  borderColor: 'var(--admin-border)',
+                  background: 'var(--admin-bg)',
+                  color: 'var(--admin-text)',
+                }}
+              />
+            </div>
+
             {editError && (
               <p className="text-xs" style={{ color: 'var(--admin-red)' }}>{editError}</p>
             )}
@@ -592,7 +634,11 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
                 className="text-sm px-4 py-2 rounded-lg font-medium text-white disabled:opacity-60"
                 style={{ background: 'var(--admin-accent)' }}
               >
-                {editSaving ? 'Enregistrement…' : 'Enregistrer'}
+                {editSaving
+                  ? 'Enregistrement…'
+                  : isEngaged
+                    ? `Enregistrer en révision ${(nc.revisionNumber ?? 1) + 1}`
+                    : 'Enregistrer'}
               </button>
               <button
                 onClick={() => { setEditing(false); setEditError('') }}
@@ -727,6 +773,7 @@ export function NcDetailClient({ nc: initialNc, users, currentUserId, currentUse
                     {e.actorName}
                     <span style={{ color: 'var(--admin-text-muted)' }}> ({e.actorRole})</span>
                   </p>
+                  <AuditReason metadata={e.metadata} />
                   <AuditDiff previous={e.previousState} next={e.newState} />
                 </div>
               </li>
@@ -1062,6 +1109,34 @@ function CapaCard({
             </span>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Le motif et le résumé en clair des engagements déplacés. Lire un diff JSON est
+ * précisément la friction qui laisse passer une échéance repoussée en silence.
+ */
+function AuditReason({ metadata }: { metadata: unknown }) {
+  const meta = (metadata ?? {}) as Record<string, unknown>
+  const reason = typeof meta.changeReason === 'string' ? meta.changeReason : null
+  const critical = typeof meta.criticalChange === 'string' ? meta.criticalChange : null
+  const revision = typeof meta.revisionNumber === 'number' ? meta.revisionNumber : null
+  if (!reason && !critical) return null
+
+  return (
+    <div className="mt-1.5 pl-2 border-l-2 space-y-0.5" style={{ borderColor: 'var(--admin-amber)' }}>
+      {critical && (
+        <p className="text-[11px]" style={{ color: 'var(--admin-text)' }}>
+          {critical}
+        </p>
+      )}
+      {reason && (
+        <p className="text-[11px] italic" style={{ color: 'var(--admin-text-muted)' }}>
+          Motif : {reason}
+          {revision != null ? ` (rév. ${revision})` : ''}
+        </p>
       )}
     </div>
   )
