@@ -3,11 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, LineChart, Line, XAxis, YAxis } from 'recharts'
-import { Phone, Mail, Users, Building2, MapPin, Pencil, MessageSquare, Calendar, ArrowRight, Star, TrendingUp, X } from 'lucide-react'
+import { Phone, Mail, Users, Building2, MapPin, Pencil, MessageSquare, Calendar, ArrowRight, Star, TrendingUp, X, Briefcase } from 'lucide-react'
 import type { ClientRow, ClientInteractionRow } from '@/lib/db/clients'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DeleteModal } from '@/components/ui/DeleteModal'
 import { DeleteButton } from '@/components/ui/DeleteButton'
+import { ClientProfileForm } from './ClientProfileForm'
+import { CLIENT_TYPE_LABELS, POTENTIAL_LABELS } from '@/lib/clients/options'
 
 type ClientProject = {
   id: string
@@ -37,10 +39,13 @@ type Props = {
   interactions: ClientInteractionRow[]
   satisfaction: SatisfactionRecord[]
   canEdit: boolean
+  canToggleFeatured: boolean
   canDelete: boolean
   canLogInteraction: boolean
   canDeleteInteraction: boolean
   canSeeFullName: boolean
+  /** Ouvre directement le profil en édition (deep link `?edit=1`). */
+  initialEditing?: boolean
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -59,14 +64,6 @@ const TYPE_LABELS: Record<string, string> = {
   hotelier_touristique:    'Hôtelier & touristique',
   residentiel:             'Résidentiel',
   interieur:               'Intérieur',
-}
-
-const CLIENT_TYPE_LABELS: Record<string, string> = {
-  entreprise:           'Entreprise',
-  institution_publique: 'Institution publique',
-  promoteur_immobilier: 'Promoteur immobilier',
-  residentiel_prive:    'Résidentiel privé',
-  autre:                'Autre',
 }
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
@@ -134,12 +131,15 @@ export function ClientDetailTabs({
   interactions,
   satisfaction,
   canEdit,
+  canToggleFeatured,
   canDelete,
   canLogInteraction,
   canDeleteInteraction,
   canSeeFullName,
+  initialEditing = false,
 }: Props) {
   const [tab, setTab] = useState<Tab>('profil')
+  const [editingProfile, setEditingProfile] = useState(initialEditing)
   const [showInteractionForm, setShowInteractionForm] = useState(false)
   const [intForm, setIntForm] = useState({
     interactionType: 'appel',
@@ -213,8 +213,133 @@ export function ClientDetailTabs({
     else { setDeletingClient(false); setShowDeleteClient(false) }
   }
 
+  const avgSatisfaction = satisfaction.length > 0 ? avg.toFixed(1) : null
+
   return (
     <>
+      {/*
+        En-tête de la fiche.
+        Il vivait dans la page serveur, mais « Modifier » et « Supprimer » agissent
+        sur le client entier, pas sur l'onglet Profil : leur place est ici, en haut
+        à droite, comme sur les autres fiches de l'admin. Les boutons pilotent
+        l'état de ce composant, donc l'en-tête l'a rejoint.
+      */}
+      <div
+        className="rounded-2xl border p-5 sm:p-6"
+        style={{ background: 'var(--admin-surface)', borderColor: 'var(--admin-border)' }}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+          <div className="flex items-start gap-4 flex-1 min-w-0">
+            {client.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={client.logoUrl}
+                alt={displayName}
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-contain border shrink-0"
+                style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)' }}
+              />
+            ) : (
+              <div
+                className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'var(--admin-emerald-dim)' }}
+              >
+                <Building2 className="w-7 h-7" style={{ color: 'var(--admin-emerald)' }} />
+              </div>
+            )}
+
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold leading-tight" style={{ color: 'var(--admin-text)' }}>
+                {displayName}
+              </h1>
+              {client.companyName && client.companyName !== displayName && (
+                <p className="text-sm mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>{client.companyName}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mt-2">
+                <span
+                  className="text-[12px] px-2.5 py-1 rounded-full border font-medium"
+                  style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
+                >
+                  {CLIENT_TYPE_LABELS[client.clientType] ?? client.clientType}
+                </span>
+                {client.country && (
+                  <span className="flex items-center gap-1 text-[12px] whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
+                    <MapPin className="w-3 h-3" />
+                    {client.city ? `${client.city}, ${client.country}` : client.country}
+                  </span>
+                )}
+                {/*
+                  Le code DMS identifie l'enregistrement au sens ISO. Il était relégué
+                  en bas de l'onglet Profil ; il appartient à l'identité de la fiche,
+                  donc il se lit ici, avec le reste de ce qui la nomme.
+                */}
+                {client.dmsDocumentCode && (
+                  <span
+                    className="font-mono text-[11px] px-2 py-0.5 rounded border whitespace-nowrap"
+                    style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
+                    title="Code du document dans le système documentaire"
+                  >
+                    {client.dmsDocumentCode}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Actions sur le client. Masquées pendant l'édition : le formulaire
+              porte alors ses propres boutons Enregistrer / Annuler. */}
+          {!editingProfile && (canEdit || canDelete) && (
+            <div className="flex items-center gap-2 shrink-0">
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => { setTab('profil'); setEditingProfile(true) }}
+                  className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-lg border transition-colors hover:bg-[var(--admin-bg)]"
+                  style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-bg)', color: 'var(--admin-text)' }}
+                >
+                  <Pencil className="w-3 h-3" />
+                  Modifier
+                </button>
+              )}
+              {canDelete && (
+                <DeleteButton variant="outline" onClick={() => setShowDeleteClient(true)} />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Indicateurs */}
+        <div
+          className="mt-5 pt-4 grid grid-cols-3 gap-4 border-t"
+          style={{ borderColor: 'var(--admin-border)' }}
+        >
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Briefcase className="w-3.5 h-3.5" style={{ color: 'var(--admin-text-muted)' }} />
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--admin-text)' }}>{client.projectCount}</p>
+            <p className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>
+              {activeProjects > 0 ? `${activeProjects} actif${activeProjects !== 1 ? 's' : ''}` : 'projets'}
+            </p>
+          </div>
+          <div className="text-center border-x" style={{ borderColor: 'var(--admin-border)' }}>
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Building2 className="w-3.5 h-3.5" style={{ color: 'var(--admin-text-muted)' }} />
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--admin-text)' }}>
+              {client.totalRevenueTND > 0 ? `${(client.totalRevenueTND / 1000).toFixed(0)} k` : '—'}
+            </p>
+            <p className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>TND approuvés</p>
+          </div>
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-1 mb-1">
+              <Star className="w-3.5 h-3.5" style={{ color: 'var(--admin-text-muted)' }} />
+            </div>
+            <p className="text-xl font-bold" style={{ color: 'var(--admin-text)' }}>{avgSatisfaction ?? '—'}</p>
+            <p className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>satisfaction / 5</p>
+          </div>
+        </div>
+      </div>
+
       {/* ── Tab bar ── */}
       <div
         className="flex items-center gap-0.5 border-b overflow-x-auto"
@@ -254,7 +379,7 @@ export function ClientDetailTabs({
       </div>
 
       {/* ── Profil ── */}
-      {tab === 'profil' && (
+      {tab === 'profil' && !editingProfile && (
         <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Identity card */}
@@ -267,7 +392,12 @@ export function ClientDetailTabs({
               </p>
               <InfoRow label="Raison sociale"    value={client.companyName}  icon={<Building2 className="w-3.5 h-3.5" />} />
               <InfoRow label="Nom d'affichage"   value={displayName} />
-              <InfoRow label="Secteur"            value={CLIENT_TYPE_LABELS[client.clientType] ?? client.clientType} />
+              <InfoRow label="Type de client"     value={CLIENT_TYPE_LABELS[client.clientType] ?? client.clientType} />
+              <InfoRow label="Secteur"            value={client.sectorFreeText} />
+              <InfoRow
+                label="Potentiel"
+                value={client.clientPotential ? POTENTIAL_LABELS[client.clientPotential] ?? client.clientPotential : null}
+              />
               <InfoRow label="Pays"               value={client.country}      icon={<MapPin className="w-3.5 h-3.5" />} />
               <InfoRow label="Ville"              value={client.city} />
               <InfoRow label="Adresse"            value={client.address} />
@@ -303,36 +433,17 @@ export function ClientDetailTabs({
             </div>
           )}
 
-          {/* DMS code */}
-          {client.dmsDocumentCode && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>Code DMS</span>
-              <span
-                className="font-mono text-[11px] px-2 py-0.5 rounded border"
-                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)', background: 'var(--admin-bg)' }}
-              >
-                {client.dmsDocumentCode}
-              </span>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex items-center gap-2 pt-2 border-t" style={{ borderColor: 'var(--admin-border)' }}>
-            {canEdit && (
-              <Link
-                href={`/admin/clients/${client.id}/edit`}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium px-3.5 py-2 rounded-lg border transition-colors hover:bg-[var(--admin-bg)]"
-                style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text)' }}
-              >
-                <Pencil className="w-3.5 h-3.5" />
-                Modifier
-              </Link>
-            )}
-            {canDelete && (
-              <DeleteButton variant="outline" onClick={() => setShowDeleteClient(true)} />
-            )}
-          </div>
         </div>
+      )}
+
+
+      {/* ── Profil : édition sur place ── */}
+      {tab === 'profil' && editingProfile && canEdit && (
+        <ClientProfileForm
+          client={client}
+          canToggleFeatured={canToggleFeatured}
+          onDone={() => setEditingProfile(false)}
+        />
       )}
 
       {/* ── Projets ── */}

@@ -9,7 +9,6 @@ import {
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
 import { getProjectSpendMap, ZERO_SPEND } from './project-spend'
-import { attachDmsCode } from '../dms/attach'
 import { obsoleteDmsDocument } from '../dms/obsolete'
 import { notifyPhaseTransition } from '../notifications'
 
@@ -364,23 +363,9 @@ export async function createProject(input: CreateProjectInput) {
       createdBy: input.createdBy,
     })
 
-    const dmsCode = await attachDmsCode(tx, {
-      typeCode:    'PRS',
-      processCode: 'RE',
-      designation: input.name,
-      department:  'realisation',
-      category:    'cartographie_processus',
-      entityType:  'project',
-      entityId:    project.id,
-      authorId:    input.createdBy,
-    })
-
-    await tx
-      .update(projects)
-      .set({ dmsDocumentCode: dmsCode })
-      .where(eq(projects.id, project.id))
-
-    return { ...project, dmsDocumentCode: dmsCode }
+    // Un projet est une donnée de référence : il n'est produit par aucun
+    // formulaire du registre et n'entre donc pas dans LIS-MI-01.
+    return project
   })
 }
 

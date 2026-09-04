@@ -20,6 +20,11 @@ const updateSchema = z.object({
   primaryContactPhone: z.string().optional(),
   secondaryContactName: z.string().optional(),
   secondaryContactEmail: z.string().email().optional().or(z.literal('')),
+  // Ces deux champs existent dans le formulaire et dans `updateClient` depuis le
+  // depart, mais manquaient ici : zod retire les cles inconnues, donc le secteur
+  // et le potentiel saisis a l'ecran etaient silencieusement jetes.
+  sectorFreeText: z.string().optional(),
+  clientPotential: z.enum(['fort_potentiel', 'faible_potentiel', 'neutre']).optional().or(z.literal('')),
   logoCloudinaryId: z.string().uuid().optional(),
   isFeatured: z.boolean().optional(),
   notes: z.string().optional(),
@@ -60,7 +65,12 @@ export async function PATCH(
   const parsed = updateSchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: 'Données invalides', details: parsed.error.flatten() }, { status: 400 })
 
-  const data = parsed.data
+  // Le select « potentiel » renvoie la chaine vide pour « aucun » : on la traduit
+  // en NULL, sinon la colonne garderait une valeur qui ne correspond a aucune option.
+  const data = {
+    ...parsed.data,
+    ...(parsed.data.clientPotential === '' && { clientPotential: null }),
+  }
   if (data.isFeatured && (data.clientType ?? client.clientType) === 'residentiel_prive') {
     return NextResponse.json({ error: 'Les clients résidentiels privés ne peuvent pas être mis en vedette' }, { status: 400 })
   }

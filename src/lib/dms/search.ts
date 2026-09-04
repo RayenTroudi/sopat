@@ -170,6 +170,11 @@ function buildHref(entityType: DmsSearchEntityType, entityId: string, parentId: 
 type SearchSource = {
   entityType: DmsSearchEntityType
   table:      string
+  /**
+   * Colonnes portant un code identifiant CETTE ligne, par priorité d'affichage.
+   * Peut être vide : une entité sans référence propre (client, action
+   * corrective) n'est retrouvée que par son texte.
+   */
   codes:      string[]
   label:      string
   sublabel:   string
@@ -183,25 +188,39 @@ type SearchSource = {
 const NOT_DELETED = 'deleted_at IS NULL'
 
 const SEARCH_SOURCES: SearchSource[] = [
-  // ── Entités portant un code ISO (dms_document_code) ──────────────────────
-  { entityType: 'project', table: 'projects', codes: ['dms_document_code', 'reference'],
+  // ── Entités opérationnelles ──────────────────────────────────────────────
+  //
+  // `dms_document_code` n'est volontairement PAS listé dans `codes` ici.
+  //
+  // Tant que `attachDmsCode()` fabriquait un code par enregistrement, cette
+  // colonne était l'identité de la ligne : chaque bon de commande portait son
+  // propre FOR-AC-12, FOR-AC-13… La chercher menait donc bien à UN bon de
+  // commande. Depuis la migration 0038, la colonne porte le code de la
+  // DÉFINITION appliquée — le même 'FOR-AC-03' sur les trente-neuf bons de
+  // commande — et n'identifie plus rien.
+  //
+  // La laisser dans `codes` classerait ces trente-neuf lignes ex æquo (rang 0,
+  // égalité exacte) avec FOR-AC-03 « Bon de commande » : chercher FOR-AC-03
+  // pourrait remonter un achat de palmiers à la place du formulaire maîtrisé.
+  // Chaque entité n'est donc plus cherchable que par sa PROPRE référence.
+  { entityType: 'project', table: 'projects', codes: ['reference'],
     label: 'name', sublabel: 'reference', text: ['client_name', 'site_address'], where: NOT_DELETED },
-  { entityType: 'client', table: 'clients', codes: ['dms_document_code'],
+  { entityType: 'client', table: 'clients', codes: [],
     label: 'display_name', sublabel: 'company_name', where: NOT_DELETED },
-  { entityType: 'supplier', table: 'suppliers', codes: ['dms_document_code', 'supplier_code'],
+  { entityType: 'supplier', table: 'suppliers', codes: ['supplier_code'],
     label: 'name', sublabel: 'supplier_code' },
   { entityType: 'non_conformance', table: 'non_conformances',
-    codes: ['dms_document_code', 'reference'],
+    codes: ['reference'],
     label: 'description', sublabel: 'reference', text: ['client_response_ref'],
     where: NOT_DELETED },
-  { entityType: 'corrective_action', table: 'corrective_actions', codes: ['dms_document_code'],
+  { entityType: 'corrective_action', table: 'corrective_actions', codes: [],
     label: 'action_description', sublabel: 'NULL', parentId: 'nc_id' },
-  { entityType: 'audit_log', table: 'audit_logs', codes: ['dms_document_code', 'reference'],
+  { entityType: 'audit_log', table: 'audit_logs', codes: ['reference'],
     label: 'process_audited', sublabel: 'reference' },
-  { entityType: 'audit_program', table: 'audit_programs', codes: ['dms_document_code', 'reference'],
+  { entityType: 'audit_program', table: 'audit_programs', codes: ['reference'],
     label: 'title', sublabel: 'reference' },
   { entityType: 'purchase_order', table: 'purchase_orders',
-    codes: ['dms_document_code', 'supplier_invoice_number'],
+    codes: ['supplier_invoice_number'],
     label: 'item_description', sublabel: 'NULL', parentId: 'project_id' },
 
   // ── Entités portant leur propre référence / code métier ──────────────────
@@ -306,7 +325,9 @@ function buildBranch(source: SearchSource, nq: string, pattern: string, perSourc
 
   // Colonne « code » affichée : celle qui a effectivement matché, sinon la
   // première renseignée.
-  const fallback = sql.raw(`COALESCE(${source.codes.map((c) => `${c}::text`).join(', ')}, '—')`)
+  const fallback = source.codes.length > 0
+    ? sql.raw(`COALESCE(${source.codes.map((c) => `${c}::text`).join(', ')}, '—')`)
+    : sql.raw(`'—'`)
   const displayCases = hasCodeQuery
     ? source.codes.map((c) => sql`WHEN ${codeMatches(c, nq)} THEN ${sql.raw(c)}::text`)
     : []
@@ -323,7 +344,7 @@ function buildBranch(source: SearchSource, nq: string, pattern: string, perSourc
     ? sql`CASE WHEN ${sql.join(textConds, sql` OR `)} THEN 3 ELSE ${NO_MATCH} END`
     : sql`${NO_MATCH}`
 
-  const ranks = hasCodeQuery
+  const ranks = hasCodeQuery && source.codes.length > 0
     ? [...source.codes.map((c) => codeRank(c, nq)), textRank]
     : [textRank]
   const rankExpr = ranks.length === 1 ? ranks[0] : sql`LEAST(${sql.join(ranks, sql`, `)})`

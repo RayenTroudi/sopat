@@ -11,7 +11,7 @@ import {
   realisationActionPlanItems,
 } from '../../../db/schema'
 import { eq, and, isNull, desc, asc, sql } from 'drizzle-orm'
-import { attachDmsCode } from '../dms/attach'
+import { linkControlledDocument } from '../dms/attach'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -164,15 +164,12 @@ export async function createPurchaseOrder(input: PurchaseOrderInput) {
       })
       .returning()
 
-    const dmsCode = await attachDmsCode(tx, {
-      typeCode:    'FOR',
-      processCode: 'AC',
-      designation: input.itemDescription,
-      department:  'finance',
-      category:    'bon_commande',
-      entityType:  'purchase_order',
-      entityId:    order.id,
-      authorId:    input.createdBy,
+    // Le bon de commande APPLIQUE le formulaire maîtrisé FOR-AC-03 : on pose
+    // une relation vers cette définition, on n'en fabrique pas une nouvelle.
+    const dmsCode = await linkControlledDocument(tx, {
+      entityType: 'purchase_order',
+      entityId:   order.id,
+      actorId:    input.createdBy,
     })
 
     await tx

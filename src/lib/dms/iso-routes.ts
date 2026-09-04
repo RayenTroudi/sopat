@@ -242,8 +242,16 @@ const ROUTES: Record<string, RouteEntry> = {
   // ── Plans de management ──────────────────────────────────────────────────
   'PLA-MI-01': { href: '/admin/management-plan', destination: 'Direction / Plan annuel de management' },
   'PLA-MQ-01': { href: '/admin/management-plan', destination: 'Direction / Plan annuel de management' },
-  'PLA-MI-02': { href: '/admin/management-plan', destination: 'Direction / Plan des initiatives solidaires' },
-  'PLA-MQ-02': { href: '/admin/management-plan', destination: 'Direction / Plan des initiatives solidaires' },
+  // Le « Plan des initiatives solidaires » ne figure pas sur /admin/management-plan :
+  // cet ecran ne porte que la grille annuelle (PLA-MI-01) et le plan de
+  // communication (PLA-MI-03). Les initiatives solidaires sont planifiees et
+  // suivies dans /admin/rse/events, dont les types — nettoyage de plage,
+  // plantation, sensibilisation, journee de l'environnement — sont precisement
+  // ces initiatives, et dont le statut par defaut est « planifie ».
+  // /admin/rse/partnerships est ecarte : c'est un registre de conventions
+  // (reference, date de signature, tacite reconduction, preavis), pas un plan.
+  'PLA-MI-02': { href: '/admin/rse/events', destination: 'RSE / Initiatives solidaires' },
+  'PLA-MQ-02': { href: '/admin/rse/events', destination: 'RSE / Initiatives solidaires' },
   'PLA-MI-03': { href: '/admin/management-plan', destination: 'Direction / Plan de communication' },
   'PLA-MQ-03': { href: '/admin/management-plan', destination: 'Direction / Plan de communication' },
 
@@ -363,6 +371,40 @@ export const INTENTIONALLY_UNMAPPED: Record<string, string> = {
   'PRS-RE-01': 'Cartographie du processus Réalisation — document statique',
   'PRS-RE-02': 'Cartographie du processus Entretien — document statique',
   'PRS-RH-01': 'Cartographie du processus RH — document statique',
+
+  // ── Instructions SME & SST (INS-MI-*) ────────────────────────────────────
+  // Consignes de terrain — plantation, consommations, gestes et postures,
+  // déchets, phytosanitaire. Elles se lisent et s'affichent ; aucune ne
+  // produit d'enregistrement dans l'ERP, donc aucune n'a d'écran. Le contrôle
+  // de leur application passe par FOR-MI-12 (check-list SME & SST), qui, lui,
+  // est implémenté.
+  'INS-MI-01': 'Instruction plantation des grands sujets — consigne de terrain, appliquée via FOR-MI-12',
+  'INS-MI-02': 'Instruction plantation des cactées — consigne de terrain, appliquée via FOR-MI-12',
+  'INS-MI-03': "Instruction consommation d'eau — consigne de terrain, appliquée via FOR-MI-12",
+  'INS-MI-04': "Instruction consommation d'électricité — consigne de terrain, appliquée via FOR-MI-12",
+  'INS-MI-05': 'Instruction parc automobile — consigne de terrain, appliquée via FOR-MI-12',
+  'INS-MI-06': 'Instruction consommation papier — consigne de terrain, appliquée via FOR-MI-12',
+  'INS-MI-07': "Instruction manipulation des machines et outils — consigne de terrain, appliquée via FOR-MI-12",
+  'INS-MI-08': 'Instruction gestion des déchets verts — consigne de terrain ; le registre des déchets est FOR-MI-11',
+  'INS-MI-09': 'Instruction traitement phytosanitaire — consigne de terrain ; le catalogue produits est FOR-ET-05',
+  'INS-MI-10': 'Instruction consommation de matière plastique — consigne de terrain, appliquée via FOR-MI-12',
+  'INS-MI-11': 'Instruction gestion des déchets dangereux — consigne de terrain ; le registre est LIS-MI-09',
+  'INS-MI-12': 'Instruction postures pénibles sur chantier — consigne SST, appliquée via FOR-MI-12',
+  'INS-MI-13': 'Instruction travail en hauteur — consigne SST, appliquée via FOR-MI-12',
+  'INS-MI-15': 'Instruction manutention de charges lourdes — consigne SST, appliquée via FOR-MI-12',
+  'INS-MI-16': "Instruction travail à l'ordinateur — consigne SST, appliquée via FOR-MI-12",
+  'INS-MI-17': 'Instruction engins lourds sur chantier — consigne SST, appliquée via FOR-MI-12',
+  'INS-MI-18': 'Instruction vaccin antitétanique — consigne SST, suivie hors ERP',
+  'INS-MI-19': 'Instruction usage des produits phytosanitaires — consigne de terrain ; le catalogue est FOR-ET-05',
+  'INS-MI-21': 'Instruction maintenance tondeuse — consigne de terrain ; le suivi matériel est LIS-MI-10',
+
+  // ── Variantes « VA » ─────────────────────────────────────────────────────
+  // Le registre 2025 porte deux fois FOR-RH-02 et ORG-MI-02 : une ligne de
+  // base et une variante « VA ». `document_number` étant UNIQUE, la seconde est
+  // stockée avec le suffixe -VA. Elle suit le sort documentaire de son code de
+  // base et n'a pas d'écran propre.
+  'FOR-RH-02-VA': 'Variante VA de FOR-RH-02 — même document, pas de page dédiée',
+  'ORG-MI-02-VA': "Variante VA de ORG-MI-02 — la politique est publiée sous son code de base",
 }
 
 /** Libellé affiché lorsqu'aucune page opérationnelle ne met en œuvre le document. */

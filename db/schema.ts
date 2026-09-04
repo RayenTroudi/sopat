@@ -204,6 +204,28 @@ export const auditStatusEnum = pgEnum('audit_status', [
   'completed',
 ])
 
+/**
+ * What the quality manager has ruled about a clause no process is audited
+ * against. Only clauses needing such a ruling get a row — see qmsClauseDecisions.
+ */
+export const clauseDispositionEnum = pgEnum('clause_disposition', [
+  'pending_decision',
+  'transversal',
+  'excluded',
+])
+
+/**
+ * Whether an audit criterion is anchored to specific ISO clauses or is one of
+ * SOPAT's own process checks whose ISO anchor is the process referential itself.
+ */
+export const criterionTypeEnum = pgEnum('criterion_type', ['iso', 'process'])
+
+/**
+ * Whether a clause of a process referential is attributable to particular agenda
+ * steps, or audited across the process as a whole (4.4 and 7.5 in all seven).
+ */
+export const clauseCoverageModeEnum = pgEnum('clause_coverage_mode', ['step', 'process'])
+
 export const auditProgramStatusEnum = pgEnum('audit_program_status', [
   'planifie',
   'en_cours',
@@ -1091,6 +1113,179 @@ export const referenceSequences = pgTable('reference_sequences', {
   primaryKey({ columns: [t.scope, t.year] }),
 ])
 
+// ─── ISO 9001:2015 clause register (reference data) ──────────────────────────
+
+/**
+ * The clause numbering and headings of ISO 9001:2015, chapters 4 to 10.
+ *
+ * Reference data, seeded by migration 0040 and not written per audit. It exists
+ * so a clause reference is a foreign key rather than a substring of free text:
+ * before it, `audit_programs.criteria` held strings like "4.4; 6.1; 8.4" and no
+ * query could answer which audits covered clause 8.4, nor could the server
+ * reject a clause that does not exist.
+ *
+ * Chapters 1 to 3 of the standard state no auditable requirement and are absent.
+ * No requirement text is reproduced — only numbers and headings, used as keys.
+ */
+export const isoClauses = pgTable('iso_clauses', {
+  code:        varchar('code', { length: 10 }).primaryKey(),      // '4.4', '8.5.1'
+  chapter:     integer('chapter').notNull(),                       // 4..10
+  parentCode:  varchar('parent_code', { length: 10 }),
+  title:       text('title').notNull(),
+  standard:    varchar('standard', { length: 20 }).notNull().default('ISO9001:2015'),
+  /** Zero-padded ('08.05.01') so plain text ordering sorts 4.4 < 8.2 < 8.10. */
+  sortKey:     varchar('sort_key', { length: 20 }).notNull(),
+  isAuditable: boolean('is_auditable').notNull().default(true),
+  ...timestamps,
+}, (t) => [
+  index('iso_clauses_chapter_idx').on(t.chapter),
+  index('iso_clauses_parent_idx').on(t.parentCode),
+  index('iso_clauses_sort_key_idx').on(t.sortKey),
+  foreignKey({ columns: [t.parentCode], foreignColumns: [t.code] }),
+])
+
+// ─── SOPAT process cartography (reference data) ──────────────────────────────
+
+/**
+ * The seven processes SOPAT audits, transcribed from the FOR-MI-14 workbooks.
+ *
+ * `code` is typed with the existing ncDeptEnum rather than a fresh varchar: that
+ * enum is already the canonical process identifier across the application
+ * (non_conformances.dept, audit_programs.dept), so reusing it gives a real
+ * foreign key instead of a second, parallel list of process codes.
+ *
+ * Replaces DEPT_CONFIG, DEFAULT_REF_DOCS, DEFAULT_TIME_SLOTS and
+ * DEFAULT_INTERLOCUTEURS, which were literals inside a client component.
+ */
+export const qmsProcesses = pgTable('qms_processes', {
+  code:                  ncDeptEnum('code').primaryKey(),
+  name:                  text('name').notNull(),                    // 'Processus Achat'
+  shortLabel:            varchar('short_label', { length: 60 }).notNull(),
+  procedureCodes:        text('procedure_codes').notNull(),          // 'PRS-AC-01 & documents associés'
+  defaultInterlocuteurs: text('default_interlocuteurs').notNull().default('Pilote processus & Collaborateurs'),
+  defaultStartTime:      varchar('default_start_time', { length: 10 }),
+  defaultEndTime:        varchar('default_end_time', { length: 10 }),
+  color:                 varchar('color', { length: 9 }),
+  sortOrder:             integer('sort_order').notNull().default(0),
+  isActive:              boolean('is_active').notNull().default(true),
+  ...timestamps,
+})
+
+/** Clauses a process is audited against — the workbooks' "Référentiel ISO 9001". */
+export const qmsProcessClauses = pgTable('qms_process_clauses', {
+  processCode: ncDeptEnum('process_code').notNull(),
+  clauseCode:  varchar('clause_code', { length: 10 }).notNull(),
+  /**
+   * Derived by migration 0041, not asserted: 'process' where no agenda step of
+   * that process maps the clause. 4.4 and 7.5 are in this position for all seven
+   * processes — which is why the workbooks assign clauses per process rather than
+   * per step.
+   */
+  coverageMode: clauseCoverageModeEnum('coverage_mode').notNull().default('step'),
+}, (t) => [
+  primaryKey({ columns: [t.processCode, t.clauseCode] }),
+  index('qms_process_clauses_clause_idx').on(t.clauseCode),
+  foreignKey({ columns: [t.processCode], foreignColumns: [qmsProcesses.code] }).onDelete('cascade'),
+  foreignKey({ columns: [t.clauseCode], foreignColumns: [isoClauses.code] }),
+])
+
+/**
+ * Reusable audit criteria — the "Étapes du processus" rows of FOR-MI-14, in the
+ * workbook's order and wording.
+ *
+ * A new audit programme copies these into its own items, so the criterion is
+ * defined once and every audit points back at it rather than each programme
+ * carrying its own copy of the same ISO requirement.
+ */
+export const qmsProcessSteps = pgTable('qms_process_steps', {
+  id:                    uuid('id').primaryKey().defaultRandom(),
+  processCode:           ncDeptEnum('process_code').notNull(),
+  label:                 text('label').notNull(),
+  sortOrder:             integer('sort_order').notNull().default(0),
+  defaultInterlocuteurs: text('default_interlocuteurs'),
+  /**
+   * 'process' for a criterion the workbook lists but that maps to no clause of
+   * its own process referential ("Ressources / RH / Responsabilités" in AC, CO,
+   * RE1, RE2; "Compétences" in CO and RE2; "Infrastructures" in RE2; "Audit
+   * Interne" in MI). Those are SOPAT process checks, not ISO requirements, and
+   * saying so stops anyone "fixing" them with an invented ISO mapping.
+   */
+  criterionType:         criterionTypeEnum('criterion_type').notNull().default('iso'),
+  isActive:              boolean('is_active').notNull().default(true),
+  ...timestamps,
+}, (t) => [
+  uniqueIndex('qms_process_steps_unique').on(t.processCode, t.label),
+  index('qms_process_steps_process_idx').on(t.processCode, t.sortOrder),
+  foreignKey({ columns: [t.processCode], foreignColumns: [qmsProcesses.code] }).onDelete('cascade'),
+])
+
+/**
+ * Default clauses for a criterion.
+ *
+ * SOPAT's mapping, not ISO's and not the workbook's: FOR-MI-14 assigns clauses
+ * per process, not per step. Migration 0040 seeds it only where the clause is
+ * already in that process's own clause set, so a step can never acquire a clause
+ * its process is not audited against. These are starting values for a new
+ * programme; what an auditor actually assessed is stored per finding in
+ * auditProgramItemClauses.
+ */
+export const qmsProcessStepClauses = pgTable('qms_process_step_clauses', {
+  stepId:     uuid('step_id').notNull(),
+  clauseCode: varchar('clause_code', { length: 10 }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.stepId, t.clauseCode] }),
+  index('qms_process_step_clauses_clause_idx').on(t.clauseCode),
+  foreignKey({ columns: [t.stepId], foreignColumns: [qmsProcessSteps.id] }).onDelete('cascade'),
+  foreignKey({ columns: [t.clauseCode], foreignColumns: [isoClauses.code] }),
+])
+
+/**
+ * Recorded decisions about clauses no process is audited against.
+ *
+ * Clause scope is otherwise DERIVED from qmsProcessClauses — owned by every
+ * active process is transversal, by several is shared, by one is
+ * process-specific — so it cannot drift from the cartography. What is not
+ * derivable is the quality manager's ruling on a clause the workbooks assign to
+ * nobody, and that is what this table holds.
+ *
+ * An exception register: a clause with no row here is covered by the cartography.
+ * Migration 0041 seeds exactly one row, 6.3, as `pending_decision` with
+ * `decidedBy` and `decidedAt` left NULL, because nobody has actually ruled on it.
+ */
+export const qmsClauseDecisions = pgTable('qms_clause_decisions', {
+  clauseCode:    varchar('clause_code', { length: 10 }).primaryKey(),
+  disposition:   clauseDispositionEnum('disposition').notNull(),
+  justification: text('justification').notNull(),
+  decidedBy:     uuid('decided_by'),
+  decidedAt:     timestamp('decided_at'),
+  ...timestamps,
+}, (t) => [
+  foreignKey({ columns: [t.clauseCode], foreignColumns: [isoClauses.code] }),
+  foreignKey({ columns: [t.decidedBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * Labels the previous interface used for criteria, mapped to the workbook steps
+ * they stood for.
+ *
+ * Read off the hardcoded DEFAULT_AGENDA in the pre-0040 client component, which
+ * listed each process's agenda in workbook order — so the mapping is documentary,
+ * not inferred from similarity of wording. An alias may resolve to two steps
+ * where that constant merged two consecutive workbook steps into one line; a
+ * finding recorded under such a label genuinely assessed both criteria.
+ */
+export const qmsProcessStepAliases = pgTable('qms_process_step_aliases', {
+  processCode: ncDeptEnum('process_code').notNull(),
+  aliasLabel:  text('alias_label').notNull(),
+  stepId:      uuid('step_id').notNull(),
+  source:      text('source').notNull().default('DEFAULT_AGENDA (AuditProgramsClient.tsx, pre-0040)'),
+}, (t) => [
+  primaryKey({ columns: [t.processCode, t.aliasLabel, t.stepId] }),
+  index('qms_process_step_aliases_step_idx').on(t.stepId),
+  foreignKey({ columns: [t.processCode], foreignColumns: [qmsProcesses.code] }).onDelete('cascade'),
+  foreignKey({ columns: [t.stepId], foreignColumns: [qmsProcessSteps.id] }).onDelete('cascade'),
+])
+
 // ─── Audit Programs (FOR-MI-14) ───────────────────────────────────────────────
 
 export const auditPrograms = pgTable('audit_programs', {
@@ -1100,6 +1295,13 @@ export const auditPrograms = pgTable('audit_programs', {
   dept: ncDeptEnum('dept').notNull(),              // AC / CO / ET / MI / RE1 / RE2 / RH
   title: varchar('title', { length: 200 }),
   auditorName: text('auditor_name'),               // Internal or external auditor
+  /**
+   * The qualified internal auditor conducting the audit, when there is a user
+   * record for them. Optional on purpose: the 2025 cycle was run by an external
+   * auditor who has no account, and `auditorName` stays authoritative for the
+   * record either way.
+   */
+  auditorId: uuid('auditor_id'),
   auditeeResponsible: text('auditee_responsible'), // Department head / Pilote processus
   scheduledDate: timestamp('scheduled_date'),
   scheduledStartTime: varchar('scheduled_start_time', { length: 10 }), // e.g. "09H00"
@@ -1121,6 +1323,10 @@ export const auditPrograms = pgTable('audit_programs', {
   index('audit_programs_year_idx').on(t.year),
   index('audit_programs_dept_idx').on(t.dept),
   index('audit_programs_status_idx').on(t.status),
+  index('audit_programs_auditor_idx').on(t.auditorId),
+  // The department is a real process in the cartography, not a loose enum value.
+  foreignKey({ columns: [t.dept], foreignColumns: [qmsProcesses.code] }),
+  foreignKey({ columns: [t.auditorId], foreignColumns: [users.id] }),
   foreignKey({ columns: [t.reportAssetId], foreignColumns: [cloudinaryAssets.id] }),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
@@ -1141,15 +1347,77 @@ export const auditProgramItems = pgTable('audit_program_items', {
    * same NC. Preserved across the delete-and-reinsert in upsertAuditProgramItems.
    */
   ncId: uuid('nc_id'),
+  /**
+   * The reusable criterion this finding was copied from, when it came from the
+   * process template rather than being added ad hoc during the audit. Nullable
+   * and ON DELETE SET NULL: retiring a template step must never destroy an
+   * executed audit record.
+   */
+  processStepId: uuid('process_step_id'),
   sortOrder: integer('sort_order').notNull().default(0),
   ...timestamps,
   createdBy: uuid('created_by').notNull(),
 }, (t) => [
   index('audit_program_items_program_idx').on(t.auditProgramId),
   index('audit_program_items_nc_idx').on(t.ncId),
+  /**
+   * A non-conformity belongs to exactly one finding.
+   *
+   * Migration 0031 created this partial unique index but the schema never
+   * declared it, so a database rebuilt from schema.ts alone lost the guarantee
+   * while a database built from the numbered migrations kept it — and
+   * `db:generate` reported drift. Declared here so the two agree.
+   */
+  uniqueIndex('audit_program_items_nc_unique_idx')
+    .on(t.ncId)
+    .where(sql`nc_id IS NOT NULL`),
+  index('audit_program_items_step_idx').on(t.processStepId),
   foreignKey({ columns: [t.auditProgramId], foreignColumns: [auditPrograms.id] }),
   foreignKey({ columns: [t.ncId], foreignColumns: [nonConformances.id] }),
+  foreignKey({ columns: [t.processStepId], foreignColumns: [qmsProcessSteps.id] }).onDelete('set null'),
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * ISO clauses in the scope of one planned audit.
+ *
+ * Transactional, not reference data: an auditor may narrow or widen the scope of
+ * a single audit relative to the process default, and the record must show what
+ * was in scope for THAT audit.
+ *
+ * `auditPrograms.criteria` remains as the human-readable rendering of these rows
+ * and is written only by setAuditProgramClauses in src/lib/db/iso.ts — one writer,
+ * so it is a cache rather than a second source of truth. Keeping it means the DMS
+ * export, the NC register's referenceDoc and the audit card go on working.
+ */
+export const auditProgramClauses = pgTable('audit_program_clauses', {
+  auditProgramId: uuid('audit_program_id').notNull(),
+  clauseCode:     varchar('clause_code', { length: 10 }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.auditProgramId, t.clauseCode] }),
+  index('audit_program_clauses_clause_idx').on(t.clauseCode),
+  foreignKey({ columns: [t.auditProgramId], foreignColumns: [auditPrograms.id] }).onDelete('cascade'),
+  foreignKey({ columns: [t.clauseCode], foreignColumns: [isoClauses.code] }),
+])
+
+/**
+ * ISO clauses a single finding was assessed against.
+ *
+ * The link that closes the standard end of the traceability chain:
+ *   isoClauses → qmsProcessClauses → auditProgramClauses
+ *              → auditProgramItemClauses → auditProgramItems (evidence, conformity)
+ *              → nonConformances → correctiveActions
+ * Before it, auditProgramItems.clauseRef was never populated by any code path, so
+ * no finding on record pointed at a clause at all.
+ */
+export const auditProgramItemClauses = pgTable('audit_program_item_clauses', {
+  itemId:     uuid('item_id').notNull(),
+  clauseCode: varchar('clause_code', { length: 10 }).notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.itemId, t.clauseCode] }),
+  index('audit_program_item_clauses_clause_idx').on(t.clauseCode),
+  foreignKey({ columns: [t.itemId], foreignColumns: [auditProgramItems.id] }).onDelete('cascade'),
+  foreignKey({ columns: [t.clauseCode], foreignColumns: [isoClauses.code] }),
 ])
 
 // ─── Maintenance Schedules ────────────────────────────────────────────────────
@@ -2503,7 +2771,7 @@ export const managementPlanExecutions = pgTable('management_plan_executions', {
   foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
 ])
 
-// ─── Communication Plan (PLA-MI-02) ───────────────────────────────────────────
+// ─── Communication Plan (PLA-MI-03) ───────────────────────────────────────────
 
 export const communicationPlan = pgTable('communication_plan', {
   id: uuid('id').primaryKey().defaultRandom(),

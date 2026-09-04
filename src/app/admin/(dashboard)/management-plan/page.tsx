@@ -47,7 +47,7 @@ export default async function ManagementPlanPage({ searchParams }: { searchParam
             Plan de Management Annuel
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            PLA-MI-01 / PLA-MI-02 — Plan et communication
+            PLA-MI-01 / PLA-MI-03 — Plan annuel et communication
           </p>
         </div>
         <Link
@@ -151,7 +151,7 @@ export default async function ManagementPlanPage({ searchParams }: { searchParam
 
       <div className="rounded-xl border overflow-hidden" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
         <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid var(--admin-border)' }}>
-          <h2 className="text-[13px] font-semibold" style={{ color: 'var(--admin-text)' }}>Plan de Communication (PLA-MI-02)</h2>
+          <h2 className="text-[13px] font-semibold" style={{ color: 'var(--admin-text)' }}>Plan de Communication (PLA-MI-03)</h2>
           <Link href="/admin/management-plan/communication/new" className="text-[13px] font-medium hover:opacity-70 transition-opacity" style={{ color: 'var(--admin-accent)' }}>
             + Ajouter
           </Link>

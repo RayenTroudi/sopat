@@ -2,8 +2,22 @@
  * Verifies the FOR-MI-05 fixes end to end against the real data layer.
  * Creates a throwaway NC, exercises the repaired code paths, then removes it.
  *
- * Run: npx tsx --env-file=.env scripts/verify-formi05.ts
+ * Ce test crée une NC et une CAPA réelles : il consomme un numéro de la
+ * séquence de références de l'année en cours, et les liens documentaires posés
+ * au passage survivent à la suppression matérielle de la fiche. Il doit donc
+ * viser une branche isolée, comme verify-audit-nc-traceability.ts :
+ *
+ *   TEST_DATABASE_URL="postgres://…branche…" npx tsx --env-file=.env  *     scripts/verify-formi05.ts
+ *
+ * Il ignorait auparavant TEST_DATABASE_URL et écrivait donc en production.
  */
+import { selectTestTarget } from './lib/test-target'
+
+// Avant la première opération base : `db` résout DATABASE_URL paresseusement.
+const target = selectTestTarget(true)
+console.log(`Cible : ${target.label}
+`)
+
 import { db } from '../db/index'
 import { nonConformances, correctiveActions, users, documents, dmsDocumentLinks, recordAuditLog } from '../db/schema'
 import { eq, and, isNotNull, isNull, sql } from 'drizzle-orm'

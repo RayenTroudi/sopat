@@ -11,11 +11,18 @@
     "test:api": "npx tsx scripts/test-api.ts",
     "test:iso-codes": "npx tsx scripts/verify-iso-code-parsing.ts",
     "test:iso-routes": "npx tsx --env-file=.env scripts/verify-iso-routes.ts",
+    "test:lismi01": "npx tsx --env-file=.env scripts/verify-lismi01-registry.ts",
+    "test:doc-structure": "npx tsx --env-file=.env scripts/verify-document-structure.ts",
     "extract:images": "npx tsx scripts/extract-images.ts",
     "migrate": "npx tsx scripts/migrate.ts",
     "db:seed": "npx tsx db/seed.ts",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "migrate:040": "npx tsx --env-file=.env db/seeds/apply-migration-040-iso-reference.ts",
+    "test:audit-programs": "npx tsx --env-file=.env scripts/verify-audit-programs.ts",
+    "migrate:041": "npx tsx --env-file=.env db/seeds/apply-migration-041-clause-scope.ts",
+    "test:excel-reconciliation": "npx tsx --env-file=.env scripts/verify-excel-reconciliation.ts",
+    "test:audit-traceability": "npx tsx --env-file=.env scripts/verify-audit-traceability.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

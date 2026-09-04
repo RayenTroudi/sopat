@@ -10,6 +10,9 @@ import {
 import Link from 'next/link'
 import OfferStatusPanel from './OfferStatusPanel'
 import BordereauPanel from './BordereauPanel'
+import OfferHeaderPanel from './OfferHeaderPanel'
+import { listClients } from '@/lib/db/clients'
+import { assertEditable } from '@/lib/db/bordereau'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Offre commerciale | SOPAT Admin' }
@@ -28,26 +31,23 @@ export default async function OfferDetailPage({
   const { offer, clientCompany } = row
   // Le modèle vierge est lu en résumé — sans ses 266 lignes, qui ne servent
   // qu'au clonage et n'ont rien à faire dans le rendu d'une page.
-  const [bordereau, template] = await Promise.all([
+  const [bordereau, template, clientRows, lockReason] = await Promise.all([
     getOfferBordereau(id),
     getBordereauTemplateSummary(),
+    listClients(),
+    // Le même verrou que le bordereau : l'en-tête porte l'engagement pris.
+    assertEditable(id),
   ])
 
-  const fields: { label: string; value: string | null }[] = [
-    { label: 'Client', value: clientCompany ?? offer.clientName },
-    { label: 'Type de projet', value: offer.projectType },
-    { label: 'Description', value: offer.description },
-    {
-      label: 'Montant HTVA',
-      value: offer.amount != null
-        ? `${Number(offer.amount).toLocaleString('fr-FR')} ${offer.currency}`
-        : null,
-    },
-    { label: "Date d'envoi", value: offer.sentDate ? new Date(offer.sentDate).toLocaleDateString('fr-FR') : null },
-    { label: 'Validité', value: offer.validityDate ? new Date(offer.validityDate).toLocaleDateString('fr-FR') : null },
-    { label: 'Responsable', value: offer.responsible },
-    { label: 'Notes', value: offer.notes },
-  ]
+  const clientOptions = clientRows.map((c) => ({
+    id: c.id,
+    label: c.companyName ?? c.displayName ?? 'Client',
+  }))
+
+  // `amount` est la somme HTVA des lignes dès qu'il y en a : il est alors
+  // calculé, pas saisi. Le laisser modifiable produirait un chiffre que la
+  // prochaine correction de prix écraserait sans le dire.
+  const amountIsDerived = (bordereau?.totals.lineCount ?? 0) > 0
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
@@ -65,30 +65,50 @@ export default async function OfferDetailPage({
         </div>
       </div>
 
-      <div className="rounded-xl border p-5" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
-        <dl className="space-y-3">
-          {fields.map(({ label, value }) => (
-            <div key={label} className="grid grid-cols-3 gap-4 text-sm">
-              <dt className="text-[12px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>{label}</dt>
-              <dd className="col-span-2 whitespace-pre-wrap" style={{ color: 'var(--admin-text)' }}>{value || '—'}</dd>
-            </div>
-          ))}
-          {offer.status === 'perdue' && (
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <dt className="text-[12px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>Motif de perte</dt>
-              <dd className="col-span-2 whitespace-pre-wrap" style={{ color: 'var(--admin-red)' }}>{offer.lostReason || '—'}</dd>
-            </div>
-          )}
-          {offer.decisionDate && (
-            <div className="grid grid-cols-3 gap-4 text-sm">
-              <dt className="text-[12px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>Date de décision</dt>
-              <dd className="col-span-2" style={{ color: 'var(--admin-text)' }}>
-                {new Date(offer.decisionDate).toLocaleDateString('fr-FR')}
-              </dd>
-            </div>
-          )}
-        </dl>
-      </div>
+      <OfferHeaderPanel
+        offerId={id}
+        values={{
+          clientId: offer.clientId,
+          clientName: offer.clientName,
+          clientCompany: clientCompany ?? null,
+          projectType: offer.projectType,
+          description: offer.description,
+          amount: offer.amount,
+          currency: offer.currency,
+          sentDate: offer.sentDate,
+          validityDate: offer.validityDate,
+          responsible: offer.responsible,
+          notes: offer.notes,
+        }}
+        clients={clientOptions}
+        canEdit={canEditBordereau(session.user.role)}
+        locked={lockReason !== null}
+        lockReason={lockReason}
+        amountIsDerived={amountIsDerived}
+      />
+
+      {/* Décision commerciale : motif de perte et date, en lecture seule —
+          ils sont écrits par le panneau de statut, pas saisis à la main. */}
+      {(offer.status === 'perdue' || offer.decisionDate) && (
+        <div className="rounded-xl border p-5" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
+          <dl className="space-y-3">
+            {offer.status === 'perdue' && (
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <dt className="text-[12px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>Motif de perte</dt>
+                <dd className="col-span-2 whitespace-pre-wrap" style={{ color: 'var(--admin-red)' }}>{offer.lostReason || '—'}</dd>
+              </div>
+            )}
+            {offer.decisionDate && (
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <dt className="text-[12px] font-medium" style={{ color: 'var(--admin-text-muted)' }}>Date de décision</dt>
+                <dd className="col-span-2" style={{ color: 'var(--admin-text)' }}>
+                  {new Date(offer.decisionDate).toLocaleDateString('fr-FR')}
+                </dd>
+              </div>
+            )}
+          </dl>
+        </div>
+      )}
 
       {bordereau && (
         <BordereauPanel

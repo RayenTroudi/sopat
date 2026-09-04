@@ -3,10 +3,8 @@ import {
   suppliers,
   supplierEvaluations,
   cloudinaryAssets,
-  users,
 } from '../../../db/schema'
 import { eq, and, asc, desc, ilike, or, sql } from 'drizzle-orm'
-import { attachDmsCode } from '../dms/attach'
 import { obsoleteDmsDocument } from '../dms/obsolete'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -214,24 +212,10 @@ export async function createSupplier(input: {
       })
       .returning()
 
-    const dmsCode = await attachDmsCode(tx, {
-      typeCode:    'FOR',
-      processCode: 'AC',
-      designation: input.name,
-      department:  'finance',
-      category:    'formulaire',
-      entityType:  'supplier',
-      entityId:    row.id,
-      authorId:    input.createdBy,
-    })
-
-    const [updated] = await tx
-      .update(suppliers)
-      .set({ dmsDocumentCode: dmsCode })
-      .where(eq(suppliers.id, row.id))
-      .returning()
-
-    return updated
+    // Un fournisseur est une donnée de référence. Sa SÉLECTION et son
+    // ÉVALUATION relèvent bien de FOR-AC-11, mais c'est la fiche d'évaluation
+    // qui est l'enregistrement — pas la fiche fournisseur elle-même.
+    return row
   })
 }
 

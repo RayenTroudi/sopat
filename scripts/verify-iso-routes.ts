@@ -285,7 +285,18 @@ async function searchTests() {
   check(`aucune destination ${DOCUMENT_INDEX_HREF} injustifiée sur ${probes.length} requêtes larges`,
     offenders.length === 0, offenders.slice(0, 8).join(' ; '))
 
-  section('10. Les recherches existantes ne régressent pas')
+  section('10. Définition maîtrisée et enregistrement ne se confondent pas')
+
+  // Avant la migration 0038, `attachDmsCode()` donnait à chaque entité ERP son
+  // propre code de registre : un fournisseur était « LIS-AC-01 », un projet
+  // « PRS-RE-03 », une NC « FOR-MI-21 ». Cette section vérifiait qu'on
+  // retrouvait bien l'entité par ce code — autrement dit elle CODIFIAIT le bug.
+  //
+  // Ces codes n'existent plus. Un enregistrement porte désormais le code de la
+  // DÉFINITION qu'il applique (le même FOR-AC-03 pour tous les bons de
+  // commande), qui n'identifie donc plus la ligne. Ce qui est vérifié ici est
+  // la règle de remplacement : chercher un code du registre mène au formulaire
+  // maîtrisé, jamais à l'une de ses instances.
 
   const nonNull = async (q: string, expect: (r: DmsSearchResult[]) => boolean, label: string) => {
     const rows = await searchByDmsCode(q)
@@ -293,15 +304,37 @@ async function searchTests() {
   }
 
   await nonNull('FOR-MI-05', (r) => r.some((x) => x.href === '/admin/nc'), 'registre NC')
-  await nonNull('LIS-AC-01', (r) => r.some((x) => x.href?.startsWith('/admin/suppliers') === true), 'fournisseurs')
-  await nonNull('PRS-RE-03', (r) => r.some((x) => x.entityType === 'project' && x.href?.startsWith('/admin/projects/') === true),
-    'projet (code d’enregistrement dédupliqué)')
-  await nonNull('FOR-MI-21', (r) => r.some((x) => x.entityType === 'non_conformance' && x.href?.startsWith('/admin/nc/') === true),
-    'NC (code d’enregistrement dédupliqué)')
 
-  // Un enregistrement dont le code est porté par une entité ne doit pas
-  // apparaître deux fois, une fois vers l'entité et une fois sans destination.
-  for (const q of ['FOR-MI-21', 'PRS-RE-03', 'LIS-AC-02']) {
+  // Un code de définition ne doit ramener QUE la définition : si un bon de
+  // commande remontait sous « FOR-AC-03 », l'égalité exacte le classerait ex
+  // æquo avec le formulaire et l'utilisateur pourrait atterrir sur un achat de
+  // palmiers en cherchant le bon de commande vierge.
+  const OPERATIONAL: DmsSearchResult['entityType'][] = [
+    'purchase_order', 'non_conformance', 'corrective_action',
+    'audit_log', 'audit_program', 'project', 'client', 'supplier',
+  ]
+  for (const code of ['FOR-AC-03', 'FOR-MI-05', 'PRC-MI-04', 'FOR-MI-13', 'FOR-MI-14']) {
+    const claimants = (await searchByDmsCode(code))
+      .filter((r) => normalizeIsoCode(r.code) === normalizeIsoCode(code))
+      .filter((r) => OPERATIONAL.includes(r.entityType))
+    check(
+      `« ${code} » n’est revendiqué par aucun enregistrement opérationnel`,
+      claimants.length === 0,
+      claimants.map((c) => `${c.entityType}:${c.label}`).slice(0, 4).join(' | '),
+    )
+  }
+
+  // Les entités restent retrouvables — par leur PROPRE référence, la seule qui
+  // les identifie réellement.
+  for (const [q, label] of [['NC-', 'NC par sa référence'], ['AUD-', 'audit par sa référence']] as const) {
+    const rows = await searchByDmsCode(q, 40)
+    check(`${label} — « ${q} »`, rows.length > 0, `${rows.length} résultat(s)`)
+  }
+
+  // Un code ne doit jamais apparaître deux fois : une fois vers une entité et
+  // une fois sans destination. La garantie est conservée, sur des codes qui,
+  // eux, existent réellement au registre.
+  for (const q of ['FOR-AC-03', 'FOR-MI-05', 'FOR-CO-02']) {
     const rows = await searchByDmsCode(q)
     const dupes = rows.filter((r) => normalizeIsoCode(r.code) === normalizeIsoCode(q))
     check(`« ${q} » ne renvoie qu’une destination`, dupes.length === 1,

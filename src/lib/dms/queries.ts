@@ -40,6 +40,23 @@ export type DmsDocRow = {
   updatedAt: Date
 }
 
+/**
+ * Compteurs du registre, calculés en base sur TOUTES les lignes retenues par
+ * les filtres — jamais sur la page renvoyée.
+ *
+ * Le bandeau LIS-MI-01 les affichait auparavant en comptant les lignes reçues.
+ * Comme `pageSize` vaut 500 par défaut, un registre plus grand se résumait à
+ * « 500 documents » : c'est exactement le nombre qu'affichait la page pendant
+ * que la table en contenait 714. Le compte doit venir du SQL, pas du tableau.
+ */
+export type DmsRegistryTotals = {
+  total:     number
+  effective: number
+  /** « Modifié / Sous révision » — le marquage rouge du registre papier. */
+  red:       number
+  obsolete:  number
+}
+
 export type DmsListFilters = {
   status?:      string
   category?:    string
@@ -73,7 +90,7 @@ export type DmsCreateInput = {
 
 async function _listDmsDocuments(
   filters?: DmsListFilters,
-): Promise<{ rows: DmsDocRow[]; total: number }> {
+): Promise<{ rows: DmsDocRow[]; total: number; totals: DmsRegistryTotals }> {
   const page     = filters?.page     ?? 1
   const pageSize = filters?.pageSize ?? 500
   const offset   = (page - 1) * pageSize
@@ -94,7 +111,7 @@ async function _listDmsDocuments(
     ) : undefined,
   ].filter(Boolean)
 
-  const [rows, [{ total }]] = await Promise.all([
+  const [rows, [totals]] = await Promise.all([
     db.select({
         id:               dmsDocuments.id,
         documentNumber:   dmsDocuments.documentNumber,
@@ -140,12 +157,26 @@ async function _listDmsDocuments(
       .orderBy(asc(dmsDocuments.documentNumber))
       .limit(pageSize)
       .offset(offset),
-    db.select({ total: sql<number>`count(*)` })
+    db.select({
+        total:     sql<number>`count(*)`,
+        effective: sql<number>`count(*) FILTER (WHERE ${dmsDocuments.status} = 'effective')`,
+        red:       sql<number>`count(*) FILTER (WHERE ${dmsDocuments.rowHighlight} = 'red')`,
+        obsolete:  sql<number>`count(*) FILTER (WHERE ${dmsDocuments.status} = 'obsolete')`,
+      })
       .from(dmsDocuments)
       .where(and(...conditions)),
   ])
 
-  return { rows: rows as DmsDocRow[], total: Number(total) }
+  return {
+    rows:  rows as DmsDocRow[],
+    total: Number(totals.total),
+    totals: {
+      total:     Number(totals.total),
+      effective: Number(totals.effective),
+      red:       Number(totals.red),
+      obsolete:  Number(totals.obsolete),
+    },
+  }
 }
 
 export const listDmsDocuments = _listDmsDocuments

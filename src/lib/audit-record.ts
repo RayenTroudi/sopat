@@ -50,6 +50,12 @@ export type AuditEntityType =
    * plafond de coût interne écrit par la validation budgétaire.
    */
   | 'project_contract_amount'
+  /**
+   * LIS-MI-05 : la qualification d'un auditeur interne. Décision qualité à part
+   * entière — l'impartialité exigée par § 9.2.2 c) repose sur ce registre, et
+   * savoir qui a qualifié qui, et quand, fait partie de la preuve.
+   */
+  | 'internal_auditor'
 
 export type AuditAction =
   | 'created'

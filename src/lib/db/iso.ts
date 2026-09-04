@@ -6,6 +6,14 @@ import {
   auditLogs,
   auditPrograms,
   auditProgramItems,
+  auditProgramClauses,
+  auditProgramItemClauses,
+  qmsProcesses,
+  qmsProcessClauses,
+  qmsProcessSteps,
+  qmsProcessStepClauses,
+  isoClauses,
+  dmsDocuments,
   cloudinaryAssets,
   users,
   projects,
@@ -15,7 +23,7 @@ import { eq, and, isNull, desc, asc, sql, ilike, or, inArray, type SQL } from 'd
 import { alias } from 'drizzle-orm/pg-core'
 import { recordAudit, type AuditActor } from '../audit-record'
 import { diffFields } from '../audit-diff'
-import { attachDmsCode } from '../dms/attach'
+import { linkControlledDocument } from '../dms/attach'
 import { obsoleteDmsDocument } from '../dms/obsolete'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -561,15 +569,12 @@ export async function createNc(input: {
       })
       .returning()
 
-    const dmsCode = await attachDmsCode(tx, {
-      typeCode:    'FOR',
-      processCode: 'MI',
-      designation: input.description,
-      department:  'qualite',
-      category:    'ncr',
-      entityType:  'non_conformance',
-      entityId:    nc.id,
-      authorId:    input.createdBy,
+    // La NC est un enregistrement du registre maîtrisé FOR-MI-05 ; elle le
+    // référence, elle ne devient pas elle-même une information documentée.
+    const dmsCode = await linkControlledDocument(tx, {
+      entityType: 'non_conformance',
+      entityId:   nc.id,
+      actorId:    input.createdBy,
     })
 
     await tx
@@ -891,15 +896,11 @@ export async function createCapa(input: {
       })
       .returning()
 
-    const dmsCode = await attachDmsCode(tx, {
-      typeCode:    'PRC',
-      processCode: 'MI',
-      designation: input.actionDescription,
-      department:  'qualite',
-      category:    'capa',
-      entityType:  'corrective_action',
-      entityId:    capa.id,
-      authorId:    input.createdBy,
+    // L'action corrective applique la procédure maîtrisée PRC-MI-04.
+    const dmsCode = await linkControlledDocument(tx, {
+      entityType: 'corrective_action',
+      entityId:   capa.id,
+      actorId:    input.createdBy,
     })
 
     await tx
@@ -1396,15 +1397,11 @@ export async function createAudit(input: {
       })
       .returning()
 
-    const dmsCode = await attachDmsCode(tx, {
-      typeCode:    'FOR',
-      processCode: 'MI',
-      designation: `Audit interne — ${input.processAudited}`,
-      department:  'qualite',
-      category:    'rapport_audit',
-      entityType:  'audit_log',
-      entityId:    audit.id,
-      authorId:    input.createdBy,
+    // L'audit produit un rapport sur le formulaire maîtrisé FOR-MI-13.
+    const dmsCode = await linkControlledDocument(tx, {
+      entityType: 'audit_log',
+      entityId:   audit.id,
+      actorId:    input.createdBy,
     })
 
     const [updated] = await tx
@@ -1550,6 +1547,7 @@ export type AuditProgramRow = {
   dept: string
   title: string | null
   auditorName: string | null
+  auditorId: string | null
   auditeeResponsible: string | null
   scheduledDate: Date | null
   scheduledStartTime: string | null  // e.g. "09H00"
@@ -1567,6 +1565,12 @@ export type AuditProgramRow = {
   dmsDocumentCode: string | null
   notes: string | null
   createdAt: Date
+  /**
+   * Canonical ISO clause codes in this audit's scope, in clause order.
+   * `criteria` above is the same information rendered for display and is written
+   * only by setAuditProgramClauses, so the two cannot disagree.
+   */
+  clauseCodes: string[]
 }
 
 export type AuditProgramItemRow = {
@@ -1581,6 +1585,15 @@ export type AuditProgramItemRow = {
   /** NC raised from this finding, when one has been. */
   ncId: string | null
   ncReference: string | null
+  /** Reusable criterion this finding came from, when it came from the template. */
+  processStepId: string | null
+  /**
+   * 'process' when the criterion is a SOPAT process check rather than an ISO
+   * requirement, so a finding with no clause reads as intended rather than broken.
+   */
+  criterionType: string | null
+  /** ISO clauses this finding was assessed against, in clause order. */
+  clauseCodes: string[]
   sortOrder: number
 }
 
@@ -1624,6 +1637,7 @@ export async function listAuditPrograms(filters?: {
       dept:               auditPrograms.dept,
       title:              auditPrograms.title,
       auditorName:        auditPrograms.auditorName,
+      auditorId:          auditPrograms.auditorId,
       auditeeResponsible: auditPrograms.auditeeResponsible,
       scheduledDate:      auditPrograms.scheduledDate,
       scheduledStartTime: auditPrograms.scheduledStartTime,
@@ -1653,7 +1667,27 @@ export async function listAuditPrograms(filters?: {
     )
     .orderBy(desc(auditPrograms.scheduledDate))
 
-  return rows as AuditProgramRow[]
+  if (rows.length === 0) return []
+
+  // One extra query for the whole page rather than one per programme.
+  const clauseRows = await db
+    .select({
+      auditProgramId: auditProgramClauses.auditProgramId,
+      code:           auditProgramClauses.clauseCode,
+    })
+    .from(auditProgramClauses)
+    .innerJoin(isoClauses, eq(isoClauses.code, auditProgramClauses.clauseCode))
+    .where(inArray(auditProgramClauses.auditProgramId, rows.map((r) => r.id)))
+    .orderBy(asc(isoClauses.sortKey))
+
+  const byProgram = new Map<string, string[]>()
+  for (const c of clauseRows) {
+    const list = byProgram.get(c.auditProgramId) ?? []
+    list.push(c.code)
+    byProgram.set(c.auditProgramId, list)
+  }
+
+  return rows.map((r) => ({ ...r, clauseCodes: byProgram.get(r.id) ?? [] })) as AuditProgramRow[]
 }
 
 export async function getAuditProgramById(id: string): Promise<(AuditProgramRow & { items: AuditProgramItemRow[] }) | null> {
@@ -1665,6 +1699,7 @@ export async function getAuditProgramById(id: string): Promise<(AuditProgramRow 
       dept:               auditPrograms.dept,
       title:              auditPrograms.title,
       auditorName:        auditPrograms.auditorName,
+      auditorId:          auditPrograms.auditorId,
       auditeeResponsible: auditPrograms.auditeeResponsible,
       scheduledDate:      auditPrograms.scheduledDate,
       scheduledStartTime: auditPrograms.scheduledStartTime,
@@ -1690,32 +1725,33 @@ export async function getAuditProgramById(id: string): Promise<(AuditProgramRow 
 
   if (!program) return null
 
-  const items = await db
-    .select({
-      id:             auditProgramItems.id,
-      auditProgramId: auditProgramItems.auditProgramId,
-      agendaStep:     auditProgramItems.agendaStep,
-      clauseRef:      auditProgramItems.clauseRef,
-      interlocuteurs: auditProgramItems.interlocuteurs,
-      response:       auditProgramItems.response,
-      conformity:     auditProgramItems.conformity,
-      evidence:       auditProgramItems.evidence,
-      ncId:           auditProgramItems.ncId,
-      ncReference:    sql<string | null>`nc_origin.reference`,
-      sortOrder:      auditProgramItems.sortOrder,
-    })
-    .from(auditProgramItems)
-    .leftJoin(sql`non_conformances nc_origin`, sql`nc_origin.id = ${auditProgramItems.ncId}`)
-    .where(eq(auditProgramItems.auditProgramId, id))
-    .orderBy(asc(auditProgramItems.sortOrder))
+  // Items come from the shared selector so the read path and the write path
+  // return the same shape, clause links included.
+  const [items, clauseCodes] = await Promise.all([
+    selectProgramItems(db, id),
+    selectProgramClauseCodes(db, id),
+  ])
 
-  return { ...program, items } as AuditProgramRow & { items: AuditProgramItemRow[] }
+  return { ...program, clauseCodes, items }
+}
+
+/** Clause codes in a programme's scope, in ISO order. */
+async function selectProgramClauseCodes(tx: DbHandle, auditProgramId: string): Promise<string[]> {
+  const rows = await tx
+    .select({ code: auditProgramClauses.clauseCode })
+    .from(auditProgramClauses)
+    .innerJoin(isoClauses, eq(isoClauses.code, auditProgramClauses.clauseCode))
+    .where(eq(auditProgramClauses.auditProgramId, auditProgramId))
+    .orderBy(asc(isoClauses.sortKey))
+  return rows.map((r) => r.code)
 }
 
 export async function createAuditProgram(input: {
   dept:                NcDept
   title?:              string
   auditorName?:        string
+  /** Qualified internal auditor (LIS-MI-05), when the auditor has a user record. */
+  auditorId?:          string
   auditeeResponsible?: string
   scheduledDate?:      Date
   scheduledStartTime?: string
@@ -1726,13 +1762,48 @@ export async function createAuditProgram(input: {
   scope?:              string
   objectives?:         string
   criteria?:           string
+  /**
+   * Canonical clause codes for the audit's scope. Validated against iso_clauses
+   * by the caller; when given they take precedence over `criteria`, which is then
+   * derived from them so the string and the rows always agree.
+   */
+  clauseCodes?:        string[]
+  /** Copy the process's reusable agenda into the programme's findings. */
+  seedFromTemplate?:   boolean
   referenceDocuments?: string
   findings?:           string
   reportAssetId?:      string
   notes?:              string
   createdBy:           string
 }) {
-  return db.transaction(async (tx) => {
+  // Defaults come from the process cartography and are applied here rather than
+  // in the API route, so every caller — a route, a seed script, a future
+  // scheduled-audit job — produces a programme that has criteria, reference
+  // documents and a time slot. A programme planned with no criteria is not
+  // auditable, and putting the fallback in one route would leave the others free
+  // to create one.
+  const [processDefaults] = await db
+    .select({
+      procedureCodes:   qmsProcesses.procedureCodes,
+      defaultStartTime: qmsProcesses.defaultStartTime,
+      defaultEndTime:   qmsProcesses.defaultEndTime,
+    })
+    .from(qmsProcesses)
+    .where(eq(qmsProcesses.code, input.dept))
+    .limit(1)
+
+  let clauseCodes = input.clauseCodes
+  if (clauseCodes === undefined && !input.criteria) {
+    const rows = await db
+      .select({ code: qmsProcessClauses.clauseCode })
+      .from(qmsProcessClauses)
+      .innerJoin(isoClauses, eq(isoClauses.code, qmsProcessClauses.clauseCode))
+      .where(eq(qmsProcessClauses.processCode, input.dept))
+      .orderBy(asc(isoClauses.sortKey))
+    clauseCodes = rows.map((r) => r.code)
+  }
+
+  const program = await db.transaction(async (tx) => {
     // One year for both the stored column and the reference. Computed first so
     // a programme created in December but scheduled for January is numbered in
     // the year it belongs to, rather than the year it happened to be entered.
@@ -1747,17 +1818,20 @@ export async function createAuditProgram(input: {
         dept:                input.dept,
         title:               input.title,
         auditorName:         input.auditorName,
+        auditorId:           input.auditorId ?? null,
         auditeeResponsible:  input.auditeeResponsible,
         scheduledDate:       input.scheduledDate,
-        scheduledStartTime:  input.scheduledStartTime,
-        scheduledEndTime:    input.scheduledEndTime,
+        scheduledStartTime:  input.scheduledStartTime ?? processDefaults?.defaultStartTime ?? undefined,
+        scheduledEndTime:    input.scheduledEndTime   ?? processDefaults?.defaultEndTime   ?? undefined,
         actualDate:          input.actualDate,
         auditorSignedAt:     input.auditorSignedAt,
         status:              input.status ?? 'planifie',
         scope:               input.scope,
         objectives:          input.objectives,
-        criteria:            input.criteria,
-        referenceDocuments:  input.referenceDocuments,
+        criteria:            clauseCodes && clauseCodes.length > 0
+                               ? [...clauseCodes].sort(compareClauseCodesLocal).join('; ')
+                               : input.criteria,
+        referenceDocuments:  input.referenceDocuments ?? processDefaults?.procedureCodes,
         findings:            input.findings,
         reportAssetId:       input.reportAssetId || null,
         notes:               input.notes,
@@ -1765,21 +1839,123 @@ export async function createAuditProgram(input: {
       })
       .returning()
 
-    const dmsCode = await attachDmsCode(tx, {
-      typeCode:    'FOR',
-      processCode: 'MI',
-      designation: input.title ?? `Programme audit ${input.dept} ${year}`,
-      department:  'qualite',
-      category:    'rapport_audit',
-      entityType:  'audit_program',
-      entityId:    program.id,
-      authorId:    input.createdBy,
+    // Le programme est établi sur le formulaire maîtrisé FOR-MI-14.
+    const dmsCode = await linkControlledDocument(tx, {
+      entityType: 'audit_program',
+      entityId:   program.id,
+      actorId:    input.createdBy,
     })
 
     await tx.update(auditPrograms).set({ dmsDocumentCode: dmsCode }).where(eq(auditPrograms.id, program.id))
 
+    // Clause scope is written in the same transaction as the programme, so a
+    // programme can never exist without the criteria it was planned against.
+    if (clauseCodes && clauseCodes.length > 0) {
+      await tx
+        .insert(auditProgramClauses)
+        .values([...new Set(clauseCodes)].map((clauseCode) => ({
+          auditProgramId: program.id,
+          clauseCode,
+        })))
+        .onConflictDoNothing()
+    }
+
     return { ...program, dmsDocumentCode: dmsCode }
   })
+
+  // Outside the transaction: seeding is idempotent (it no-ops once the programme
+  // has findings), so a retry cannot duplicate the agenda, and keeping it out of
+  // the transaction above avoids nesting db.transaction inside itself.
+  if (input.seedFromTemplate) {
+    await seedAuditProgramFromTemplate(program.id, input.dept, input.createdBy)
+  }
+
+  return program
+}
+
+// ─── Auditor qualification and impartiality (ISO 9001 clause 9.2.2 c) ────────
+
+export type AuditorCheck = {
+  /** Blocking: the audit may not be planned as described. */
+  errors: string[]
+  /** Non-blocking: recorded and shown, but the quality manager decides. */
+  warnings: string[]
+}
+
+/**
+ * Checks an assigned auditor against clause 9.2.2 c), which requires the
+ * selection of auditors to ensure objectivity and the impartiality of the audit
+ * process.
+ *
+ * Two separate things are checked, and only one of them blocks:
+ *
+ *   * an auditor who is not on the qualified list (LIS-MI-05, users.is_internal_auditor)
+ *     is an ERROR — the register of qualified auditors exists precisely so that
+ *     unqualified people do not conduct internal audits;
+ *   * an auditor auditing their own department is a WARNING, not an error. The
+ *     standard requires impartiality, and SOPAT is small enough that the quality
+ *     manager may have no alternative; recording the conflict and letting a human
+ *     accept it is honest, whereas blocking it would push the audit off the system
+ *     and back into a spreadsheet.
+ *
+ * An audit whose auditor is recorded only as free text (an external auditor, as
+ * in the 2025 cycle) passes without checks — there is no user record to check.
+ */
+export async function checkAuditorAssignment(input: {
+  auditorId?: string | null
+  dept: NcDept
+}): Promise<AuditorCheck> {
+  const errors: string[] = []
+  const warnings: string[] = []
+  if (!input.auditorId) return { errors, warnings }
+
+  const [auditor] = await db
+    .select({
+      id:                users.id,
+      name:              users.name,
+      role:              users.role,
+      isActive:          users.isActive,
+      isInternalAuditor: users.isInternalAuditor,
+      auditorDomain:     users.auditorDomain,
+      deletedAt:         users.deletedAt,
+    })
+    .from(users)
+    .where(eq(users.id, input.auditorId))
+    .limit(1)
+
+  if (!auditor || auditor.deletedAt) {
+    errors.push('Auditeur introuvable.')
+    return { errors, warnings }
+  }
+  if (!auditor.isActive) {
+    errors.push(`${auditor.name} n'est plus un utilisateur actif.`)
+  }
+  if (!auditor.isInternalAuditor) {
+    errors.push(
+      `${auditor.name} ne figure pas sur la liste des auditeurs internes qualifiés (LIS-MI-05). ` +
+      `ISO 9001 § 9.2.2 c) impose de sélectionner des auditeurs qualifiés.`
+    )
+  }
+
+  // Role-to-process map, used only to raise the impartiality warning.
+  const OWN_PROCESS: Partial<Record<string, NcDept[]>> = {
+    etudes_chef:      ['ET'],
+    etudes_team:      ['ET'],
+    realisation_chef: ['RE1'],
+    realisation_team: ['RE1'],
+    entretien_chef:   ['RE2'],
+    entretien_team:   ['RE2'],
+    rh_manager:       ['RH'],
+    rh_agent:         ['RH'],
+  }
+  if ((OWN_PROCESS[auditor.role] ?? []).includes(input.dept)) {
+    warnings.push(
+      `${auditor.name} appartient au processus ${input.dept}. ISO 9001 § 9.2.2 c) demande que ` +
+      `l'auditeur n'audite pas son propre travail ; justifiez ce choix ou désignez un autre auditeur.`
+    )
+  }
+
+  return { errors, warnings }
 }
 
 export type AuditProgramScheduleCheck = {
@@ -1842,6 +2018,7 @@ export async function checkAuditProgramScheduleChange(
 export async function updateAuditProgram(id: string, input: {
   title?:              string | null
   auditorName?:        string | null
+  auditorId?:          string | null
   auditeeResponsible?: string | null
   scheduledDate?:      Date | null
   scheduledStartTime?: string | null
@@ -1866,6 +2043,7 @@ export async function updateAuditProgram(id: string, input: {
     .set({
       ...(input.title              !== undefined && { title: input.title }),
       ...(input.auditorName        !== undefined && { auditorName: input.auditorName }),
+      ...(input.auditorId          !== undefined && { auditorId: input.auditorId }),
       ...(input.auditeeResponsible !== undefined && { auditeeResponsible: input.auditeeResponsible }),
       ...(input.scheduledDate      !== undefined && { scheduledDate: input.scheduledDate }),
       ...(input.scheduledStartTime !== undefined && { scheduledStartTime: input.scheduledStartTime }),
@@ -1887,13 +2065,47 @@ export async function updateAuditProgram(id: string, input: {
   return updated
 }
 
+/**
+ * Reconciles a programme's findings against the submitted set.
+ *
+ * Previously this deleted every row for the programme and reinserted the payload,
+ * carrying `nc_id` forward by looking it up from the old row id. That was broken
+ * twice over:
+ *
+ *   1. the PATCH route's Zod schema had no `id` field, and Zod strips unknown
+ *      keys, so the round-tripped id never reached this function and the lookup
+ *      always missed. Every save — every click on a conformity button — set
+ *      `nc_id` back to NULL, silently severing the finding from the
+ *      non-conformity it had raised;
+ *   2. even with the id present, delete-and-reinsert issues new row ids, so any
+ *      other table referencing a finding (now audit_program_item_clauses) would
+ *      lose its rows on each save.
+ *
+ * It is now a real reconciliation: rows present in both are UPDATEd in place and
+ * keep their id, new rows are INSERTed, and rows the auditor removed are deleted
+ * — except a finding that raised a non-conformity, which is never deleted. ISO
+ * 9001 clause 7.5.3 requires records to be protected from unintended alteration,
+ * and a finding with an NC hanging off it is exactly such a record; removing it
+ * from the form must not orphan the NC. Those are reported back to the caller.
+ *
+ * Runs in one transaction so a partial reconciliation cannot be observed.
+ */
+export type UpsertItemsResult = {
+  items: AuditProgramItemRow[]
+  /** Findings the caller asked to remove that were kept because they hold an NC. */
+  retainedWithNc: Array<{ id: string; agendaStep: string; ncId: string }>
+}
+
 export async function upsertAuditProgramItems(
   auditProgramId: string,
   items: Array<{
-    /** Existing row id, round-tripped by the client so its NC link survives. */
+    /** Existing row id. Present for a finding already on record. */
     id?:             string
     agendaStep:      string
     clauseRef?:      string
+    /** Canonical ISO clause codes. Validated by the caller against iso_clauses. */
+    clauseCodes?:    string[]
+    processStepId?:  string | null
     interlocuteurs?: string
     response?:       string
     conformity?:     string
@@ -1901,40 +2113,340 @@ export async function upsertAuditProgramItems(
     sortOrder?:      number
   }>,
   createdBy: string
-) {
-  // This function replaces the whole item set, so a finding's link to the NC it
-  // raised would be destroyed on every save. The link is read from the database
-  // by row id and carried forward — never taken from the payload, so a caller
-  // cannot attach an arbitrary NC to a finding through this path.
-  const existing = await db
-    .select({ id: auditProgramItems.id, ncId: auditProgramItems.ncId })
+): Promise<UpsertItemsResult> {
+  return db.transaction(async (tx) => {
+    const existing = await tx
+      .select({
+        id:         auditProgramItems.id,
+        ncId:       auditProgramItems.ncId,
+        agendaStep: auditProgramItems.agendaStep,
+      })
+      .from(auditProgramItems)
+      .where(eq(auditProgramItems.auditProgramId, auditProgramId))
+
+    const existingById = new Map(existing.map((e) => [e.id, e]))
+    const submittedIds = new Set(items.map((i) => i.id).filter((v): v is string => Boolean(v)))
+
+    // Rows the auditor dropped. A finding holding an NC stays.
+    const toDelete: string[] = []
+    const retainedWithNc: UpsertItemsResult['retainedWithNc'] = []
+    for (const e of existing) {
+      if (submittedIds.has(e.id)) continue
+      if (e.ncId) retainedWithNc.push({ id: e.id, agendaStep: e.agendaStep, ncId: e.ncId })
+      else toDelete.push(e.id)
+    }
+    if (toDelete.length > 0) {
+      await tx.delete(auditProgramItemClauses).where(inArray(auditProgramItemClauses.itemId, toDelete))
+      await tx.delete(auditProgramItems).where(inArray(auditProgramItems.id, toDelete))
+    }
+
+    // `clauseRef` is kept as the human-readable rendering of the clause rows and
+    // is written only here, from the same input — one writer, so it stays a
+    // cache rather than becoming a second source of truth.
+    const renderClauses = (codes: string[] | undefined) =>
+      codes && codes.length > 0
+        ? [...codes].sort(compareClauseCodesLocal).join('; ')
+        : undefined
+
+    for (const [i, item] of items.entries()) {
+      const sortOrder = item.sortOrder ?? i
+      const clauseRef = renderClauses(item.clauseCodes) ?? item.clauseRef
+      const known = item.id ? existingById.get(item.id) : undefined
+
+      let itemId: string
+      if (known) {
+        // Only fields the caller actually supplied are written. `undefined` means
+        // "leave as recorded", following the same convention as updateAuditProgram
+        // above. Coercing undefined to null here would let a partial save — one
+        // that carries the agenda but not the results — erase an auditor's
+        // observations and objective evidence, which is the same class of silent
+        // data loss as the nc_id defect this function was rewritten to fix.
+        await tx
+          .update(auditProgramItems)
+          .set({
+            agendaStep: item.agendaStep,
+            ...(clauseRef            !== undefined && { clauseRef }),
+            ...(item.interlocuteurs  !== undefined && { interlocuteurs: item.interlocuteurs }),
+            ...(item.response        !== undefined && { response: item.response }),
+            ...(item.conformity      !== undefined && { conformity: item.conformity }),
+            ...(item.evidence        !== undefined && { evidence: item.evidence }),
+            // ncId is deliberately absent: the link is owned by
+            // createNcFromAuditFinding and must not be settable from a form payload.
+            ...(item.processStepId   !== undefined && { processStepId: item.processStepId }),
+            sortOrder,
+            updatedAt: new Date(),
+          })
+          .where(eq(auditProgramItems.id, known.id))
+        itemId = known.id
+      } else {
+        const [row] = await tx
+          .insert(auditProgramItems)
+          .values({
+            auditProgramId,
+            agendaStep:     item.agendaStep,
+            clauseRef:      clauseRef ?? null,
+            interlocuteurs: item.interlocuteurs ?? null,
+            response:       item.response ?? null,
+            conformity:     item.conformity ?? null,
+            evidence:       item.evidence ?? null,
+            processStepId:  item.processStepId ?? null,
+            sortOrder,
+            createdBy,
+          })
+          .returning({ id: auditProgramItems.id })
+        itemId = row.id
+      }
+
+      // Clause links are replaced only when the caller supplied them, so a save
+      // that does not mention clauses leaves the existing ones alone.
+      if (item.clauseCodes !== undefined) {
+        await tx.delete(auditProgramItemClauses).where(eq(auditProgramItemClauses.itemId, itemId))
+        if (item.clauseCodes.length > 0) {
+          await tx
+            .insert(auditProgramItemClauses)
+            .values(item.clauseCodes.map((clauseCode) => ({ itemId, clauseCode })))
+            .onConflictDoNothing()
+        }
+      }
+    }
+
+    return { items: await selectProgramItems(tx, auditProgramId), retainedWithNc }
+  })
+}
+
+/** Segment-wise numeric compare, so 8.10 sorts after 8.2 rather than before it. */
+function compareClauseCodesLocal(a: string, b: string): number {
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? -1) - (pb[i] ?? -1)
+    if (d !== 0) return d
+  }
+  return 0
+}
+
+/**
+ * Either the pool handle or an open transaction, so a helper can be called from
+ * both without a second implementation drifting from this one.
+ */
+type DbHandle = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * A programme's findings with their clause links and the NC reference.
+ */
+async function selectProgramItems(
+  tx: DbHandle,
+  auditProgramId: string,
+): Promise<AuditProgramItemRow[]> {
+  const rows = await tx
+    .select({
+      id:             auditProgramItems.id,
+      auditProgramId: auditProgramItems.auditProgramId,
+      agendaStep:     auditProgramItems.agendaStep,
+      clauseRef:      auditProgramItems.clauseRef,
+      interlocuteurs: auditProgramItems.interlocuteurs,
+      response:       auditProgramItems.response,
+      conformity:     auditProgramItems.conformity,
+      evidence:       auditProgramItems.evidence,
+      ncId:           auditProgramItems.ncId,
+      ncReference:    nonConformances.reference,
+      processStepId:  auditProgramItems.processStepId,
+      criterionType:  qmsProcessSteps.criterionType,
+      sortOrder:      auditProgramItems.sortOrder,
+    })
     .from(auditProgramItems)
+    .leftJoin(nonConformances, eq(nonConformances.id, auditProgramItems.ncId))
+    .leftJoin(qmsProcessSteps, eq(qmsProcessSteps.id, auditProgramItems.processStepId))
     .where(eq(auditProgramItems.auditProgramId, auditProgramId))
-  const ncByItemId = new Map(existing.filter((e) => e.ncId).map((e) => [e.id, e.ncId]))
+    .orderBy(asc(auditProgramItems.sortOrder))
 
-  await db.delete(auditProgramItems).where(eq(auditProgramItems.auditProgramId, auditProgramId))
+  if (rows.length === 0) return []
 
-  if (items.length === 0) return []
+  const clauseRows = await tx
+    .select({
+      itemId:     auditProgramItemClauses.itemId,
+      clauseCode: auditProgramItemClauses.clauseCode,
+      sortKey:    isoClauses.sortKey,
+    })
+    .from(auditProgramItemClauses)
+    .innerJoin(isoClauses, eq(isoClauses.code, auditProgramItemClauses.clauseCode))
+    .where(inArray(auditProgramItemClauses.itemId, rows.map((r) => r.id)))
+    .orderBy(asc(isoClauses.sortKey))
 
-  const rows = await db
-    .insert(auditProgramItems)
-    .values(
-      items.map((item, i) => ({
-        auditProgramId,
-        agendaStep:     item.agendaStep,
-        clauseRef:      item.clauseRef,
-        interlocuteurs: item.interlocuteurs,
-        response:       item.response,
-        conformity:     item.conformity,
-        evidence:       item.evidence,
-        ncId:           item.id ? ncByItemId.get(item.id) ?? null : null,
-        sortOrder:      item.sortOrder ?? i,
-        createdBy,
+  const byItem = new Map<string, string[]>()
+  for (const c of clauseRows) {
+    const list = byItem.get(c.itemId) ?? []
+    list.push(c.clauseCode)
+    byItem.set(c.itemId, list)
+  }
+
+  return rows.map((r) => ({ ...r, clauseCodes: byItem.get(r.id) ?? [] }))
+}
+
+/**
+ * Replaces the ISO clause scope of a programme.
+ *
+ * Also rewrites `audit_programs.criteria`, which stays as the readable rendering
+ * of these rows for the DMS export, the audit card and the NC register. This
+ * function is its only writer, so the string cannot drift from the rows.
+ *
+ * Codes must already have been validated against iso_clauses by the caller; the
+ * foreign key is the backstop, not the check.
+ */
+export async function setAuditProgramClauses(
+  auditProgramId: string,
+  clauseCodes: string[],
+): Promise<string[]> {
+  return db.transaction(async (tx) => {
+    await tx.delete(auditProgramClauses).where(eq(auditProgramClauses.auditProgramId, auditProgramId))
+
+    let ordered: string[] = []
+    if (clauseCodes.length > 0) {
+      await tx
+        .insert(auditProgramClauses)
+        .values([...new Set(clauseCodes)].map((clauseCode) => ({ auditProgramId, clauseCode })))
+        .onConflictDoNothing()
+
+      const rows = await tx
+        .select({ code: auditProgramClauses.clauseCode })
+        .from(auditProgramClauses)
+        .innerJoin(isoClauses, eq(isoClauses.code, auditProgramClauses.clauseCode))
+        .where(eq(auditProgramClauses.auditProgramId, auditProgramId))
+        .orderBy(asc(isoClauses.sortKey))
+      ordered = rows.map((r) => r.code)
+    }
+
+    await tx
+      .update(auditPrograms)
+      .set({ criteria: ordered.length > 0 ? ordered.join('; ') : null, updatedAt: new Date() })
+      .where(eq(auditPrograms.id, auditProgramId))
+
+    return ordered
+  })
+}
+
+/**
+ * Copies a process's reusable agenda into a programme as its initial findings.
+ *
+ * This is the "do not blindly import" rule in practice: the criteria live once in
+ * qms_process_steps and a programme references them through `processStepId`,
+ * instead of every new audit minting fresh copies of the same ISO requirement.
+ * The label and interlocutors are copied because the executed record must remain
+ * readable exactly as it was audited even if the template is revised later.
+ *
+ * Does nothing when the programme already has findings, so it can never
+ * overwrite work an auditor has done.
+ */
+export async function seedAuditProgramFromTemplate(
+  auditProgramId: string,
+  processCode: NcDept,
+  createdBy: string,
+): Promise<AuditProgramItemRow[]> {
+  return db.transaction(async (tx) => {
+    const [{ count } = { count: 0 }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(auditProgramItems)
+      .where(eq(auditProgramItems.auditProgramId, auditProgramId))
+    if (Number(count) > 0) return selectProgramItems(tx, auditProgramId)
+
+    const [process] = await tx
+      .select({ defaultInterlocuteurs: qmsProcesses.defaultInterlocuteurs })
+      .from(qmsProcesses)
+      .where(eq(qmsProcesses.code, processCode))
+      .limit(1)
+
+    const steps = await tx
+      .select({
+        id:                    qmsProcessSteps.id,
+        label:                 qmsProcessSteps.label,
+        sortOrder:             qmsProcessSteps.sortOrder,
+        defaultInterlocuteurs: qmsProcessSteps.defaultInterlocuteurs,
+      })
+      .from(qmsProcessSteps)
+      .where(and(eq(qmsProcessSteps.processCode, processCode), eq(qmsProcessSteps.isActive, true)))
+      .orderBy(asc(qmsProcessSteps.sortOrder))
+
+    if (steps.length === 0) return []
+
+    const stepClauses = await tx
+      .select({
+        stepId:     qmsProcessStepClauses.stepId,
+        clauseCode: qmsProcessStepClauses.clauseCode,
+        sortKey:    isoClauses.sortKey,
+      })
+      .from(qmsProcessStepClauses)
+      .innerJoin(isoClauses, eq(isoClauses.code, qmsProcessStepClauses.clauseCode))
+      .where(inArray(qmsProcessStepClauses.stepId, steps.map((s) => s.id)))
+      .orderBy(asc(isoClauses.sortKey))
+
+    const clausesByStep = new Map<string, string[]>()
+    for (const c of stepClauses) {
+      const list = clausesByStep.get(c.stepId) ?? []
+      list.push(c.clauseCode)
+      clausesByStep.set(c.stepId, list)
+    }
+
+    const inserted = await tx
+      .insert(auditProgramItems)
+      .values(steps.map((step, i) => {
+        const codes = clausesByStep.get(step.id) ?? []
+        return {
+          auditProgramId,
+          agendaStep:     step.label,
+          clauseRef:      codes.length > 0 ? codes.join('; ') : null,
+          interlocuteurs: step.defaultInterlocuteurs ?? process?.defaultInterlocuteurs ?? null,
+          processStepId:  step.id,
+          sortOrder:      i,
+          createdBy,
+        }
+      }))
+      .returning({ id: auditProgramItems.id, stepId: auditProgramItems.processStepId })
+
+    const links = inserted.flatMap((row) =>
+      (row.stepId ? clausesByStep.get(row.stepId) ?? [] : []).map((clauseCode) => ({
+        itemId: row.id,
+        clauseCode,
       }))
     )
-    .returning()
+    if (links.length > 0) {
+      await tx.insert(auditProgramItemClauses).values(links).onConflictDoNothing()
+    }
 
-  return rows
+    return selectProgramItems(tx, auditProgramId)
+  })
+}
+
+/**
+ * A programme with the two extra facts the FOR-MI-14 sheet prints but the
+ * programme row does not carry: the process's full name, and the version of the
+ * controlled form the programme was established on.
+ *
+ * The version comes from the DMS entry the programme is attached to, so an
+ * export always states the revision actually in force. The seven source
+ * workbooks are version 2.0; that is the fallback when a programme predates its
+ * DMS link, and it is a recorded fact about those files rather than a guess.
+ */
+export async function getAuditProgrammeForExport(id: string) {
+  const programme = await getAuditProgramById(id)
+  if (!programme) return null
+
+  const [process] = await db
+    .select({ name: qmsProcesses.name })
+    .from(qmsProcesses)
+    .where(eq(qmsProcesses.code, programme.dept as NcDept))
+    .limit(1)
+
+  let formVersion = '2.0'
+  if (programme.dmsDocumentCode) {
+    const [doc] = await db
+      .select({ versionLabel: dmsDocuments.versionLabel })
+      .from(dmsDocuments)
+      .where(eq(dmsDocuments.documentNumber, programme.dmsDocumentCode))
+      .limit(1)
+    if (doc?.versionLabel) formVersion = doc.versionLabel
+  }
+
+  return { ...programme, processName: process?.name ?? programme.dept, formVersion }
 }
 
 // ─── Audit finding → NC traceability ─────────────────────────────────────────

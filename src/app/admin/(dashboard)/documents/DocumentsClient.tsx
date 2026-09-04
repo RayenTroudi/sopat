@@ -2,12 +2,18 @@
 // src/app/admin/(dashboard)/documents/DocumentsClient.tsx
 
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DeleteModal } from '@/components/ui/DeleteModal'
 import { DeleteButton } from '@/components/ui/DeleteButton'
-import type { DmsDocRow } from '@/lib/dms/queries'
+import type { DmsDocRow, DmsRegistryTotals } from '@/lib/dms/queries'
+import {
+  ACTION_LABELS, allowedActions, CATEGORY_LABELS, DEPARTMENT_LABELS,
+  simplifiedStatus, STATUS_COLORS, STATUS_LABELS, type WorkflowAction,
+} from '@/lib/dms/lifecycle-ui'
 import {
   TYPE_CODES, PROCESS_CODES, TYPE_LABELS, PROCESS_LABELS,
   CREATABLE_TYPE_CODES, TYPE_TO_CATEGORY, PROCESS_TO_DEPARTMENT, TYPE_TO_ISO_CLAUSES,
@@ -15,130 +21,6 @@ import {
 } from '@/lib/dms/codes'
 
 // ── Label maps ──────────────────────────────────────────────────────────────
-
-const STATUS_LABELS: Record<string, string> = {
-  draft:            'Brouillon',
-  in_review:        'En révision',
-  pending_approval: 'En attente approbation',
-  approved:         'Approuvé',
-  effective:        'En vigueur',
-  under_revision:   'En cours de révision',
-  obsolete:         'Obsolète',
-  archived:         'Archivé',
-}
-
-const STATUS_COLORS: Record<string, string> = {
-  draft:            'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
-  in_review:        'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
-  pending_approval: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
-  approved:         'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]',
-  effective:        'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]',
-  under_revision:   'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]',
-  obsolete:         'bg-[var(--admin-border)] text-[var(--admin-text-muted)]',
-  archived:         'bg-[var(--admin-border)] text-[var(--admin-text-muted)]',
-}
-
-// ── Workflow (ISO 9001 §7.5.2) ───────────────────────────────────────────────
-// Miroir client de src/lib/dms/workflow.ts — le serveur revalide chaque action.
-
-type WorkflowAction =
-  | 'submit_for_review' | 'review_approved' | 'review_rejected'
-  | 'approve' | 'reject' | 'publish'
-  | 'request_revision' | 'mark_obsolete' | 'archive'
-
-const ACTION_LABELS: Record<WorkflowAction, string> = {
-  submit_for_review: 'Soumettre pour révision',
-  review_approved:   'Valider la révision',
-  review_rejected:   'Rejeter la révision',
-  approve:           'Approuver',
-  reject:            'Rejeter',
-  publish:           'Publier (en vigueur)',
-  request_revision:  'Demander une révision',
-  mark_obsolete:     'Marquer obsolète',
-  archive:           'Archiver',
-}
-
-const NEXT_ACTIONS: Record<string, WorkflowAction[]> = {
-  draft:            ['submit_for_review'],
-  under_revision:   ['submit_for_review', 'mark_obsolete'],
-  in_review:        ['review_approved', 'review_rejected'],
-  pending_approval: ['approve', 'reject'],
-  approved:         ['publish', 'request_revision', 'mark_obsolete'],
-  effective:        ['request_revision', 'mark_obsolete'],
-  obsolete:         ['archive'],
-  archived:         [],
-}
-
-const DEPARTMENT_REVIEWER_ROLE: Record<string, string> = {
-  etudes:      'etudes_chef',
-  realisation: 'realisation_chef',
-  entretien:   'entretien_chef',
-  rh:          'rh_manager',
-}
-
-function allowedActions(
-  doc: DmsDocRow,
-  actor: { userId: string; role: string },
-): WorkflowAction[] {
-  const candidates = NEXT_ACTIONS[doc.status] ?? []
-  if (actor.role === 'admin' || actor.role === 'direction') return candidates
-  const chefRole = DEPARTMENT_REVIEWER_ROLE[doc.department]
-  return candidates.filter((a) => {
-    if (a === 'submit_for_review') {
-      return actor.userId === doc.ownerId || actor.userId === doc.authorId || actor.role === chefRole
-    }
-    if (a === 'review_approved' || a === 'review_rejected') return actor.role === chefRole
-    return false
-  })
-}
-
-function simplifiedStatus(status: string, highlight?: string): { label: string; className: string } {
-  if (status === 'obsolete' || status === 'archived') {
-    return { label: 'Éliminé', className: 'bg-gray-100 text-gray-500' }
-  }
-  if (highlight === 'red') {
-    return { label: 'Modifié', className: 'bg-red-50 text-red-600' }
-  }
-  if (status === 'effective' || status === 'approved') {
-    return { label: 'En vigueur', className: 'bg-[var(--admin-emerald-dim)] text-[var(--admin-emerald)]' }
-  }
-  return { label: 'En cours', className: 'bg-[var(--admin-amber-dim)] text-[var(--admin-amber)]' }
-}
-
-const CATEGORY_LABELS: Record<string, string> = {
-  manuel_qualite:        'Manuel qualité',
-  politique:             'Politique',
-  procedure:             'Procédure',
-  instruction:           'Instruction',
-  formulaire:            'Formulaire / Fiche',
-  enregistrement:        'Enregistrement',
-  plan_qualite:          'Plan',
-  cartographie_processus:'Cartographie / Processus',
-  etude_technique:       'Étude technique',
-  devis:                 'Devis',
-  contrat:               'Contrat',
-  bon_commande:          'Bon de commande',
-  facture:               'Facture',
-  rapport_inspection:    'Rapport d\'inspection',
-  rapport_audit:         'Rapport d\'audit',
-  ncr:                   'NCR',
-  capa:                  'CAPA',
-  document_fournisseur:  'Document fournisseur',
-  document_client:       'Document client',
-  externe:               'Document externe',
-}
-
-const DEPARTMENT_LABELS: Record<string, string> = {
-  direction:   'Direction',
-  etudes:      'Études',
-  realisation: 'Réalisation',
-  entretien:   'Entretien',
-  qualite:     'Qualité',
-  finance:     'Finance / Achat',
-  rh:          'Ressources Humaines',
-  rse:         'RSE',
-  transverse:  'Transverse',
-}
 
 // ── Row highlight ────────────────────────────────────────────────────────────
 
@@ -188,7 +70,13 @@ const EMPTY_FORM = {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserRole }: Props) {
+  const searchParams = useSearchParams()
   const [allRows, setAllRows]   = useState<DmsDocRow[]>([])
+  /**
+   * Compteurs calculés en base sur l'ensemble du registre. Ils ne dépendent ni
+   * de la pagination ni du filtrage local — voir DmsRegistryTotals.
+   */
+  const [totals, setTotals]     = useState<DmsRegistryTotals | null>(null)
   const [loading, setLoading]   = useState(true)
   const [showForm, setShowForm] = useState(false)
 
@@ -196,7 +84,8 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserR
   const [filterType,      setFilterType]      = useState('')
   const [filterProcess,   setFilterProcess]   = useState('')
   const [filterHighlight, setFilterHighlight] = useState('')
-  const [search,          setSearch]          = useState('')
+  // `?search=<code>` préremplit le filtre — le lien que pose déjà la fiche NC.
+  const [search,          setSearch]          = useState(() => searchParams.get('search') ?? '')
 
   const [form, setForm]             = useState({ ...EMPTY_FORM, ownerId: currentUserId })
   const [editingDoc, setEditingDoc] = useState<DmsDocRow | null>(null)
@@ -273,12 +162,24 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserR
 
   useEffect(() => { void loadDocs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+
   async function loadDocs() {
     setLoading(true)
     const res = await fetch('/api/dms')
     if (res.ok) {
-      const data = await res.json() as { rows: DmsDocRow[] }
+      const data = await res.json() as { rows: DmsDocRow[]; totals?: DmsRegistryTotals }
       setAllRows(data.rows)
+      setTotals(data.totals ?? null)
+
+      // `?edit=<id>` ouvre la fiche registre du document. La page « Structure
+      // du document » y renvoie plutôt que de reconstruire le formulaire : une
+      // seule implémentation, donc une seule validation, un seul PATCH et un
+      // seul jeu de règles RBAC.
+      const editId = searchParams.get('edit')
+      if (editId && canEdit) {
+        const doc = data.rows.find(r => r.id === editId)
+        if (doc) openEdit(doc)
+      }
     }
     setLoading(false)
   }
@@ -392,9 +293,16 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserR
     setTogglingId(null)
   }
 
-  const activeCount   = rows.filter(r => r.status === 'effective').length
-  const redCount      = rows.filter(r => r.rowHighlight === 'red').length
-  const obsoleteCount = rows.filter(r => r.status === 'obsolete').length
+  // Les compteurs décrivent le REGISTRE, pas la page ni le filtre courant :
+  // ils viennent du SQL. On ne retombe sur un comptage local que si l'API n'a
+  // rien renvoyé (ancien client / réponse partielle).
+  const activeCount   = totals?.effective ?? allRows.filter(r => r.status === 'effective').length
+  const redCount      = totals?.red       ?? allRows.filter(r => r.rowHighlight === 'red').length
+  const obsoleteCount = totals?.obsolete  ?? allRows.filter(r => r.status === 'obsolete').length
+  const registryTotal = totals?.total     ?? allRows.length
+  // `pageSize` vaut 500 : au-delà, la table serait tronquée en silence — c'est
+  // ainsi que la page annonçait « 500 documents » sur un registre de 714.
+  const truncated     = registryTotal > allRows.length
 
   return (
     <div className="space-y-6">
@@ -405,7 +313,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserR
             LIS-MI-01
           </h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--admin-text-muted)' }}>
-            Liste des Informations Documentées Internes · ISO 9001:2015 §7.5 · {rows.length} documents
+            Liste des Informations Documentées Internes · ISO 9001:2015 §7.5 · {registryTotal} documents
           </p>
         </div>
         {canEdit && (
@@ -420,7 +328,7 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserR
       </div>
 
       {/* Legend — shown when data is loaded */}
-      {rows.length > 0 && (
+      {registryTotal > 0 && (
         <div className="flex flex-wrap gap-3">
           <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg border" style={{ borderColor: 'var(--admin-border)', background: 'var(--admin-surface)' }}>
             <span className="w-3 h-3 rounded-sm inline-block border-l-4 border-[rgba(16,185,129,0.7)] bg-[rgba(16,185,129,0.07)]" />
@@ -507,7 +415,12 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserR
         {/* Result count */}
         {!loading && (
           <span className="text-xs self-center ml-auto" style={{ color: 'var(--admin-text-muted)' }}>
-            {rows.length} / {allRows.length} documents
+            {rows.length} / {registryTotal} documents
+            {truncated && (
+              <span className="ml-2" style={{ color: '#dc2626' }}>
+                — {allRows.length} affichés seulement
+              </span>
+            )}
           </span>
         )}
       </div>
@@ -542,10 +455,18 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserR
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs font-semibold" style={{ color: 'var(--admin-text)' }}>{doc.documentNumber}</span>
+                          <Link
+                            href={`/admin/documents/${doc.id}`}
+                            className="font-mono text-xs font-semibold underline decoration-dotted underline-offset-2"
+                            style={{ color: 'var(--admin-text)' }}
+                          >
+                            {doc.documentNumber}
+                          </Link>
                           <span className={cn('text-[10px] px-2 py-0.5 rounded font-medium', s.className)}>{s.label}</span>
                         </div>
-                        <p className="mt-1.5 text-sm font-medium line-clamp-2" style={{ color: 'var(--admin-text)' }}>{doc.title}</p>
+                        <Link href={`/admin/documents/${doc.id}`}>
+                          <p className="mt-1.5 text-sm font-medium line-clamp-2" style={{ color: 'var(--admin-text)' }}>{doc.title}</p>
+                        </Link>
                         {doc.isoClauses.length > 0 && (
                           <p className="mt-0.5 text-[11px]" style={{ color: 'var(--admin-text-muted)' }}>ISO {doc.isoClauses.join(', ')}</p>
                         )}
@@ -657,13 +578,21 @@ export function DmsDocumentsClient({ users, canEdit, currentUserId, currentUserR
                       <td className="px-3 py-2.5 font-mono text-xs whitespace-nowrap" style={{ color: 'var(--admin-text-muted)' }}>
                         {processCode}
                       </td>
-                      {/* Code */}
-                      <td className="px-3 py-2.5 font-mono text-xs font-semibold whitespace-nowrap" style={{ color: 'var(--admin-text)' }}>
-                        {doc.documentNumber}
+                      {/* Code — ouvre la structure du document */}
+                      <td className="px-3 py-2.5 font-mono text-xs font-semibold whitespace-nowrap">
+                        <Link
+                          href={`/admin/documents/${doc.id}`}
+                          className="underline decoration-dotted underline-offset-2 hover:decoration-solid"
+                          style={{ color: 'var(--admin-text)' }}
+                        >
+                          {doc.documentNumber}
+                        </Link>
                       </td>
                       {/* Désignation */}
                       <td className="px-3 py-2.5 max-w-[200px]">
-                        <p className="truncate text-xs font-medium" style={{ color: 'var(--admin-text)' }} title={doc.title}>{doc.title}</p>
+                        <Link href={`/admin/documents/${doc.id}`} className="block">
+                          <p className="truncate text-xs font-medium hover:underline" style={{ color: 'var(--admin-text)' }} title={doc.title}>{doc.title}</p>
+                        </Link>
                         {doc.isoClauses.length > 0 && (
                           <p className="text-[10px]" style={{ color: 'var(--admin-text-muted)' }}>ISO {doc.isoClauses.join(', ')}</p>
                         )}

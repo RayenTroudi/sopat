@@ -2,7 +2,6 @@ import { unstable_cache } from 'next/cache'
 import { db } from '../../../db/index'
 import { clients, clientInteractions, projects, users, cloudinaryAssets } from '../../../db/schema'
 import { eq, and, isNull, desc, ilike, or, sql } from 'drizzle-orm'
-import { attachDmsCode } from '../dms/attach'
 import { obsoleteDmsDocument } from '../dms/obsolete'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -22,6 +21,8 @@ export type ClientRow = {
   secondaryContactName: string | null
   secondaryContactEmail: string | null
   logoUrl: string | null
+  sectorFreeText: string | null
+  clientPotential: string | null
   isFeatured: boolean
   notes: string | null
   dmsDocumentCode: string | null
@@ -66,7 +67,13 @@ export type CreateClientInput = {
   createdBy: string
 }
 
-export type UpdateClientInput = Partial<Omit<CreateClientInput, 'createdBy'>>
+/**
+ * `null` est admis : vider un champ (secteur, potentiel, ville…) est une
+ * modification legitime, distincte de « ne pas y toucher » (`undefined`).
+ */
+export type UpdateClientInput = Partial<{
+  [K in keyof Omit<CreateClientInput, 'createdBy'>]: CreateClientInput[K] | null
+}>
 
 export type CreateInteractionInput = {
   clientId: string
@@ -138,6 +145,8 @@ async function _listClients(filters?: {
       secondaryContactName: clients.secondaryContactName,
       secondaryContactEmail: clients.secondaryContactEmail,
       logoUrl: cloudinaryAssets.secureUrl,
+      sectorFreeText: clients.sectorFreeText,
+      clientPotential: clients.clientPotential,
       isFeatured: clients.isFeatured,
       notes: clients.notes,
       dmsDocumentCode: clients.dmsDocumentCode,
@@ -178,6 +187,8 @@ export async function getClientById(id: string): Promise<ClientRow | null> {
       secondaryContactName: clients.secondaryContactName,
       secondaryContactEmail: clients.secondaryContactEmail,
       logoUrl: cloudinaryAssets.secureUrl,
+      sectorFreeText: clients.sectorFreeText,
+      clientPotential: clients.clientPotential,
       isFeatured: clients.isFeatured,
       notes: clients.notes,
       dmsDocumentCode: clients.dmsDocumentCode,
@@ -266,22 +277,9 @@ export async function createClient(input: CreateClientInput): Promise<string> {
       })
       .returning({ id: clients.id })
 
-    const dmsCode = await attachDmsCode(tx, {
-      typeCode:    'LIS',
-      processCode: 'CO',
-      designation: input.displayName,
-      department:  'direction',
-      category:    'enregistrement',
-      entityType:  'client',
-      entityId:    row.id,
-      authorId:    input.createdBy,
-    })
-
-    await tx
-      .update(clients)
-      .set({ dmsDocumentCode: dmsCode })
-      .where(eq(clients.id, row.id))
-
+    // Un client est une donnée de référence, pas un enregistrement produit par
+    // un formulaire maîtrisé : il n'entre pas au registre LIS-MI-01 et ne
+    // référence aucune définition. Voir src/lib/dms/attach.ts.
     return row.id
   })
 }

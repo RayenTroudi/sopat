@@ -5,7 +5,11 @@ import { commercialOffers } from '@/db/schema'
 import { auth } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 import { eq } from 'drizzle-orm'
-import { getNextOfferReference, type OfferStatus } from '@/lib/db/commercial'
+import {
+  getNextOfferReference,
+  updateOfferRecord,
+  type OfferHeaderPatch,
+} from '@/lib/db/commercial'
 import { canEditBordereau, getDefaultVatRate } from '@/lib/db/bordereau'
 
 /** The offer module's existing write list, unchanged. */
@@ -57,57 +61,25 @@ export async function createOffer(data: {
   return { success: true, id: row.id }
 }
 
-export async function updateOffer(
-  id: string,
-  data: Partial<{
-    clientName: string
-    projectTitle: string
-    projectType: string
-    description: string
-    amount: string
-    currency: string
-    sentDate: string
-    validityDate: string
-    status: OfferStatus
-    decisionDate: string
-    lostReason: string
-    projectId: string
-    responsible: string
-    notes: string
-  }>,
-) {
+/**
+ * Met à jour l'en-tête d'une offre.
+ *
+ * L'action fait l'authentification et l'invalidation de cache ; la règle métier
+ * — verrou du bordereau sur les champs d'engagement, journal champ par champ —
+ * vit dans `updateOfferRecord`, où elle reste vérifiable sans serveur.
+ */
+export async function updateOffer(id: string, data: OfferHeaderPatch) {
   const session = await auth()
-  if (!session) return { success: false, error: 'Non autorisé' }
+  if (!session) return { success: false as const, error: 'Non autorisé' }
   if (!canManageOffers(session.user.role))
-    return { success: false, error: 'Accès non autorisé' }
+    return { success: false as const, error: 'Accès non autorisé' }
 
-  // Champs listés explicitement : `...data` écrirait toute colonne présente dans
-  // la charge utile — une server action est appelable directement par le client,
-  // donc la signature TypeScript n'est pas une barrière. reference, createdBy,
-  // createdAt et deletedAt restent hors d'atteinte.
-  await db
-    .update(commercialOffers)
-    .set({
-        ...(data.clientName !== undefined && { clientName: data.clientName }),
-          ...(data.projectTitle !== undefined && { projectTitle: data.projectTitle }),
-        ...(data.projectType !== undefined && { projectType: data.projectType }),
-        ...(data.description !== undefined && { description: data.description }),
-        ...(data.amount !== undefined && { amount: data.amount }),
-        ...(data.currency !== undefined && { currency: data.currency }),
-        ...(data.sentDate !== undefined && { sentDate: data.sentDate }),
-        ...(data.validityDate !== undefined && { validityDate: data.validityDate }),
-        ...(data.status !== undefined && { status: data.status }),
-        ...(data.decisionDate !== undefined && { decisionDate: data.decisionDate }),
-        ...(data.lostReason !== undefined && { lostReason: data.lostReason }),
-        ...(data.projectId !== undefined && { projectId: data.projectId }),
-        ...(data.responsible !== undefined && { responsible: data.responsible }),
-        ...(data.notes !== undefined && { notes: data.notes }),
-      updatedAt: new Date(),
-    })
-    .where(eq(commercialOffers.id, id))
+  const result = await updateOfferRecord(id, data, session.user)
+  if (!result.success) return result
+
   revalidatePath('/admin/commercial/offers')
   revalidatePath(`/admin/commercial/offers/${id}`)
-  return { success: true }
+  return result
 }
 
 /**
