@@ -56,6 +56,14 @@ export type AuditEntityType =
    * savoir qui a qualifié qui, et quand, fait partie de la preuve.
    */
   | 'internal_auditor'
+  /**
+   * FOR-MI-01 : le rapport de revue documentaire. Modifier une revue deja
+   * terminee est une decision qualite — §7.5.3.2 c) exige d'en garder le motif,
+   * qui voyage ici dans `metadata.changeReason`.
+   */
+  | 'document_review'
+  /** FOR-MI-01 : UNE ligne de la grille, soit un document revu et sa decision. */
+  | 'document_review_line'
 
 export type AuditAction =
   | 'created'
@@ -71,6 +79,8 @@ export type AuditAction =
   | 'status_changed'
   | 'closed'
   | 'reopened'
+  /** Modification d'un enregistrement deja clos : cree une nouvelle revision. */
+  | 'revised'
   | 'verified'
   /** One-off provenance entry written when a record is migrated from a legacy system. */
   | 'imported'

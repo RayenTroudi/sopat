@@ -73,9 +73,16 @@ export default async function DocumentReviewsPage() {
               {rows.map(({ review }) => (
                 <tr key={review.id} className="even:bg-[var(--admin-bg)]/40 hover:bg-[var(--admin-bg)] transition-colors" style={{ borderTop: '1px solid var(--admin-border)' }}>
                   <td className="px-4 py-3 font-mono text-[11px]">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>
-                      {review.reference}
-                    </span>
+                    <Link href={`/admin/document-reviews/${review.id}`} className="hover:opacity-70 transition-opacity">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'var(--admin-accent-dim)', color: 'var(--admin-accent)' }}>
+                        {review.reference}
+                      </span>
+                    </Link>
+                    {review.revisionNumber > 1 && (
+                      <span className="ml-1.5 text-[10px]" style={{ color: 'var(--admin-text-muted)' }}>
+                        rév. {review.revisionNumber}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-[13px]" style={{ color: 'var(--admin-text)' }}>
                     {new Date(review.reviewDate).toLocaleDateString('fr-FR')}
@@ -96,6 +103,13 @@ export default async function DocumentReviewsPage() {
                         {DOC_REVIEW_STATUS_LABELS[review.status]}
                       </span>
                       <ReviewStatusSelect reviewId={review.id} status={review.status} />
+                      <Link
+                        href={`/admin/document-reviews/${review.id}`}
+                        className="px-2 py-0.5 rounded border text-[11px] font-medium"
+                        style={{ borderColor: 'var(--admin-border)', color: 'var(--admin-text-muted)' }}
+                      >
+                        Éditer
+                      </Link>
                     </div>
                   </td>
                 </tr>

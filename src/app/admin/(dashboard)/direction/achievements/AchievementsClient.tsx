@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import {
   BarChart, Bar, AreaChart, Area, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -124,6 +124,9 @@ function MetricCard({
 
 export function AchievementsClient({ initialData }: { initialData: AchievementsPayload }) {
   const toast = useToast()
+  // Stable across the server pass and hydration; recharts would otherwise name
+  // this chart's clipPath from a module counter that differs between the two.
+  const sectorChartId = useId()
   const [data, setData] = useState(initialData)
   const [yearFrom, setYearFrom] = useState(2021)
   const [yearTo, setYearTo] = useState(new Date().getFullYear())
@@ -365,7 +368,7 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
               <EmptyChart />
             ) : (
               <div className="flex flex-col items-center gap-4">
-                <PieChart width={192} height={192}>
+                <PieChart id={sectorChartId} width={192} height={192}>
                   <Pie
                     data={data.sectors.map((s) => ({ name: s.sector, value: s.count }))}
                     dataKey="value"
@@ -375,6 +378,7 @@ export function AchievementsClient({ initialData }: { initialData: AchievementsP
                     innerRadius={46}
                     paddingAngle={3}
                     strokeWidth={0}
+                    isAnimationActive={false}
                   >
                     {data.sectors.map((_, i) => (
                       <Cell key={i} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />

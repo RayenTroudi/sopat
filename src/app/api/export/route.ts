@@ -7,7 +7,7 @@ import { getExtraExpenses, getDeliveryNotes, EXPENSE_STATUS_LABELS, NOTE_TYPE_LA
 import { getEnvironmentalAspects, AES_CONDITION_LABELS, AES_STATUS_LABELS } from '@/lib/db/environmental-aspects'
 import { getManagementReviews } from '@/lib/db/management-reviews'
 import { getMeetings } from '@/lib/db/meetings'
-import { getDocumentReviews, DOC_REVIEW_STATUS_LABELS } from '@/lib/db/document-reviews'
+import { getDocumentReviews, getDocumentReviewLinesForExport, DOC_REVIEW_STATUS_LABELS } from '@/lib/db/document-reviews'
 import { getOrganizationalKnowledge, KNOWLEDGE_STATUS_LABELS } from '@/lib/db/organizational-knowledge'
 import { listNcsForRegisterExport, listAudits, type NcStatus, type AuditStatus } from '@/lib/db/iso'
 import { getRisksOpportunities } from '@/lib/db/risks-opportunities'
@@ -314,6 +314,34 @@ const REGISTERS: Record<string, RegisterDef> = {
           decisions: review.decisions,
           nextReviewDate: review.nextReviewDate,
           status: DOC_REVIEW_STATUS_LABELS[review.status],
+        })),
+      }, {
+        // La grille du formulaire officiel : une ligne par document revu.
+        name: 'Documents revus',
+        columns: [
+          { header: 'Revue', key: 'reference' },
+          { header: 'Date', key: 'reviewDate', format: 'date' },
+          { header: 'Processus', key: 'processCode' },
+          { header: 'Réf. document', key: 'documentCode' },
+          { header: 'Titre de document', key: 'title', width: 40 },
+          { header: 'Création / modification / élimination', key: 'changeNeeded' },
+          { header: 'Description', key: 'changeDescription', width: 40 },
+          { header: 'Revue analyse risques & opportunités', key: 'riskReviewNeeded' },
+          { header: 'Description', key: 'riskReviewDescription', width: 40 },
+          { header: 'Commentaires', key: 'comments', width: 40 },
+        ],
+        rows: (await getDocumentReviewLinesForExport()).map((l) => ({
+          reference: l.reference,
+          reviewDate: l.reviewDate,
+          processCode: l.processCode,
+          documentCode: l.documentCode,
+          // Le titre saisi prime ; à défaut, celui que porte le registre DMS.
+          title: l.title ?? l.dmsTitle,
+          changeNeeded: l.changeNeeded === null ? '' : l.changeNeeded ? 'Oui' : 'Non',
+          changeDescription: l.changeDescription,
+          riskReviewNeeded: l.riskReviewNeeded === null ? '' : l.riskReviewNeeded ? 'Oui' : 'Non',
+          riskReviewDescription: l.riskReviewDescription,
+          comments: l.comments,
         })),
       }]
     },

@@ -4228,18 +4228,66 @@ export const documentReviews = pgTable('document_reviews', {
   id:               uuid('id').primaryKey().defaultRandom(),
   reference:        varchar('reference', { length: 30 }).notNull().unique(),
   reviewDate:       date('review_date').notNull(),
+  /** FOR-MI-01 en-tete « Processus: » — le processus dont le pilote signe. */
+  processCode:      ncDeptEnum('process_code'),
   scope:            text('scope'),
   documentsCount:   integer('documents_count'),
   findings:         text('findings'),
   decisions:        text('decisions'),
   status:           documentReviewStatusEnum('status').notNull().default('planned'),
   nextReviewDate:   date('next_review_date'),
+  /**
+   * Rev. 1 = version d'origine. Incremente a chaque modification d'une revue
+   * deja terminee : ISO 9001:2015 §7.5.3.2 c) veut qu'une decision qualite
+   * close ne puisse pas etre reecrite en silence. Le motif du changement est
+   * porte par record_audit_log.metadata, avec l'avant/apres.
+   */
+  revisionNumber:   integer('revision_number').notNull().default(1),
+  updatedBy:        uuid('updated_by'),
+  /** FOR-MI-01 « Signature Pilote processus ». */
+  completedAt:      timestamp('completed_at'),
+  completedBy:      uuid('completed_by'),
   deletedAt:        timestamp('deleted_at'),
   ...timestamps,
   createdBy:        uuid('created_by').notNull(),
 }, (t) => [
   index('document_reviews_status_idx').on(t.status),
-  foreignKey({ columns: [t.createdBy], foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.createdBy],   foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.updatedBy],   foreignColumns: [users.id] }),
+  foreignKey({ columns: [t.completedBy], foreignColumns: [users.id] }),
+])
+
+/**
+ * Une ligne du FOR-MI-01 : un document revu, et ce qui a ete decide pour lui.
+ *
+ * Le formulaire officiel est une grille, pas un resume. Tant que le registre
+ * n'avait qu'un compteur `documentsCount` et deux champs libres, « quel
+ * document a ete revu, et qu'a-t-on decide » n'existait nulle part sous une
+ * forme requetable — ni pour l'audit, ni pour relier la revue au DMS.
+ */
+export const documentReviewLines = pgTable('document_review_lines', {
+  id:                    uuid('id').primaryKey().defaultRandom(),
+  reviewId:              uuid('review_id').notNull(),
+  /** Le code tel qu'ecrit sur le formulaire, meme sans correspondance au DMS. */
+  documentCode:          varchar('document_code', { length: 30 }),
+  /** Rattachement au registre DMS quand le document y figure. */
+  documentId:            uuid('document_id'),
+  title:                 varchar('title', { length: 255 }),
+  /** « Necessite de creation, de modification ou d'elimination » — Oui/Non. */
+  changeNeeded:          boolean('change_needed'),
+  changeDescription:     text('change_description'),
+  /** « Necessite de revue d'analyse des risques et des opportunites » — Oui/Non. */
+  riskReviewNeeded:      boolean('risk_review_needed'),
+  riskReviewDescription: text('risk_review_description'),
+  comments:              text('comments'),
+  sortOrder:             integer('sort_order').notNull().default(0),
+  deletedAt:             timestamp('deleted_at'),
+  ...timestamps,
+}, (t) => [
+  index('document_review_lines_review_idx').on(t.reviewId),
+  index('document_review_lines_document_idx').on(t.documentId),
+  foreignKey({ columns: [t.reviewId],   foreignColumns: [documentReviews.id] }),
+  foreignKey({ columns: [t.documentId], foreignColumns: [dmsDocuments.id] }),
 ])
 
 // ─── Connaissances organisationnelles (ORG-MI-09 — ISO 9001 §7.1.6) ──────────
